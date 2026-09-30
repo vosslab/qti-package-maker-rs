@@ -1,0 +1,19 @@
+# Build outputs
+dist/
+dist_*/
+_site/
+*.tsbuildinfo
+
+# Lint / format caches
+.eslintcache
+.prettiercache
+
+# Test outputs
+test-results/
+playwright-report/
+blob-report/
+coverage/
+
+# Bundler artifacts
+meta.json
+stats.html

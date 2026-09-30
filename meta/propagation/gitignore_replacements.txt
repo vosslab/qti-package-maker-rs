@@ -1,0 +1,8 @@
+# CANONICAL GITIGNORE REPLACEMENTS
+#
+# Format: broader spelling -> canonical root-scoped spelling
+# Propagation applies these as trusted exact literals, then removes duplicates.
+# Keep each mapping while the broader spelling should converge in consumers.
+
+node_modules/ -> /node_modules/
+OTHER_REPOS/ -> /OTHER_REPOS/

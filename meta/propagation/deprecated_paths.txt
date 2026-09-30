@@ -1,0 +1,8 @@
+# Deprecated template-owned paths relative to each consumer repository root.
+# Each exact file or symlink is removed during propagation.
+# Directory entries and path traversal are rejected.
+
+tools/graphify_map_repo.sh
+tools/graphify_map_repo.py
+tools/sync_typescript_package_pins.py
+devel/html_to_pdf.mjs

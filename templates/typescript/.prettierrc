@@ -1,0 +1,7 @@
+# This file is vendored. Local changes can and will be overwritten by propagation.
+
+{
+  "useTabs": false,
+  "tabWidth": 2,
+  "printWidth": 100
+}

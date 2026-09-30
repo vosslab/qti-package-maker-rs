@@ -1,0 +1,31 @@
+# macOS desktop
+.DS_Store
+
+# Local dependency installs
+/node_modules/
+
+# Local environment configuration; may contain secrets (ASVS 13.3.1)
+/.env
+
+# pytest reports
+/report_*.txt
+
+# Root generated outputs; nested output directories may be tracked project content
+/output*/
+/generated/
+
+# Generated Graphify code maps
+/graphify-out/
+
+# AI agent temp scripts
+_temp*.?*
+/temp/
+
+# Temporary tests and one-time checks
+/tests/_temp/
+
+# Sibling repos checked out for local cross-repo work
+/OTHER_REPOS/
+
+# Local-only scratch, never committed
+/LOCAL_ONLY/
