@@ -12,13 +12,11 @@ _temp*.?*
 /OTHER_REPOS/
 /LOCAL_ONLY/
 
-# === PYTHON === [PROPAGATED - LOCAL EDITS OVERWRITTEN]
-build/
-dist/
-sdist/
-*.egg
-*.egg-info/
-site/
+# === RUST === [PROPAGATED - LOCAL EDITS OVERWRITTEN]
+/target/
+**/target/
+**/*.rs.bk
+.rust_analyzer/
 
 # -------------------- LOCAL REPOSITORY RULES --------------------
 # ADD YOUR CUSTOM IGNORES BELOW

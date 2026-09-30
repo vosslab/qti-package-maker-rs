@@ -1,2 +1,0 @@
-packaging  # requirement parsing for managed development dependency propagation
-pyyaml  # YAML parsing for the propagation manifest loader (repolib, template-meta only)
