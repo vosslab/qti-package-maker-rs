@@ -10,6 +10,19 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ## Rust port
 
+- Prefer the vendored `devel/bump_version.py -cA`. `26.09` and `26.9` mean the same version.
+  Focus review on correctness, maintainability, validation, and delivery; avoid bikeshedding.
+
+- The goal is to work like the Python package, not reproduce every exact nuance of the
+  parent package. Judge parity by useful workflows, content, grading, media, interoperability,
+  and readability; accept harmless implementation and presentation differences.
+
+- We can implement our own code as well. Consider a small local implementation alongside
+  dependencies when it makes the overall design simpler.
+
+- I prefer to use the latest versions of things. Prefer current dependency releases and
+  adapt to their APIs when practical, while retaining reproducible locked builds.
+
 - Apply KISS aggressively: prefer the smallest coherent design for actual requirements and
   known failure modes. Complexity must earn its place.
 - Treat tests as liabilities as well as assets. Use the `docs/PYTEST_STYLE.md` checklist;

@@ -1,65 +1,110 @@
-# qti-package-maker-rs
+# QTI Package Maker for Rust
 
-An in-progress Rust workspace for producing assessment packages from BBQ question banks, built to
-reach feature parity with the established Python converter.
+Turn one BBQ question bank into Canvas and Blackboard import packages, a self-grading practice
+quiz, or a readable review copy. It helps instructors reuse assessments across learning systems
+while keeping one editable source.
 
-## Current status
+## Native status
 
-The native converter and inspection binaries are implemented. This is not a release certification:
-format parity, native-table visual acceptance, and the required speed comparison remain open gates.
+The native converter is pre-release software that builds from this source checkout. Cross-format
+workflow verification, table-image visual acceptance, and speed verification are still in progress.
+The goal is useful compatibility with the established Python workflows; harmless presentation
+differences do not matter. Review an imported package in its target LMS before relying on it for a
+course or exam.
 
-The workspace currently provides these foundations:
+## One bank, many uses
 
-- Ten registered writers and four readers, with native CLI reporting for writer media warnings.
-- A validated core library for the seven Python assessment-item types, item banks, media, ZIPs, and
-  package integrity checks.
-- A pinned CRC corpus check that agrees for 1,108 Python items from 191 files and seven synthetic
-  shape cases.
+Start with one tab-delimited Blackboard Question Upload (BBQ) text file. Select the output that
+serves the next teaching task.
 
-The workspace uses the Rust 2024 edition and is compiled with Rust 1.98.1 or later.
+| Teaching task | Native output | What it gives you |
+| --- | --- | --- |
+| Import into Canvas | Canvas QTI 1.2 ZIP | A package ready for Canvas import review |
+| Import into Blackboard | QTI 2.1 or Original pool ZIP | A Blackboard package or pool export |
+| Let students practice | Self-grading HTML | A standalone browser quiz with immediate feedback |
+| Review before release | Human-readable HTML | A readable copy of the questions and answers |
+| Reuse elsewhere | Aiken, YAML, text2qti, BBQ, or BQGen | Text formats for Moodle, exams, and other tools |
+
+The same bank can produce several of these outputs in one command, so edits stay in the source
+questions instead of becoming separate copies in each learning system.
 
 ## Quick start
 
-Install Rust 1.98.1 or later, then build the native binaries and inspect registered engines:
+Install Rust 1.98.1 or later. From this repository, build the native commands:
 
 ```bash
-cargo build --release -p qti-cli --bins
-./target/release/qti-package-maker engines
+cargo build --locked --release -p qti-cli --bins
 ```
 
-The first command creates `bbq-converter` and `qti-package-maker`. The second lists the current
-read/write and media-policy capabilities. See [docs/INSTALL.md](docs/INSTALL.md) for source builds
-and the optional native RDKit canvas shim.
-
-## Native commands
+Create `bbq-demo-questions.txt` with this tab-delimited row:
 
 ```text
-$ ./target/release/bbq-converter --help
-Convert BBQ questions to assessment formats
-
-Usage: bbq-converter [OPTIONS] --input <INPUT>
+MC	Which base pairs with A?	T	correct	C	incorrect
 ```
 
-`bbq-converter` converts a BBQ input to selected formats. `qti-package-maker` lists engines and
-item kinds or checks a finished package. [docs/USAGE.md](docs/USAGE.md) documents their options,
-output names, and warning behavior.
+Create a Canvas package, a Blackboard package, an instructor review copy, and a student practice
+quiz:
 
-## Development progress
+```bash
+./target/release/bbq-converter \
+  --input bbq-demo-questions.txt \
+  --qti12 --qti21 --human --selftest
+```
 
-The implementation target is feature parity with the maintained Python converter. Current package
-writers and CLI behavior have evidence, while full cross-format parity, native raster visual
-acceptance, speed comparison, and release gates remain in progress.
+The command writes `qti12-demo.zip`, `qti21-demo.zip`, `human-demo.html`, and
+`selftest-demo.html`. Open the self-test in a browser to try the learner-facing question, read the
+human copy before publishing, then import the ZIP appropriate to the LMS.
 
-- [docs/active_plans/active/rust_port_plan.md](docs/active_plans/active/rust_port_plan.md) - active
-  Rust-port plan and acceptance criteria.
-- [refactor_progress.md](refactor_progress.md) - current milestone states and remaining gates.
-- [docs/INSTALL.md](docs/INSTALL.md) - source build and optional native dependencies.
-- [docs/USAGE.md](docs/USAGE.md) - native CLI commands and output contracts.
-- [docs/PARITY.md](docs/PARITY.md) - parity authority and currently completed evidence.
-- [docs/RDKIT_DEPENDENCY_DECISION.md](docs/RDKIT_DEPENDENCY_DECISION.md) - optional canvas-renderer
-  dependency and recorded platform evidence.
-- [docs/RUST_STYLE.md](docs/RUST_STYLE.md) - Rust and Cargo conventions for contributors.
-- [docs/REPO_STYLE.md](docs/REPO_STYLE.md) - repository-wide development conventions.
+<!-- screenshots:begin (managed by screenshot-docs) -->
+<!-- screenshots:end -->
+
+## Choose an output
+
+Use the short flags for common destinations. `--all` writes all ten registered formats; use
+`--format <engine-name>` when the output does not have a shortcut.
+
+```bash
+# Canvas QTI 1.2
+./target/release/bbq-converter --input bbq-genetics-questions.txt --qti12
+
+# Blackboard QTI 2.1, with supported tables and static RDKit canvases rendered as PNGs
+./target/release/bbq-converter --input bbq-genetics-questions.txt --qti21 --html-to-image
+
+# Moodle Aiken text
+./target/release/bbq-converter --input bbq-genetics-questions.txt --aiken
+```
+
+`--html-to-image` is available for Canvas QTI 1.2, Blackboard QTI 2.1, and Blackboard Original
+pool exports. It needs the optional RDKit shim only when the bank contains an RDKit canvas. See
+[docs/HTML_TO_IMAGE.md](docs/HTML_TO_IMAGE.md) for the supported content and setup.
+
+## Check before upload
+
+Use the companion command to see the formats compiled into your binary or to inspect a finished
+ZIP for package-integrity problems:
+
+```bash
+./target/release/qti-package-maker engines
+./target/release/qti-package-maker check qti12-demo.zip
+```
+
+`check` prints `OK` when it finds no integrity violations. It checks package structure and answer
+bindings; it does not replace review of the imported questions in the target LMS.
+
+## Learn more
+
+- [docs/INSTALL.md](docs/INSTALL.md) - source build, platform requirements, and the optional RDKit
+  shim.
+- [docs/USAGE.md](docs/USAGE.md) - CLI flags, output names, and practical conversion commands.
+- [docs/FORMATS.md](docs/FORMATS.md) - all ten outputs, media behavior, and format limits.
+- [docs/QUESTION_TYPES.md](docs/QUESTION_TYPES.md) - fields for the seven supported assessment
+  types.
+- [docs/ENGINES.md](docs/ENGINES.md) - the current reader, writer, and media-capability inventory.
+
+The maintained [Python QTI Package Maker](https://github.com/vosslab/qti-package-maker) remains the
+reference implementation while this Rust port completes its verification. Developers can follow the
+[active port plan](docs/active_plans/active/rust_port_plan.md) and
+[refactor_progress.md](refactor_progress.md).
 
 ## License
 

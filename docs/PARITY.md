@@ -2,8 +2,9 @@
 
 This record applies the authority order in the active Rust-port plan: observed
 LMS behavior, documented format requirements, Python runtime behavior at the
-pinned revision, then advisory signals. It records only completed work; M13's
-whole-program differential parity gate remains incomplete.
+pinned revision, then advisory signals. Plain exports pass the full differential corpus;
+converted exports have the classified semantic evidence described below. The raw HTML
+comparison still reports the documented differences.
 
 ## M13 differential harness
 
@@ -11,7 +12,46 @@ whole-program differential parity gate remains incomplete.
 the seven formats exposed by the frozen Python CLI and three registered-only writers invoked
 through its package interface. A current, self-built CLI agrees across 56 per-engine question-kind
 projections, including Canvas scoring behavior. Media and full-corpus cases remain under
-verification; these fixtures do not establish complete M13 parity.
+verification in that fixture receipt; the later corpus evidence is summarized below.
+
+### Current corpus evidence
+
+The full plain-export run `tests/_temp/parity_6191` completes 1,709 input banks across all
+ten writer formats with zero findings. The subsequent image-only whitespace correction
+does not affect plain exports.
+
+The current release replay at `tests/_temp/native_html_replay_current` exports all 537
+projected HTML-to-image inputs successfully. Every package passes integrity without errors
+or warnings. Public grading agrees for 178 Blackboard, 178 Canvas, and 181 QTI 2.1 pairs,
+including the five source-bound repaired Python references described below. Presentation
+review preserves authored text, image ownership/order, styling attributes, response settings,
+and grading; it does not require identical paragraph wrappers or pixels.
+
+The raw HTML differential report contains incidental paragraph/serialization differences
+and frozen-reference defects. Its findings were classified in the replay's
+`presentation_review.md`, with per-field source hashes and comparison receipts. This is a
+classified semantic result, not a claim that the unchanged raw harness reports zero findings.
+
+Observed defects and deliberate differences:
+
+- The native table alt-text routine now preserves whitespace before filtering to ASCII.
+  The current corpus replay resolves the previously fused labels.
+- Frozen Python drops text following converted tables, including question wording, formula
+  steps, and `AND` between diagrams. Rust preserves the authored source text. The reviewed
+  native fields match source text outside rendered tables/canvases.
+- Rust removes redundant nested multiple-choice display labels. Differences such as `A.` in
+  image alt text also change visual-choice hashes, while choice positions and grading agree.
+- Frozen Canvas MULTI_FIB exports contain literal answers where scoring requires declared
+  choice identifiers. For the two converted cases, rerendering the source reproduces the
+  full frozen item structures exactly. Replacing only those references with their uniquely
+  matching declared identifiers makes grading agree; repaired references pass integrity.
+- Frozen conversion loses the local-media base directory for the horse-image source. The
+  previously verified development-only media-staging repair produces reference packages
+  that agree with native output in all three formats. The repaired references pass integrity.
+
+These checks remain implementation evidence. No production workaround copies Python's
+content loss, and no permanent test requires incidental XML serialization. Real LMS imports
+remain external validation and are not implied by these local results.
 
 The frozen Canvas MULTI_FIB writer creates response identifiers that its scoring expressions do not
 declare. Preserve its two `qti12-dangling-varequal` findings as a defect receipt. Rust must pass

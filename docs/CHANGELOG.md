@@ -1,5 +1,61 @@
 # Changelog
 
+- Retired 73 ignored implementation-proof and captured-source files from the temporary test
+  workspace. Their source is preserved in a verified ignored archive; result receipts remain
+  available for review. No permanent tests were added.
+
+- Updated the roadmap to reflect completed platform, corpus, and benchmark verification and
+  the manual release workflow. The progress ledger now names temporary-check retirement and
+  plan archival as closeout work and points to the final Python verification log.
+
+- Completed the Python repository's reciprocal Rust-port link. Clarified that the optional
+  HTML release-comparison command still exits nonzero on documented reference and serialization
+  findings, and corrected stale parity/progress wording to reflect completed semantic review.
+
+- Built both Linux x86_64 release CLIs from the final verified source snapshot using an arm64 Linux host and Debian cross-compiler. Both run under amd64 Podman emulation; a real native-table conversion emits all three package formats with PNGs and clean integrity checks. The vendored manual release dry-run passes with draft notes at `/tmp/qti-rust-26.09-release-notes.md`; it correctly reports that archives use committed HEAD and omit current uncommitted changes. No release was published.
+
+- Final current-source verification passes on macOS arm64 and Linux arm64: formatting, strict workspace/all-target Clippy, workspace tests, and optimized builds. The Linux snapshot `run_1790825204` records 320 passing tests and unchanged build-input hashes; all 1,556 Python checks pass with nine existing warnings. Linux x86_64 release compilation is being verified separately. Updated installation guidance to distinguish these completed checks from remaining release and visual decisions.
+
+- Reconciled the five HTML reference failures with source-bound frozen rebuilds. The two Canvas MULTI_FIB item structures reproduce exactly; correcting only their uniquely resolved literal-answer references yields matching grading. The established media-staging repair makes the three horse-image exports agree with native semantics and image contracts. All five repaired Python packages pass integrity. Completed the remaining QTI 2.1 presentation classification without changing native output or adding permanent tests.
+
+- Converted-package public grading agrees for all 175 valid Canvas and 180 valid QTI 2.1 reference pairs; four Python reference failures remain separately recorded. Temporary Canvas presentation review accounts for all 126 differing fields: 92 incidental paragraph/serialization/choice-prefix differences and 34 fields where Rust preserves authored text lost by Python. Source hashes and exact visible-text matches substantiate the latter. No production compatibility workaround or permanent test was added.
+
+- Classified the current HTML replay's 69 image-placement findings with temporary evidence: 49 contain only unstyled paragraph/known choice-prefix differences; the other 20 packages preserve source text that Python drops after rendered tables. All 68 affected fields match source text outside rendered tables/canvases, with source hashes verified. Broader semantic comparison remains open; production behavior and permanent tests are unchanged.
+
+- Re-exported all 537 HTML corpus inputs with the current release binary: zero export failures and all 537 packages pass integrity without errors or warnings. Image-contract replay confirms the whitespace defect is resolved; remaining alt differences are redundant choice prefixes in eight packages. One-time converted Blackboard grading checks agree for all 177 available Python/native package pairs and detect changed score maxima and correct choices. Presentation comparison still has outstanding findings; these receipts do not claim full HTML parity.
+
+- Current native benchmark `run-80228` completes all 181 inputs in both modes with zero CLI or library conversion failures: 18.124 seconds for Blackboard and 19.202 seconds for three formats. Exact path/hash binding matches the pinned Python baseline (197.234/445.820 seconds). All 721 emitted ZIPs pass integrity with zero errors or warnings; per-package hashes and checker identity are retained in the run directory. Formatting and strict xtask Clippy pass after the benchmark report correction.
+
+- Removed a hard-coded success claim from the native benchmark report after a missing-shim run exposed the contradiction. Reports now direct readers to measured failure/output counts and the detailed receipt, including when a benchmark fails. No permanent test was added for this prose correction.
+
+- Full plain-export corpus verification passes: `tests/_temp/parity_6191` compares 1,709 input banks across seven frozen-CLI formats and three registered-adapter formats with zero findings. This run precedes the image-only alt-text spacing fix; HTML-to-image findings remain under review.
+
+- Independent final Blackboard writer/reader review passes after checking the pinned Python authoring validators and the established private-metadata decision. An ignored one-time proof verifies that carrier edits/removal preserve public score/content/media and that a public score mutation is detected. Broader HTML triage identified a real table alt-text bug: removing non-ASCII whitespace before collapsing it fuses distinct labels; the library now converts whitespace to ASCII spaces before filtering other characters. The existing regression expectation now preserves the word boundary. Focused tests, formatting, strict engine lint, and a real release-CLI boxplot conversion plus integrity check pass. The active plain run keeps its unchanged debug CLI binary.
+
+- Refreshed native macOS RDKit verification: all three runtime success/error tests and the full 58-canvas rendering corpus pass with the installed shim. Temporary replay classifies the first 24 HTML comparison findings as observed wrapper/entity/loader differences while retaining content, image, style, and score mutations; this is diagnostic evidence, not a full corpus pass.
+
+- Current Linux arm64 verification passed formatting, strict all-target Clippy, 320 workspace tests, and an optimized workspace build. The read-only source snapshot and command/image receipt are at `output_tables/linux_current/run_1790822794`; all build-input hashes still match. Consolidated the progress tracker to distinguish current proof, historical timings, and remaining completion work.
+
+- Reverified the current macOS workspace after the dependency API and version-startup changes: formatting, strict all-target Clippy, workspace all-target tests, the locked optimized workspace build, and all 1,556 Python checks pass. Started a separate Linux arm64 verification from a hashed current-source snapshot; its result remains pending.
+
+- Corrected development comparisons to normalize Canvas choice HTML serialization consistently with question HTML and accept removal of the unused RDKit loader after rasterization. Content, choice identity, scoring, and image checks remain active. A fresh browser-backed three-format HTML-to-image preflight passes with zero findings; retained replay and grading-program mutation checks also pass. No permanent tests or production behavior were added.
+
+- Rewrote README through the readme-docs side job around instructor workflows: one editable BBQ source, Canvas/Blackboard packages, readable review output, and student practice. The copyable example creates all four documented artifacts and its Canvas package passes the native checker. README first-paragraph/link checks pass (69 tests); deeper implementation details remain linked from the landing page.
+
+- Used vendored `devel/bump_version.py -cA`, which writes `VERSION` as `26.09` and Cargo as `26.9.0`. Removed the redundant compile-time string-equality startup guard that blocked conversion for equivalent version spellings. Release metadata validation now reuses the vendored Cargo normalization. Recorded the user's instruction to prioritize meaningful correctness and delivery issues.
+
+- Recorded the user's clarification that parity means working like the Python package, not reproducing every nuance. Remaining comparison findings must demonstrate a practical content, grading, media, interoperability, or usability consequence before motivating implementation changes or new lasting tests.
+
+- Resolved the retained plain comparator findings: styled color swatches now retain distinct visual identity, block-boundary layout whitespace is treated as equivalent, and NUM self-test markup may match its SHA-bound authored source when frozen Python merges paragraphs and spreads heading styles. The observed NUM output matches the authored DOM exactly. Comparator self-tests pass; fresh full verification remains required. Python cleanup verification passed 1,556 tests with nine existing line-limit warnings.
+
+- Fresh full plain comparison completed: 1,709 inputs, 12 findings (11 self-test markup comparisons and one QTI2 visual-choice comparison), with stable executable and helper hashes in `tests/_temp/parity_40500/divergences.json`. The prior baseline had 199 findings. Applied the prevalidated helper annotation/import cleanup after completion. One-time markup diagnosis locates block-boundary whitespace/paragraph differences; final decisions and correction remain pending. Recorded the user's openness to small local implementations when simpler than dependencies.
+
+- Recorded the user's preference for latest versions. The cssparser compatibility fix follows that preference by adapting to the locked current API instead of downgrading; reproducible builds continue to use `Cargo.lock` and `--locked`.
+
+- The permitted full HTML run stopped before corpus generation because locked `cssparser` 0.38 removes `ParserInput`. Updated the rasterizer to construct `Parser` directly from the source string; all 74 rasterizer tests pass. The plain run is still using its original binary; rebuilding that CLI and retrying HTML waits for the plain run to finish so its executable identity stays stable.
+
+- Diagnosed the first fresh HTML corpus run (`parity_47447`): it ended with 537 writer-outcome findings because the sandbox blocked frozen Python's Chromium MachPort startup. This is execution-environment evidence, not a product parity result. The unchanged single-case renderer succeeds with approved execution permission, and the full HTML corpus run has restarted in that permitted environment. The plain run remains active.
+
 - Applied the user's KISS/test-lifetime guidance to the two newly added parity test modules. Moved their 15 checks into ignored `tests/_temp/rebuild_verification/check_*.py` for explicit one-time execution: these prove the rebuild's comparison rules and frozen-Python repairs, rather than lasting product behavior. Updated the progress tracker to classify that evidence correctly. Fresh optimized workspace build and all three native RDKit runtime checks also pass.
 
 - Refreshed the M13/M14/M19 rows in `refactor_progress.md` with current retained-case evidence, live full-corpus artifact locations, and fresh Rust checks. Explicitly marked historical Linux and benchmark/integrity results as predating current writer changes, with final refreshes still required.

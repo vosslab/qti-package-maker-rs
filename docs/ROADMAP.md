@@ -14,7 +14,7 @@ is [refactor_progress.md](../refactor_progress.md). This document does not certi
 | Engines and CLI | ten writers, four readers, static registry, process adapters | format contracts, round trips, and CLI tests |
 | Native rendering | table rasterizer and runtime-loaded RDKit canvas adapter | corpus render, visual gallery, and renderer tests |
 | Conversion | select, render, cache, rewrite, and fan out once per run | structural parity and measured benchmark |
-| Delivery | Cargo metadata, release scripts, platform builds | local and CI release checks |
+| Delivery | Cargo metadata, release scripts, platform builds | local checks and manual source-release preparation |
 
 ## Milestone groups
 
@@ -30,10 +30,12 @@ source item identity separate from writer presentation. See [PARITY.md](PARITY.m
 
 ## Remaining acceptance work
 
-The progress tracker and active plan govern current status. At this stage, plan closeout still
-requires the full differential-parity scope, release verification on declared platforms, the
-renderer benchmark comparison, and the explicit user review gate for the generated table gallery.
-Only recorded evidence may change those states.
+The progress tracker records completed corpus comparisons, platform builds, and the renderer
+benchmark. Remaining acceptance work is the user's table-gallery review and release verification
+from the intended committed source, followed by archival of the accepted plan. Temporary
+implementation checks are retired with recoverable source and result receipts retained.
+See [INSTALL.md](INSTALL.md) for the manual release procedure and
+[PARITY.md](PARITY.md) for the raw HTML comparison's documented limitations.
 
 ## How to contribute
 
@@ -41,4 +43,3 @@ Use [ENGINE_AUTHORING.md](ENGINE_AUTHORING.md) for a new format, [QUESTION_TYPES
 for the validated data model, and [TESTS_README.md](../tests/TESTS_README.md) for test retention.
 Update the changelog for every edit and record settled cross-cutting decisions in
 [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
-

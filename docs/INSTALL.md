@@ -14,7 +14,7 @@ artifact is certified yet.
 From the repository root, create optimized native binaries:
 
 ```bash
-cargo build --release -p qti-cli --bins
+cargo build --locked --release -p qti-cli --bins
 ```
 
 Cargo writes these binaries into `target/release/`:
@@ -80,6 +80,13 @@ source source_me.sh && python3 devel/make_release.py --dry-run
 reference commit; the generated `output_tables/oracle_snapshot/` copy is immutable
 oracle data, not a Git source checkout.
 
+Set `RUST_RELEASE_HTML_TO_IMAGE=1` and `QTI_RDKIT_SHIM` to include native conversion
+comparisons. This optional lane currently exits nonzero on the raw HTML differences
+documented in [PARITY.md](PARITY.md), including frozen Python defects. Review findings
+against source content, grading, media, and package integrity before deciding whether a
+product fix is needed. The classified corpus evidence does not make that command pass;
+new or changed findings still need investigation.
+
 To run the complete Linux amd64 check locally under Podman, including the native RDKit lane, use:
 
 ```bash
@@ -99,6 +106,9 @@ It does not run the Rust validation checks or publish a release itself.
 
 ## Known gaps
 
-- Run local Rust validation on Linux and macOS before preparing a release with
-  `devel/make_release.py`.
-- Complete the visual and speed gates for native `--html-to-image` conversion.
+- Complete release validation from the intended committed source before preparing a release with
+  `devel/make_release.py`. Working-tree builds on macOS arm64 and Linux arm64 pass; the Linux
+  x86_64 release binaries are cross-built and pass three-format table conversion and package
+  checks under amd64 emulation.
+- Record the user's visual decision on the native table gallery. Corpus conversion, package
+  integrity, and the comparison against Python's conversion time have passed.

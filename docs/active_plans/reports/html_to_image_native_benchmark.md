@@ -2,21 +2,21 @@
 
 This receipt invokes the real release `bbq-converter` binary on each manifest input. It does not model or project Rust performance.
 
-- Binary: `/Users/vosslab/nsh/PROBLEMS/qti-package-maker-rs/output_tables/native_table_bench/run-44801/bbq-converter`
-- SHA-256: `4d7e94885c1b9646db8e43eec4b67994bf69783e76692e6eb4f7387c705df19c`
+- Binary: `/Users/vosslab/nsh/PROBLEMS/qti-package-maker-rs/output_tables/native_table_bench/run-80228/bbq-converter`
+- SHA-256: `0d7094f78f1e1bb0f543a40db4c73eb4184e1dac905c3f8cfb9555b3fcb09d39`
 - Corpus: `/Users/vosslab/nsh/PROBLEMS/qti-package-maker-rs/output_tables/corpus`
 
 | Run | Inputs | Wall seconds | Artifacts | Short outputs | Failures |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| `blackboard_export` | 181 | 19.313 | 181 | 0 | 0 |
-| `three_format` | 181 | 22.002 | 540 | 3 | 0 |
+| `blackboard_export` | 181 | 18.124 | 181 | 0 | 0 |
+| `three_format` | 181 | 19.202 | 540 | 3 | 0 |
 
 ## Capability receipt
 
 - `blackboard_export`: 606 PNG members in 117 packages. Inspection runs after the wall timer stops.
 - `three_format`: 1822 PNG members in 352 packages. Inspection runs after the wall timer stops.
 
-All 181 release CLI invocations completed successfully in both modes with the certified RDKit shim. Both modes request --html-to-image. The three-format run has three successful ORDER-only inputs with two artifacts instead of three because Canvas returns a no-output outcome for unsupported ORDER items; Blackboard export still emits an empty valid package and diagnostic. Short outputs are not errors.
+Both modes request --html-to-image. The table above records actual invocation failures and output counts; detailed failures are retained in receipt.json. A short output can be expected when an input contains only an unsupported item type, such as ORDER for Canvas, but must be assessed alongside the recorded failures.
 
 ## Stage attribution
 
@@ -28,5 +28,5 @@ A separate library pass uses the same manifest inputs and one fresh run-scoped c
 
 | Run | Requests | Attempts | Cache hit/wait/miss | Conversion wall | Layout work | Paint work | Encode work | Write work | Bookkeeping work |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `blackboard_export` | 651 | 391 | 183/77/391 | 49.662 | 6.821 | 19.722 | 22.533 | 0.077 | 11.547 |
-| `three_format` | 651 | 391 | 194/66/391 | 48.494 | 4.265 | 19.552 | 22.524 | 0.084 | 11.654 |
+| `blackboard_export` | 651 | 391 | 196/64/391 | 44.520 | 6.003 | 17.747 | 20.879 | 0.073 | 10.364 |
+| `three_format` | 651 | 391 | 202/58/391 | 43.007 | 3.758 | 17.689 | 20.859 | 0.076 | 10.320 |
