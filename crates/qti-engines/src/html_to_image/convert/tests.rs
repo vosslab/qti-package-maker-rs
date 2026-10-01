@@ -6,8 +6,8 @@ use tempfile::tempdir;
 use thiserror::Error;
 
 use super::{
-    ConversionError, FragmentRenderer, NativeFragmentRenderer, RenderCache, RenderMetrics,
-    RenderedPng, convert_bank, convert_bank_with_metrics,
+    ConversionError, FragmentRenderer, RenderCache, RenderMetrics, RenderedPng, convert_bank,
+    convert_bank_with_metrics,
 };
 use qti_core::{FieldId, Item, ItemBank, ItemBody, MediaBaseDir};
 use qti_molecule::CanvasSource;
@@ -326,48 +326,6 @@ fn conversion_preserves_source_identity_order_and_bank_positions() {
         );
         assert!(display_fields.iter().all(|field| !field.contains("<table")));
     }
-}
-
-#[test]
-fn native_adapter_rasterizes_tables_and_cache_binds_raster_configuration() {
-    let source = tempdir().expect("source directory");
-    let bank = source_bank(
-        source.path(),
-        "<table><tr><td>native table</td></tr></table>",
-    );
-    let cache = RenderCache::new();
-    let high_density = NativeFragmentRenderer::new(qti_raster::RasterConfig::default());
-    let low_density = NativeFragmentRenderer::new(qti_raster::RasterConfig {
-        device_scale_factor: 1,
-        ..qti_raster::RasterConfig::default()
-    });
-
-    let high = convert_bank(&bank, &high_density, &cache).expect("native conversion succeeds");
-    let low = convert_bank(&bank, &low_density, &cache).expect("second native conversion succeeds");
-    let high_png = generated_png(&high);
-    let low_png = generated_png(&low);
-    assert!(high_png.starts_with(b"\x89PNG\r\n\x1a\n"));
-    assert!(low_png.starts_with(b"\x89PNG\r\n\x1a\n"));
-    let (high_width, high_height) = png_dimensions(&high_png);
-    let (low_width, low_height) = png_dimensions(&low_png);
-    assert!(high_width > low_width);
-    assert!(high_height > low_height);
-}
-
-fn generated_png(bank: &ItemBank) -> Vec<u8> {
-    let collected = bank.collect_assets().expect("assets collect");
-    let asset = collected
-        .assets()
-        .iter()
-        .find(|asset| asset.src.contains("_table_1.png"))
-        .expect("generated table image");
-    asset.read_bytes().expect("generated PNG bytes")
-}
-
-fn png_dimensions(png: &[u8]) -> (u32, u32) {
-    let width = u32::from_be_bytes(png[16..20].try_into().expect("PNG width"));
-    let height = u32::from_be_bytes(png[20..24].try_into().expect("PNG height"));
-    (width, height)
 }
 
 #[test]

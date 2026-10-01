@@ -3,7 +3,7 @@
 import html
 
 
-def canonical(tokens):
+def canonical(tokens: list[dict]) -> list:
 	from lxml import html as dom
 	from xtask.support.parity_qti21 import QTI21
 	from xtask.support.parity_qti21_dom import normalize
@@ -22,12 +22,12 @@ def canonical(tokens):
 		node.tag = '{' + QTI21 + '}' + node.tag
 	normalize(root)
 
-	def tree(node):
+	def tree(node: object) -> list:
 		return [node.tag, sorted(node.attrib.items()), node.text, [tree(child) for child in node], node.tail]
 	return tree(root)
 
 
-def selftest():
+def selftest() -> None:
 	from xtask.support.parity_blackboard import fragment
 
 	base = '<p>Question</p><table><tr><td>A</td><td>B</td></tr></table><img src="figure.png" alt="Tree"><script>x()</script>'

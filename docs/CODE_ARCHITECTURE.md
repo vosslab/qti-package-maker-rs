@@ -17,7 +17,6 @@ implementation modules remain private where possible.
 | --- | --- | --- |
 | [crates/qti-core/Cargo.toml](../crates/qti-core/Cargo.toml) | Validated items, ordered banks, CRCs, fingerprints, media, manifests, and ZIP assembly. | [crates/qti-core/src/lib.rs](../crates/qti-core/src/lib.rs) exports the item, bank, media, manifest, and ZIP contracts. |
 | [crates/qti-engines/Cargo.toml](../crates/qti-engines/Cargo.toml) | Format readers and writers, engine registry, typed outcomes, and HTML-to-image conversion. | [crates/qti-engines/src/traits.rs](../crates/qti-engines/src/traits.rs) and [crates/qti-engines/src/registry.rs](../crates/qti-engines/src/registry.rs). |
-| [crates/qti-raster/Cargo.toml](../crates/qti-raster/Cargo.toml) | Supported HTML table parsing, style cascade, table and inline layout, painting, and PNG encoding. | [crates/qti-raster/src/lib.rs](../crates/qti-raster/src/lib.rs) exports parsing, layout, paint, and render contracts. |
 | [crates/qti-molecule/Cargo.toml](../crates/qti-molecule/Cargo.toml) | Optional runtime RDKit C-ABI loading and molecule-canvas PNG rendering. | [crates/qti-molecule/src/lib.rs](../crates/qti-molecule/src/lib.rs) exports `CanvasSource`, `RdkitRenderer`, and typed errors. |
 | [crates/qti-integrity/Cargo.toml](../crates/qti-integrity/Cargo.toml) | Independent finished-package inspection without ZIP extraction. | [crates/qti-integrity/src/lib.rs](../crates/qti-integrity/src/lib.rs) exports package checks and violations. |
 | [crates/qti-cli/Cargo.toml](../crates/qti-cli/Cargo.toml) | Native command parsing, conversion fan-out, reporting, and inspection commands. | [crates/qti-cli/src/app.rs](../crates/qti-cli/src/app.rs) owns application flow. |
@@ -47,20 +46,16 @@ once before sending the converted bank to eligible selected writers.
 ### Native rendering
 
 ```text
-HTML fragment
-  -> subset parser and style cascade
-  -> table grid and inline layout
-  -> display list
-  -> paint and PNG encoding
+HTML fragment with embedded media
+  -> shared Chromium session
+  -> browser HTML/CSS layout
+  -> element PNG screenshot
 ```
 
-[crates/qti-raster/src/subset.rs](../crates/qti-raster/src/subset.rs) rejects unsupported features
-with typed errors. [crates/qti-raster/src/table_layout.rs](../crates/qti-raster/src/table_layout.rs)
-owns grids, spans, border models, and widths. [crates/qti-raster/src/inline_layout.rs](../crates/qti-raster/src/inline_layout.rs)
-owns text and decorated inline boxes. [crates/qti-raster/src/paint.rs](../crates/qti-raster/src/paint.rs)
-paints the assembled display list. Embedded Atkinson fonts and licenses live in
-[crates/qti-raster/fonts/OFL-Atkinson-Hyperlegible-Next.txt](../crates/qti-raster/fonts/OFL-Atkinson-Hyperlegible-Next.txt).
-[HTML_TO_IMAGE.md](HTML_TO_IMAGE.md) documents the supported subset and error behavior.
+Chromium owns HTML/CSS layout. The adapter serializes access to one lazily created page;
+conversion caching and package fan-out remain in Rust. Embedded Atkinson fonts and licenses
+remain under `crates/qti-raster/fonts/`; the custom rasterizer crate has been removed.
+[HTML_TO_IMAGE.md](HTML_TO_IMAGE.md) documents rendering and error behavior.
 
 [crates/qti-molecule/src/renderer.rs](../crates/qti-molecule/src/renderer.rs) loads an explicitly
 named shim with `libloading`, verifies ABI version 1, validates canvas dimensions and colors before
@@ -75,7 +70,7 @@ BBQ input
   -> qti-core ItemBank
   -> optional html_to_image conversion
        -> qti-molecule canvas PNGs
-       -> qti-raster table PNGs
+       -> Chromium table PNGs
        -> rewritten item media
   -> selected qti-engines writers
   -> package files or text outputs

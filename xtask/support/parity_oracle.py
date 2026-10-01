@@ -18,8 +18,6 @@ import re
 # The development oracle invokes a fixed archived Python executable.
 import subprocess  # nosec B404
 import sys
-import tempfile
-import time
 import zipfile
 from datetime import date, datetime
 from defusedxml import ElementTree as element_tree
@@ -286,7 +284,7 @@ def normalized_markup(value: str) -> str:
 	return re.sub(r"<[^>]+>", normalize_tag, value)
 
 
-def xml_projection(path: pathlib.Path) -> object:
+def xml_projection(path: pathlib.Path, html_to_image: bool = False) -> object:
 	"""Extract meaning, dereferencing choice IDs before comparison.
 
 	The two QTI writers use different generated identifiers.  This projection only
@@ -332,7 +330,7 @@ def xml_projection(path: pathlib.Path) -> object:
 				if name == "render_fib" and response_id:
 					response_forms.setdefault(response_id, {})["fibtype"] = child.attrib.get("fibtype", "")
 				if name in {"response_label", "simplechoice"} and identifier:
-					value = text_content(child)
+					value = normalized_markup(text_content(child))
 					response_label_groups.setdefault(response_id, []).append(value)
 					if value:
 						choices[(response_id, identifier)] = value
@@ -340,6 +338,11 @@ def xml_projection(path: pathlib.Path) -> object:
 						response_choice_ids.setdefault(response_id, []).append(identifier)
 				elif name in {"mattext", "prompt"} and not question:
 					question = normalized_markup(text_content(child))
+					if html_to_image:
+						# The frozen writer leaves this unused loader after rasterization.
+						question = question.replace(
+							'<script src="https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js"></script>', ''
+						)
 				for grandchild in child:
 					collect_presentation(grandchild, response_id)
 
@@ -770,9 +773,19 @@ def compare_original(engine: str, python_path: pathlib.Path, rust_path: pathlib.
 		from xtask.support import parity_qti21
 		from xtask.support import parity_qti21_multifib_repair
 		python_value, _ = parity_qti21_multifib_repair.frozen_projection(python_path)
-		return python_value, parity_qti21.xml_projection(rust_path)
+		rust_value = parity_qti21.xml_projection(rust_path)
+		if html_to_image:
+			for items in (python_value, rust_value):
+				for item in items:
+					item["scripts"] = [script for script in item["scripts"] if not (
+						script["attributes"] == [("src", "https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js")]
+						and not script["text"]
+					)]
+		return python_value, rust_value
 	if engine == "canvas_qti_v1_2":
 		from xtask.support.parity_canvas_multifib_repair import frozen_projection
+		if html_to_image:
+			return frozen_projection(python_path, lambda path: xml_projection(path, True)), xml_projection(rust_path, True)
 		return frozen_projection(python_path, xml_projection), xml_projection(rust_path)
 	if engine == "exam_yaml":
 		return yaml_projection(python_path), yaml_projection(rust_path)

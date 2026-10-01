@@ -1,5 +1,6 @@
 """Source-bound correction of frozen Canvas MULTI_FIB text references."""
 
+import collections.abc
 import hashlib
 import json
 import pathlib
@@ -11,11 +12,11 @@ from xml.etree import ElementTree as serializer
 QTI12 = 'http://www.imsglobal.org/xsd/ims_qtiasiv1p2'
 
 
-def named(root, name):
+def named(root: serializer.Element, name: str) -> list:
 	return [node for node in root.iter() if node.tag == '{' + QTI12 + '}' + name]
 
 
-def structure(node, qualify=False):
+def structure(node: serializer.Element, qualify: bool = False) -> list:
 	tag = node.tag
 	if qualify and not tag.startswith('{'):
 		tag = '{' + QTI12 + '}' + tag
@@ -26,7 +27,7 @@ def structure(node, qualify=False):
 	return [tag, sorted(node.attrib.items()), text, [structure(child, qualify) for child in node], tail if tail.strip() else '']
 
 
-def frozen_projection(path, projector):
+def frozen_projection(path: pathlib.Path, projector: collections.abc.Callable) -> object:
 	try:
 		return projector(path)
 	except ValueError as original:

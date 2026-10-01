@@ -55,6 +55,13 @@ pub(crate) fn table_alt_text(table_html: &str) -> String {
             let text = cell
                 .text()
                 .flat_map(str::chars)
+                .map(|character| {
+                    if character.is_whitespace() {
+                        ' '
+                    } else {
+                        character
+                    }
+                })
                 .filter(char::is_ascii)
                 .collect::<String>();
             (!text.is_empty()).then_some(text)
@@ -100,7 +107,7 @@ mod tests {
     fn alternative_text_is_ascii_and_matches_canvas_rules() {
         assert_eq!(
             table_alt_text("<table><tr><td>A&nbsp;B</td><th>C</th></tr></table>"),
-            "AB C"
+            "A B C"
         );
         let source = CanvasSource {
             smiles: "CCO".to_owned(),

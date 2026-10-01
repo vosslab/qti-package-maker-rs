@@ -54,7 +54,7 @@ inspect the compiled binary.
 
 ## Convert tables and canvases
 
-`--html-to-image` replaces supported tables and static RDKit canvases with native PNGs for the three
+`--html-to-image` renders HTML tables with Chromium and static RDKit canvases as PNGs for the three
 ZIP package writers. It may be combined with `--qti12`, `--qti21`, or `--bbexport`:
 
 ```bash
@@ -64,10 +64,11 @@ ZIP package writers. It may be combined with `--qti12`, `--qti21`, or `--bbexpor
   --html-to-image
 ```
 
+For tables, install Chromium or Chrome; set `QTI_CHROMIUM` to its executable if needed.
 If the selected input contains an RDKit canvas, set `QTI_RDKIT_SHIM` before running the command.
 The optional runtime dependency and its error behavior are documented in
-[INSTALL.md](INSTALL.md). The table renderer's visual acceptance and end-to-end speed comparison
-remain open gates.
+[INSTALL.md](INSTALL.md). Tables are judged by readable content and correct source rendering;
+Python's table appearance is not a visual target.
 
 ## Development tools
 

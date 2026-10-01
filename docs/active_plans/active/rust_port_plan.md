@@ -36,6 +36,33 @@ A browser engine is far more machinery than that subset needs, and it is the sou
 startup, IPC, and install cost. This plan replaces it with a native Rust rasterizer for a declared
 HTML/CSS table subset, and updates the rest of the port plan to the current Python code.
 
+## 2026-10-01 Chromium rendering amendment
+
+This amendment supersedes the earlier native-rasterizer direction wherever the two conflict. The
+custom renderer has two demonstrated content failures: gel
+`3057867908e9cff30bd1536d9056db77e89c3ae85309540d928eaaab8e516c56` rejected `box-shadow`, and
+pathway `08b73c60946140c7370d9a3ab8d990f833052e384b09b68ae0867fe9715bd360` lost colors and
+circles. HTML/CSS is a moving target, so this port uses local Chromium through Rust's
+`chromiumoxide` 0.9.1 rather than maintaining a partial browser engine.
+
+- Table rendering launches Chromium lazily, reuses it during a conversion, and supports
+  `QTI_CHROMIUM` as an executable-path override. It needs no Python or Node.js production runtime.
+- A controlled static wrapper renders the selected table. Readable output and Chromium's rendering
+  of valid source HTML/CSS are authoritative; the Python PNG and pixel equality are not.
+- Static RDKit canvases continue through their bounded parser and local shim before table render.
+  Existing sugar-library PNG/SVG exports bypass HTML rendering.
+- The four user-classified malformed HTML sources and two obsolete HTML sugars recorded in
+  [../../../refactor_progress.md](../../../refactor_progress.md) are outside table acceptance.
+- Benchmark evidence measures browser lifecycle and conversion cost. It guides practical
+  improvements but does not require a fixed time or Rust faster than Python.
+
+Earlier M16/M17 work-package detail and native gallery evidence remain historical context. This
+amendment defines the implementation and acceptance direction from here forward.
+
+All remaining references below to a native subset, `qti-raster`, native layout tests, typed
+unsupported-table errors, or a Rust-faster requirement describe the superseded proposal. They are
+retained to preserve the plan's history and evidence trail; they are not current gates or work.
+
 ## Objectives
 
 - Deliver a Rust `bbq-converter` binary with feature parity with `tools/bbq_converter.py` at the

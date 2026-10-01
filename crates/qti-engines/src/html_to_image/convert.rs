@@ -41,39 +41,23 @@ pub trait FragmentRenderer: Sync {
     fn render_table(&self, html: &str) -> Result<RenderedPng, Self::Error>;
 }
 
-/// Native renderer that delegates supported canvases and tables to their production crates.
-///
-/// It is deliberately a small adapter: static selection and two-phase media ownership remain in
-/// this module, while RDKit drawing and allowlisted table rasterization retain their own error
-/// contracts.
+/// Renders tables with Chromium and statically parsed molecular canvases with RDKit.
 #[derive(Clone, Debug, Default)]
-pub struct NativeFragmentRenderer {
-    raster_config: qti_raster::RasterConfig,
+pub struct ChromiumFragmentRenderer {
+    table: std::sync::Arc<super::chromium::ChromiumRenderer>,
 }
 
-impl NativeFragmentRenderer {
-    /// Creates an adapter with the supplied bounded table-raster configuration.
-    #[must_use]
-    pub fn new(raster_config: qti_raster::RasterConfig) -> Self {
-        Self { raster_config }
-    }
-}
-
-impl FragmentRenderer for NativeFragmentRenderer {
-    type Error = NativeRenderError;
+impl FragmentRenderer for ChromiumFragmentRenderer {
+    type Error = ChromiumRenderError;
 
     fn cache_discriminator(&self) -> String {
-        let config = &self.raster_config;
+        let browser = std::env::var_os("QTI_CHROMIUM")
+            .map(|path| path.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "auto".to_owned());
         let shim = std::env::var_os("QTI_RDKIT_SHIM")
             .map(|path| path.to_string_lossy().into_owned())
             .unwrap_or_else(|| "unconfigured".to_owned());
-        format!(
-            "native-v1;rdkit-shim={shim};table-width-bits={:08x};table-scale={};table-max-bytes={};table-max-depth={}",
-            config.available_width_css_px.to_bits(),
-            config.device_scale_factor,
-            config.max_fragment_bytes,
-            config.max_tree_depth,
-        )
+        format!("chromium-v1;browser={browser};scale=2;rdkit-shim={shim}")
     }
 
     fn render_canvas(&self, source: &CanvasSource) -> Result<RenderedPng, Self::Error> {
@@ -82,32 +66,29 @@ impl FragmentRenderer for NativeFragmentRenderer {
                 bytes,
                 metrics: Default::default(),
             })
-            .map_err(NativeRenderError::Canvas)
+            .map_err(ChromiumRenderError::Canvas)
     }
 
     fn render_table(&self, html: &str) -> Result<RenderedPng, Self::Error> {
-        qti_raster::render_table_png_with_metrics(html, &self.raster_config)
-            .map(|rendered| RenderedPng {
-                bytes: rendered.bytes,
-                metrics: super::cache::RenderMetrics {
-                    layout: rendered.metrics.layout,
-                    paint: rendered.metrics.paint,
-                    encode: rendered.metrics.encode,
-                },
+        self.table
+            .render(html)
+            .map(|bytes| RenderedPng {
+                bytes,
+                metrics: Default::default(),
             })
-            .map_err(NativeRenderError::Table)
+            .map_err(|error| ChromiumRenderError::Table(error.to_string()))
     }
 }
 
-/// A native fragment rendering failure with its originating renderer error retained.
+/// A fragment rendering failure with its originating renderer identified.
 #[derive(Debug, Error)]
-pub enum NativeRenderError {
+pub enum ChromiumRenderError {
     /// RDKit could not rasterize the parsed canvas source.
     #[error(transparent)]
     Canvas(#[from] qti_molecule::MoleculeError),
-    /// The native table renderer rejected or could not paint its table input.
-    #[error(transparent)]
-    Table(#[from] qti_raster::RasterError),
+    /// Chromium could not render or capture the table.
+    #[error("Chromium table rendering failed: {0}")]
+    Table(String),
 }
 
 /// Cumulative conversion work measurements collected without shared timing state.

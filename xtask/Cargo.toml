@@ -13,7 +13,6 @@ qti-cli = { path = "../crates/qti-cli" }
 zip.workspace = true
 quick-xml.workspace = true
 qti-core = { path = "../crates/qti-core" }
-qti-raster = { path = "../crates/qti-raster" }
 qti-engines = { path = "../crates/qti-engines" }
 qti-molecule = { path = "../crates/qti-molecule" }
 qti-integrity = { path = "../crates/qti-integrity" }

@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
 use qti_core::{ItemBank, ItemKind};
-use qti_engines::html_to_image::{NativeFragmentRenderer, RenderCache, convert_bank};
+use qti_engines::html_to_image::{ChromiumFragmentRenderer, RenderCache, convert_bank};
 use qti_engines::{DocumentMetadata, ENGINES, EngineEntry, EngineOptions, MediaWarning, Writer};
 use qti_integrity::{Severity, check_package};
 
@@ -43,7 +43,7 @@ pub struct BbqConverterArgs {
     /// Allow multiple assessment kinds while reading.
     #[arg(long = "allow-mixed")]
     pub allow_mixed: bool,
-    /// Replace supported tables and static RDKit canvases with native PNGs.
+    /// Render HTML tables with Chromium and static RDKit canvases as PNGs.
     #[arg(long = "html-to-image")]
     pub html_to_image: bool,
     /// Select an engine by exact name or a unique registry prefix; repeatable.
@@ -143,7 +143,6 @@ where
 
 /// Reads a BBQ bank, performs one optional native conversion pass, and writes every format.
 pub fn run_bbq_converter(args: BbqConverterArgs) -> Result<ConverterReport, CliError> {
-    check_startup_version()?;
     let selected = selected_engines(&args)?;
     validate_output_and_conversion(&args, &selected)?;
     let content_name = extract_content_name(&args.input)?;
@@ -165,7 +164,7 @@ pub fn run_bbq_converter(args: BbqConverterArgs) -> Result<ConverterReport, CliE
 
     let (converted, conversion_passes) =
         if args.html_to_image && selected.iter().any(|entry| is_html_to_image_engine(entry)) {
-            let renderer = NativeFragmentRenderer::default();
+            let renderer = ChromiumFragmentRenderer::default();
             (
                 Some(convert_bank(&bank, &renderer, &RenderCache::new())?),
                 1,
@@ -227,18 +226,6 @@ pub fn run_bbq_converter(args: BbqConverterArgs) -> Result<ConverterReport, CliE
         progress,
         outputs,
         warnings,
-    })
-}
-
-fn check_startup_version() -> Result<(), CliError> {
-    let repository = include_str!("../../../VERSION").trim();
-    let binary = env!("CARGO_PKG_VERSION");
-    if repository == binary {
-        return Ok(());
-    }
-    Err(CliError::VersionMismatch {
-        repository: repository.to_owned(),
-        binary: binary.to_owned(),
     })
 }
 
@@ -491,8 +478,8 @@ fn engine_options_for_content_name(content_name: &str) -> Result<EngineOptions, 
 #[cfg(test)]
 mod tests {
     use super::{
-        BbqConverterArgs, check_startup_version, extract_content_name, output_name,
-        run_bbq_converter, run_bbq_converter_from, run_package_maker_from,
+        BbqConverterArgs, extract_content_name, output_name, run_bbq_converter,
+        run_bbq_converter_from, run_package_maker_from,
     };
     use std::path::{Path, PathBuf};
 
@@ -564,11 +551,6 @@ mod tests {
             run_package_maker_from(["qti-package-maker", "item-types"]).expect("item kinds");
         assert_eq!(kinds.lines().count(), 7);
         assert!(kinds.contains("MULTI_FIB"));
-    }
-
-    #[test]
-    fn startup_version_matches_the_compiled_package() {
-        check_startup_version().expect("VERSION is synchronized with Cargo package version");
     }
 
     #[test]

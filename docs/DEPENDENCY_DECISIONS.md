@@ -293,3 +293,28 @@ the original text, spans, fixed cells, colored bands, dashed guides, radius dots
 and curve-cell border topology. M16 remains **pending architect acceptance**;
 this revision supplies the requested evidence and does not claim a production
 renderer or visual-parity exit.
+
+## Chromium table renderer (2026-10-01)
+
+### `chromiumoxide` 0.9.1 selected for table screenshots
+
+**Decision:** render valid HTML tables with a locally installed Chromium browser controlled by
+`chromiumoxide` 0.9.1. The Rust process launches Chromium lazily, reuses it for one conversion,
+and accepts `QTI_CHROMIUM` as an optional executable-path override.
+
+**Why:** HTML/CSS rendering is a moving browser target. The native subset renderer rejected the
+gel fragment `3057867908e9cff30bd1536d9056db77e89c3ae85309540d928eaaab8e516c56` because of its
+`box-shadow`, and lost colors and circles from
+`08b73c60946140c7370d9a3ab8d990f833052e384b09b68ae0867fe9715bd360`. Those are content failures,
+not tolerable layout variation. Chromium renders the source HTML/CSS directly without imposing a
+Python or Node.js runtime dependency on users.
+
+**Consequence:** the native raster stack documented above is retained as historical spike
+evidence, not the production table-rendering direction. Table acceptance compares readable output
+and browser rendering of valid source HTML/CSS; Python's older PNG layout and pixel equality are
+not requirements. Benchmarking reports browser lifecycle and conversion cost to identify useful
+improvements, without requiring Rust to outperform Python. Static RDKit canvases retain their
+bounded parser and local-shim renderer, and sugar-library PNG/SVG exports bypass Chromium.
+
+The user classifies four malformed HTML inputs and two obsolete HTML sugars outside this table
+acceptance scope. [../refactor_progress.md](../refactor_progress.md) records their exact hashes.

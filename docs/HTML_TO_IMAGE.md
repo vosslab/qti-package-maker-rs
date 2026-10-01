@@ -1,36 +1,44 @@
-# HTML-to-image table contract
+# HTML-to-image contract
 
-`qti-raster::render_table_png` converts one outer table fragment into PNG bytes without starting
-a browser, executing JavaScript, fetching a network resource, or reading host fonts. It uses the
-bundled Atkinson Hyperlegible Next and Mono fonts. `RasterConfig` defaults to a 1264 CSS-pixel
-available width and a device scale factor of 2, matching the Python renderer's 1280-pixel viewport
-after its browser body margins.
+`--html-to-image` converts selected HTML tables and static RDKit canvases to packaged PNGs for
+Canvas QTI 1.2, Blackboard QTI 2.1, and Blackboard Original exports. Table PNGs are rendered by a
+local Chromium instance controlled from Rust. Chromium's rendering of the source HTML and CSS is
+the presentation authority. Python PNG layout is useful diagnostic evidence, not an acceptance
+target.
 
-The renderer accepts one outer `table`, including nested tables in cells. It supports `caption`,
-`thead`, `tbody`, `tfoot`, `tr`, `td`, `th`, `colgroup`, `col`, text, `span`, `b`/`strong`,
-`i`/`em`, `sub`, `sup`, `br`, `p`, `div`, `ul`, `ol`, `li`, legacy `font`, and embedded `data:`
-PNG or SVG images. Table attributes cover borders, padding, spacing, dimensions, alignment,
-background color, and spans. Cell backgrounds, the supported border styles, rounded clipping,
-text and vertical alignment, white space, fixed or automatic layouts, and the documented CSS
-length and color forms are painted natively.
+The production binary uses `chromiumoxide` to launch Chromium lazily and reuse it during one
+conversion. Set `QTI_CHROMIUM` to an executable path when automatic local-browser discovery is
+unsuitable. Chromium is required only when the selected input actually needs table conversion;
+ordinary package generation needs neither Chromium, Python, nor Node.js.
 
-The CSS subset includes `display` values `inline`, `block`, `inline-block`, `inline-table`, and
-`table`; `visibility:hidden`; `min-width`; `caption-side`; nonnegative pixel `letter-spacing`;
-and the harvested one-shadow grammar. An inline table may use `position:relative; top:-0.2em` as
-a post-layout paint offset. `vert-align` and the five harvested unprefixed six-digit colors are
-documented compatibility no-ops that preserve Chromium's effective behavior.
+The renderer supplies the selected table in a controlled static document, uses a white page
+background, waits for the document to be ready, and captures the table's bounds. It does not run
+author-supplied scripts or fetch network resources. Wrapper choices such as viewport size and
+fonts serve readable output; they are not a Python-image or pixel-equivalence contract.
 
-Four constrained scene routes handle generated positioned figures: `table.boxplot`,
-`pedigree_glyph`, `restriction_digest_map`, and `titration_state_tiles`. Their recognition and
-bounded drawing grammars are defined in the [WP-R1 corpus ruling](active_plans/decisions/wp_r1_corpus_and_baseline_ruling.md).
-They are declarative display-list inputs, not general CSS positioning support.
+Static RDKit canvases remain a separate path. The converter validates the bounded canvas script,
+uses the local RDKit shim to create its PNG, and inlines that PNG before Chromium renders a table
+that contains it. Existing sugar-library PNG/SVG exports stay images and do not enter the HTML
+table renderer.
 
-Any tag, attribute, property, source image, or geometry outside this contract returns a typed
-`RasterError`. The error identifies the unsupported feature or the geometry/paint stage; the
-renderer does not substitute an estimated image.
+## Acceptance evidence
+
+The two table inputs below demonstrate why the previous custom renderer is superseded:
+
+- `3057867908e9cff30bd1536d9056db77e89c3ae85309540d928eaaab8e516c56` is a gel whose band uses
+  `box-shadow`; the custom renderer rejected that property.
+- `08b73c60946140c7370d9a3ab8d990f833052e384b09b68ae0867fe9715bd360` lost authored colors and
+  circles.
+
+The four user-classified malformed HTML sources and two obsolete HTML-sugar sources are excluded
+from table-rendering acceptance. Their identifiers and the rationale are recorded in
+[../refactor_progress.md](../refactor_progress.md).
+
+Acceptance checks readable content, correct browser rendering of valid source HTML/CSS, package
+integrity, media references, and grading. It does not compare pixels or require a Chromium result
+to match Python's older human-readable PNG output. Benchmarks measure browser lifecycle and
+conversion cost to guide improvements; no fixed speed threshold is a release gate.
 
 Run `cargo xtask table-gallery` after `cargo xtask table-corpus` to build
-`output_tables/gallery/run-<timestamp>/index.html`. Each invocation creates a fresh run directory
-so prior visual-review evidence remains available. The page shows the sandboxed live source,
-native PNG, and Python reference PNG for every harvested table, retaining typed native failures
-for review.
+`output_tables/gallery/run-<timestamp>/index.html`. A gallery is review evidence, not a permanent
+test suite. Regenerate it after a rendering change rather than preserving image goldens.

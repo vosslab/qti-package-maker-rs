@@ -1,5 +1,9 @@
 # Parity record
 
+The 2026-10-01 switch to Chromium reopens HTML-to-image verification. The results below
+describe the previous renderer; they do not certify the replacement. Readability and preserved
+source content govern visual acceptance, rather than matching Python's table appearance.
+
 This record applies the authority order in the active Rust-port plan: observed
 LMS behavior, documented format requirements, Python runtime behavior at the
 pinned revision, then advisory signals. Plain exports pass the full differential corpus;

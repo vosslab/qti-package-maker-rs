@@ -1,16 +1,17 @@
 """Preserve authored self-test markup while comparing equivalent line layout."""
 
+import pathlib
 import re
 
 
-def text_value(value):
+def text_value(value: str | None) -> str:
 	value = value or ''
 	if '\n' in value and not value.strip():
 		return ''
 	return re.sub(r'[\t\n\r\f ]+', ' ', value)
 
 
-def statement_structure(path):
+def statement_structure(path: pathlib.Path) -> list:
 	from lxml import html
 
 	root = html.fromstring(path.read_bytes())
@@ -20,7 +21,7 @@ def statement_structure(path):
 	tokens = []
 	table_containers = {'table', 'tr', 'thead', 'tbody', 'tfoot', 'colgroup', 'ul', 'ol'}
 
-	def add_text(value, parent=None, raw=False):
+	def add_text(value: str | None, parent: str | None = None, raw: bool = False) -> None:
 		value = value or ''
 		if not raw:
 			value = text_value(value)
@@ -29,7 +30,7 @@ def statement_structure(path):
 		if value:
 			tokens.append(['text', value])
 
-	def walk(node):
+	def walk(node: object) -> None:
 		parent = node.getparent().tag
 		if not isinstance(node.tag, str):
 			tokens.append(['comment', node.text or ''])
@@ -78,16 +79,23 @@ def statement_structure(path):
 		result.append(token)
 	while result and result[-1] == ['break']:
 		result.pop()
-	return result
+	# Block elements already separate adjacent text; extra whitespace or an
+	# unstyled paragraph boundary there does not change the displayed statement.
+	blocks = {'table', 'ul', 'ol', 'div'}
+	def block_boundary(token: list) -> bool:
+		return len(token) > 1 and token[0] in {'start', 'end'} and token[1] in blocks
+	return [token for index, token in enumerate(result)
+		if token not in (['break'], ['text', ' '])
+		or not ((index > 0 and block_boundary(result[index - 1]))
+			or (index + 1 < len(result) and block_boundary(result[index + 1])))]
 
 
-def selftest():
-	import pathlib
+def selftest() -> None:
 	import tempfile
 
 	with tempfile.TemporaryDirectory() as directory:
 		path = pathlib.Path(directory) / 'statement.html'
-		def project(value):
+		def project(value: str) -> list:
 			path.write_text('<div class="qti-statement">' + value + '</div>')
 			return statement_structure(path)
 		assert project('<p>First<br>Second</p>') == project('<p>First</p><p>Second</p>')

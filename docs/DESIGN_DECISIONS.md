@@ -88,6 +88,23 @@ carrier, but must retain the same Rust source round-trip.
 
 **Owner.** [blackboard_export_zip](../crates/qti-engines/src/blackboard_export_zip).
 
+### Chromium HTML-to-image rendering
+
+**Decision.** Render valid HTML tables through a local Chromium browser controlled directly from
+Rust. `QTI_CHROMIUM` optionally supplies the browser executable. Start it lazily and reuse it for
+the conversion; static RDKit canvases and sugar-library PNG/SVG outputs remain image paths.
+
+**Why.** Browser HTML/CSS support is the product requirement. The custom renderer rejected a gel
+band's `box-shadow` and omitted colors and circles from a pathway figure. Maintaining a partial
+browser engine would add recurring compatibility work without improving the instructor workflow.
+
+**Consequence.** Readable source-faithful Chromium output is the visual authority. The Python
+PNG is diagnostic evidence only, and wrapper fonts or viewport defaults are implementation
+choices rather than a pixel-parity contract. Chromium is a conditional local runtime dependency
+for table conversion; the production binary has no Python or Node.js runtime dependency.
+
+**Owner.** [HTML_TO_IMAGE.md](HTML_TO_IMAGE.md).
+
 - 2026-09-30: Release preparation uses the existing manual `devel/make_release.py`. Rust
   checks remain local in `devel/rust_release_check.sh`; Linux/macOS validation evidence is
   required before release. No GitHub Actions release workflow is part of this design.

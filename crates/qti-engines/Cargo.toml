@@ -7,9 +7,13 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+chromiumoxide.workspace = true
+futures.workspace = true
+tokio.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
 qti-core = { path = "../qti-core" }
 qti-molecule = { path = "../qti-molecule" }
-qti-raster = { path = "../qti-raster" }
 scraper.workspace = true
 markup5ever.workspace = true
 lol_html.workspace = true

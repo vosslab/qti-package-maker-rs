@@ -75,7 +75,8 @@ Use the short flags for common destinations. `--all` writes all ten registered f
 ```
 
 `--html-to-image` is available for Canvas QTI 1.2, Blackboard QTI 2.1, and Blackboard Original
-pool exports. It needs the optional RDKit shim only when the bank contains an RDKit canvas. See
+pool exports. Table rendering requires Chromium or Chrome. It needs the optional RDKit shim
+only when the bank contains an RDKit canvas. See
 [docs/HTML_TO_IMAGE.md](docs/HTML_TO_IMAGE.md) for the supported content and setup.
 
 ## Check before upload

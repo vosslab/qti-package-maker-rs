@@ -1,4 +1,4 @@
-//! Generate the human-review gallery for the native table rasterizer.
+//! Generate the human-review gallery using the production Chromium renderer.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -6,11 +6,12 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64::Engine;
+use qti_engines::html_to_image::{ChromiumFragmentRenderer, FragmentRenderer};
 use serde::Serialize;
 
 const PINNED_ORACLE_REVISION: &str = "55e5f368777f7809fe2e91b5d070caf6df0cb581";
 
-/// Generate browser-safe live-source, Python-reference, and native-raster columns for the corpus.
+/// Generate browser-safe live-source, Python-reference, and Chromium columns for the corpus.
 pub fn run(arguments: &[String]) -> Result<(), String> {
     let repository = repository_root()?;
     let corpus = parse_corpus(&repository, arguments)?;
@@ -28,6 +29,7 @@ pub fn run(arguments: &[String]) -> Result<(), String> {
     let sources = table_sources(&tables)?;
     let python = run_python_references(&repository, &sources, &output)?;
     let mut entries = Vec::with_capacity(sources.len());
+    let renderer = ChromiumFragmentRenderer::default();
     for source in &sources {
         let html = fs::read_to_string(source).map_err(display_error)?;
         let name = source
@@ -35,7 +37,9 @@ pub fn run(arguments: &[String]) -> Result<(), String> {
             .and_then(|value| value.to_str())
             .ok_or_else(|| format!("invalid corpus filename: {}", source.display()))?;
         let native = match prepare_native_table(&html).and_then(|prepared| {
-            qti_raster::render_table_png(&prepared, &qti_raster::RasterConfig::default())
+            renderer
+                .render_table(&prepared)
+                .map(|png| png.bytes)
                 .map_err(|error| error.to_string())
         }) {
             Ok(png) => {
@@ -75,7 +79,7 @@ pub fn run(arguments: &[String]) -> Result<(), String> {
         .filter(|entry| entry.native_result != "png")
         .count();
     println!(
-        "table gallery: {} of {} entries rendered natively; receipt: {}",
+        "table gallery: {} of {} entries rendered with Chromium; receipt: {}",
         receipt.len() - native_errors,
         entries.len(),
         output.join("receipt.json").display()
@@ -312,7 +316,7 @@ fn run_python_references(
 
 fn render_gallery(entries: &[GalleryEntry]) -> String {
     let mut page = String::from(
-        "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>QTI table raster gallery</title><style>body{font-family:system-ui,sans-serif;margin:1rem;background:#f5f6f7}h1{margin-bottom:0}.note{max-width:90rem}.entry{background:white;border:1px solid #b8bdc4;border-radius:.35rem;margin:1rem 0;padding:1rem}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}.pane{min-width:0}.pane h2{font-size:1rem}.source{width:100%;min-height:220px;border:1px solid #88919b;background:white}.image{max-width:100%;height:auto;border:1px solid #88919b;background:white}.error{white-space:pre-wrap;color:#9d1c1c;background:#fff1f1;border:1px solid #d8a3a3;padding:.5rem}</style><h1>QTI native table raster gallery</h1><p class=\"note\">Each source preview runs in a sandbox without scripts. The Python column is produced by the pinned package renderer with its actual wrapper and canvas options. A native error remains visible for subset review; it is not replaced with an estimate.</p>",
+        "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>QTI table raster gallery</title><style>body{font-family:system-ui,sans-serif;margin:1rem;background:#f5f6f7}h1{margin-bottom:0}.note{max-width:90rem}.entry{background:white;border:1px solid #b8bdc4;border-radius:.35rem;margin:1rem 0;padding:1rem}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}.pane{min-width:0}.pane h2{font-size:1rem}.source{width:100%;min-height:220px;border:1px solid #88919b;background:white}.image{max-width:100%;height:auto;border:1px solid #88919b;background:white}.error{white-space:pre-wrap;color:#9d1c1c;background:#fff1f1;border:1px solid #d8a3a3;padding:.5rem}</style><h1>QTI Chromium table gallery</h1><p class=\"note\">Each source preview runs in a sandbox without scripts. The Python column is produced by the pinned package renderer with its actual wrapper and canvas options. Judge readability and source content. Python images are diagnostic references, not visual acceptance targets. Rendering errors remain visible.</p>",
     );
     for entry in entries {
         page.push_str("<section class=\"entry\"><h2>");
@@ -327,7 +331,7 @@ fn render_gallery(entries: &[GalleryEntry]) -> String {
         }
         page.push_str("</p><div class=\"grid\"><div class=\"pane\"><h2>Live source</h2><iframe class=\"source\" sandbox srcdoc=\"");
         page.push_str(&escape_attribute(&live_source_document(&entry.html)));
-        page.push_str("\"></iframe></div><div class=\"pane\"><h2>Rust native PNG</h2>");
+        page.push_str("\"></iframe></div><div class=\"pane\"><h2>Rust Chromium PNG</h2>");
         append_result(&mut page, &entry.native);
         page.push_str("</div><div class=\"pane\"><h2>Python PNG</h2>");
         append_result(&mut page, &entry.python);

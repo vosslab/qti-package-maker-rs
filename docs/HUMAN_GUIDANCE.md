@@ -10,6 +10,14 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ## Rust port
 
+- Use Chromium for HTML-to-image. Python table rendering is not a visual target: it also
+  needed improvements and remains poor. Prioritize readable tables and preserved content.
+
+- HTML-to-image is a moving target; do not maintain our own HTML renderer. Use an
+  established rendering engine. Existing sugar-library PNG/SVG exports should replace HTML sugars.
+- The 2026-10-01 gallery review rejects two real rendering failures, excludes four malformed
+  HTML inputs, and excludes two obsolete HTML sugars. Exact IDs are recorded in the progress ledger.
+
 - Prefer the vendored `devel/bump_version.py -cA`. `26.09` and `26.9` mean the same version.
   Focus review on correctness, maintainability, validation, and delivery; avoid bikeshedding.
 

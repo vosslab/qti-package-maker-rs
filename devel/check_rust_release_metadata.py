@@ -6,6 +6,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import version_lib
 
 
 EXPECTED_LICENSE = "LGPL-3.0-or-later"
@@ -23,7 +24,9 @@ def main() -> None:
 			text=True,
 		).stdout.strip()
 	)
-	version = (repository / "VERSION").read_text(encoding="ascii").strip()
+	version = version_lib.normalize_cargo_version(
+		(repository / "VERSION").read_text(encoding="ascii").strip()
+	)
 	if not CALVER_SEMVER.fullmatch(version):
 		raise RuntimeError(
 			"VERSION must use normalized CalVer Cargo SemVer YY.M.P, "

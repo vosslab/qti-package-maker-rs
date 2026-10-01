@@ -1,15 +1,18 @@
 [workspace]
-members = ["crates/qti-core", "crates/qti-integrity", "crates/qti-engines", "crates/qti-cli", "crates/qti-raster", "crates/qti-molecule", "xtask"]
+members = ["crates/qti-core", "crates/qti-integrity", "crates/qti-engines", "crates/qti-cli", "crates/qti-molecule", "xtask"]
 resolver = "3"
 
 [workspace.package]
-version = "26.9.0"
+version = "26.10.0"
 repository = "https://github.com/vosslab/qti-package-maker-rs"
 edition = "2024"
 rust-version = "1.98.1"
 license = "LGPL-3.0-or-later"
 
 [workspace.dependencies]
+chromiumoxide = "*"
+futures = "*"
+tokio = { version = "*", features = ["rt-multi-thread"] }
 time = { version = "*", features = ["local-offset"] }
 clap = { version = "*", features = ["derive"] }
 serde = { version = "*", features = ["derive"] }
@@ -27,10 +30,5 @@ lol_html = "*"
 serde_yaml_ng = "*"
 base64 = "*"
 percent-encoding = "*"
-cssparser = "*"
-cosmic-text = "*"
-tiny-skia = "*"
-png = "*"
-resvg = "*"
 rayon = "*"
 zip = { version = "*", default-features = false, features = ["deflate"] }

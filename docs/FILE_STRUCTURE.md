@@ -47,7 +47,7 @@ crates/
 |  +- src/input.rs                  Bounded ZIP and directory input handling
 |  +- src/checker.rs                XML, manifest, media, and format checks
 |  `- src/checker_tests.rs          Focused checker regressions
-+- qti-raster/                      Native supported-table PNG renderer
++- qti-raster/fonts/                Bundled font assets and licenses (renderer removed)
 |  +- src/subset.rs                 Parser and typed unsupported-feature errors
 |  +- src/style.rs                  Styles, defaults, and CSS values
 |  +- src/table_layout/             Grid and collapsed-border layout helpers

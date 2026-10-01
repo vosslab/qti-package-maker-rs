@@ -6,7 +6,7 @@ use std::process::Command;
 use std::time::Instant;
 
 use qti_engines::html_to_image::{
-    ConversionMetrics, NativeFragmentRenderer, RenderCache, convert_bank_with_metrics,
+    ChromiumFragmentRenderer, ConversionMetrics, RenderCache, convert_bank_with_metrics,
 };
 use qti_engines::{ENGINES, EngineOptions};
 use serde_json::{Value, json};
@@ -306,7 +306,7 @@ fn native_library_metrics(inputs: &[Value]) -> Result<Value, String> {
         .find(|entry| entry.name == "bbq_text_upload")
         .expect("static BBQ reader");
     let reader = entry.make_reader.expect("static BBQ reader factory")(EngineOptions::default());
-    let renderer = NativeFragmentRenderer::default();
+    let renderer = ChromiumFragmentRenderer::default();
     let mut metrics = ConversionMetrics::default();
     let mut load_seconds = 0.0;
     let mut conversion_wall_seconds = 0.0;
@@ -347,9 +347,9 @@ fn native_library_metrics(inputs: &[Value]) -> Result<Value, String> {
         "cache": {"hits": metrics.cache_hits, "waits": metrics.cache_waits, "misses": metrics.cache_misses},
         "renderer": {"attempts": metrics.renderer_attempts, "successes": metrics.renderer_successes, "failures": metrics.renderer_failures},
         "cumulative_work_seconds": {
-            "layout": metrics.render.layout.as_secs_f64(),
-            "paint": metrics.render.paint.as_secs_f64(),
-            "encode": metrics.render.encode.as_secs_f64(),
+            "layout": null,
+            "paint": null,
+            "encode": null,
             "materialization_write": metrics.materialization.as_secs_f64(),
             "bookkeeping": metrics.conversion_bookkeeping.as_secs_f64()
         }
@@ -426,24 +426,21 @@ fn native_report(receipt: &Value) -> String {
         ));
     }
     report.push('\n');
-    report.push_str("All 181 release CLI invocations completed successfully in both modes with the certified RDKit shim. Both modes request --html-to-image. The three-format run has three successful ORDER-only inputs with two artifacts instead of three because Canvas returns a no-output outcome for unsupported ORDER items; Blackboard export still emits an empty valid package and diagnostic. Short outputs are not errors.\n");
+    report.push_str("Both modes request --html-to-image. The table above records actual invocation failures and output counts; detailed failures are retained in receipt.json. A short output can be expected when an input contains only an unsupported item type, such as ORDER for Canvas, but must be assessed alongside the recorded failures.\n");
     report.push_str("\n## Stage attribution\n\nThe release-binary lane records only end-to-end wall time and artifacts. The separate library pass below exposes the approved conversion and raster counters without altering CLI behavior.\n");
-    report.push_str("\n## Library conversion metrics\n\nA separate library pass uses the same manifest inputs and one fresh run-scoped cache per input, matching the CLI conversion scope. `conversion_wall_seconds` is elapsed sequential wall time for that pass. Layout, paint, encode, materialization, and bookkeeping are cumulative work under Rayon and must not be summed or compared directly to wall time.\n\n");
-    report.push_str("| Run | Requests | Attempts | Cache hit/wait/miss | Conversion wall | Layout work | Paint work | Encode work | Write work | Bookkeeping work |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n");
+    report.push_str("\n## Library conversion metrics\n\nA separate library pass uses the same manifest inputs and one fresh run-scoped cache per input, matching the CLI conversion scope. `conversion_wall_seconds` is elapsed sequential wall time for that pass. Chromium does not expose separate layout, paint, or PNG encoding timings here; those fields are null. Materialization and bookkeeping are cumulative work under Rayon, not elapsed wall time.\n\n");
+    report.push_str("| Run | Requests | Attempts | Cache hit/wait/miss | Conversion wall | Write work | Bookkeeping work |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n");
     for (name, run) in receipt["runs"].as_object().expect("constructed runs") {
         let metrics = &run["library_conversion_metrics"];
         let work = &metrics["cumulative_work_seconds"];
         report.push_str(&format!(
-            "| `{name}` | {} | {} | {}/{}/{} | {:.3} | {:.3} | {:.3} | {:.3} | {:.3} | {:.3} |\n",
+            "| `{name}` | {} | {} | {}/{}/{} | {:.3} | {:.3} | {:.3} |\n",
             metrics["requested_fragments"],
             metrics["renderer"]["attempts"],
             metrics["cache"]["hits"],
             metrics["cache"]["waits"],
             metrics["cache"]["misses"],
             number(metrics, "conversion_wall_seconds"),
-            number(work, "layout"),
-            number(work, "paint"),
-            number(work, "encode"),
             number(work, "materialization_write"),
             number(work, "bookkeeping"),
         ));

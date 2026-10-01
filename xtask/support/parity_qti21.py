@@ -223,6 +223,7 @@ def visual_choice_identity(node: element_tree.Element) -> str:
             return contents
         return [[current.tag, attributes, collapse(current.text or ""), contents]]
     if not any(local(candidate).lower() in {"table", "svg", "img", "canvas"}
+               or (qti(candidate, "span") and candidate.attrib.get("style"))
                for candidate in node.iter()):
         raise ValueError("nontext QTI choice has no supported visual content")
     payload = json.dumps(tree(node, True), sort_keys=True).encode()

@@ -5,14 +5,15 @@
 
 mod cache;
 mod canvas_script;
+mod chromium;
 mod convert;
 mod naming;
 mod selectors;
 
 pub use cache::{CacheOutcome, RenderCache, RenderMetrics, RenderedPng};
 pub use convert::{
-    ConversionError, ConversionFailure, ConversionMetrics, FragmentRenderer,
-    NativeFragmentRenderer, NativeRenderError, convert_bank, convert_bank_with_metrics,
+    ChromiumFragmentRenderer, ChromiumRenderError, ConversionError, ConversionFailure,
+    ConversionMetrics, FragmentRenderer, convert_bank, convert_bank_with_metrics,
 };
 
 pub use canvas_script::{CanvasScriptError, parse_canvas_script};

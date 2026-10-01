@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-10-01
+
+- Chromium replacement verification passes: all 290 gallery tables render; the reported pathway
+  colors/circles and gel shadows render correctly in three-format exports. All 12 final smoke
+  packages pass integrity, including script/redirect boundary fixtures. Workspace tests (248),
+  strict Clippy, formatting, and optimized builds pass. Repository checks pass after removing
+  stale debug artifacts; no permanent browser or screenshot tests were added.
+
+- Replaced custom HTML layout with a shared Chromium session controlled through Rust.
+  Removed the custom rasterizer implementation and its implementation-specific tests; kept
+  bundled fonts and the existing conversion, cache, media, and RDKit canvas contracts.
+  Chromium now preserves the reported gel shadows and pathway colors/circles. Installed Chrome
+  or Chromium is required for table images; `QTI_CHROMIUM` can select its executable.
+  Python table appearance is reference material, not an exact-match acceptance requirement.
+
+- Corrected the visual-failure record from the user's clarification: the gel rejects
+  `box-shadow`; the pathway loses colors and circles. Earlier saved-image observations
+  did not describe the user's failing render.
+
+- Recorded the user's 2026-10-01 rejection of custom HTML rendering, two genuine gallery
+  failures, four malformed-source exclusions, and two obsolete HTML-sugar exclusions.
+  Native rendering acceptance is reopened; existing automated checks do not override this review.
+
+- Restored the date heading required by the changelog parser so the vendored commit helper
+  can detect added entries and seed a commit message.
+
 - Retired 73 ignored implementation-proof and captured-source files from the temporary test
   workspace. Their source is preserved in a verified ignored archive; result receipts remain
   available for review. No permanent tests were added.

@@ -8,6 +8,8 @@ artifact is certified yet.
 - Rust 1.98.1 or later with Cargo.
 - macOS or Linux source-build environment. The current native development target is macOS arm64.
 - Python is not required to build or run either production CLI binary.
+- A local Chromium-compatible browser is required only for `--html-to-image` tables. Put it on
+  `PATH`, or set `QTI_CHROMIUM` to its executable path.
 
 ## Build from source
 
@@ -31,6 +33,21 @@ Cargo writes these binaries into `target/release/`:
 
 The first command prints conversion options. The second reports the registered reader and writer
 capabilities. These commands run without Python.
+
+## HTML-to-image tables
+
+Table conversion uses a local Chromium process controlled directly by the Rust binary. It does
+not require a Node.js or Python production runtime. Use `QTI_CHROMIUM` when the browser is not
+discoverable on `PATH`:
+
+```bash
+export QTI_CHROMIUM=/absolute/path/to/chromium
+./target/release/bbq-converter --input questions.txt --qti21 --html-to-image
+```
+
+The converter starts Chromium only for a selected input that contains tables. Static RDKit canvases
+remain optional and follow the setup below. See [HTML_TO_IMAGE.md](HTML_TO_IMAGE.md) for the
+rendering and acceptance contract.
 
 ## Optional RDKit canvas support
 
@@ -110,5 +127,5 @@ It does not run the Rust validation checks or publish a release itself.
   `devel/make_release.py`. Working-tree builds on macOS arm64 and Linux arm64 pass; the Linux
   x86_64 release binaries are cross-built and pass three-format table conversion and package
   checks under amd64 emulation.
-- Record the user's visual decision on the native table gallery. Corpus conversion, package
-  integrity, and the comparison against Python's conversion time have passed.
+- Repeat HTML-to-image corpus, package, and visual evidence after the Chromium renderer is
+  integrated. The prior native-raster gallery is historical evidence only.

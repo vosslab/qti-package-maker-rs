@@ -1,7 +1,7 @@
 """Bounded browser-implied paragraph closure for QTI HTML."""
 
 
-def normalize(parent):
+def normalize(parent: object) -> None:
 	from xtask.support.parity_qti21 import qti, collapse
 
 	for child in list(parent):

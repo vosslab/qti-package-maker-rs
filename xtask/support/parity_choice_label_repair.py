@@ -1,5 +1,6 @@
 """Reproduce frozen MC output before correcting its nested display-label defect."""
 
+import collections.abc
 import hashlib
 import json
 import pathlib
@@ -9,7 +10,7 @@ import tempfile
 PREFIX = re.compile(r'(?is)^(?P<leading>(?:\s*<[^/!][^>]*>\s*)*)(?P<label>[A-Za-z0-9][):.])\s*')
 
 
-def corrected(value, frozen_strip):
+def corrected(value: str, frozen_strip: collections.abc.Callable) -> str | None:
 	match = PREFIX.match(value)
 	if not match or frozen_strip(value) != value:
 		return None
@@ -18,7 +19,7 @@ def corrected(value, frozen_strip):
 	return match.group('leading') + value[match.end():]
 
 
-def selftest():
+def selftest() -> None:
 	unchanged = lambda value: value
 	assert corrected('<div style="color:red"><span>A. Alpha</span></div>', unchanged) == '<div style="color:red"><span>Alpha</span></div>'
 	assert corrected('<div><span>1.5 units</span></div>', unchanged) is None
@@ -27,7 +28,7 @@ def selftest():
 	assert corrected('<div><span>A. Alpha A. content</span></div>', unchanged) == '<div><span>Alpha A. content</span></div>'
 
 
-def compare(engine, python_path, rust_path, original_compare):
+def compare(engine: str, python_path: pathlib.Path, rust_path: pathlib.Path, original_compare: collections.abc.Callable) -> tuple | None:
 	from qti_package_maker import package_interface
 	from qti_package_maker.common import string_functions
 	from xtask.support import parity_oracle as oracle
@@ -57,7 +58,7 @@ def compare(engine, python_path, rust_path, original_compare):
 	if answer not in choices or len(choices) != len(set(choices)):
 		raise ValueError('choice-label repair changes authored answer identity')
 
-	def frozen_value(path):
+	def frozen_value(path: pathlib.Path) -> object:
 		if engine == 'blackboard_export_zip':
 			from xtask.support.parity_blackboard import xml_projection
 			return {'semantic': xml_projection(path, allow_frozen_source_repairs=True), 'readback': oracle.readback_outcome(path, engine)}

@@ -40,11 +40,6 @@ pub enum CliError {
     /// The operating system did not provide a local civil time.
     #[error("could not obtain the host local civil date: {message}")]
     LocalDate { message: String },
-    /// The checked-in release version differs from the compiled package version.
-    #[error(
-        "VERSION MISMATCH: repo VERSION file says {repository}, but qti-cli was built as {binary}; rebuild from this checkout"
-    )]
-    VersionMismatch { repository: String, binary: String },
 }
 
 impl CliError {
@@ -58,10 +53,7 @@ impl CliError {
             | Self::AmbiguousEngine { .. }
             | Self::ReaderUnavailable { .. }
             | Self::WriterUnavailable { .. } => 2,
-            Self::Engine(_)
-            | Self::HtmlToImage(_)
-            | Self::LocalDate { .. }
-            | Self::VersionMismatch { .. } => 1,
+            Self::Engine(_) | Self::HtmlToImage(_) | Self::LocalDate { .. } => 1,
         }
     }
 }
