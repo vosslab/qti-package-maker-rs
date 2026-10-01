@@ -22,3 +22,6 @@ _temp*.?*
 # ADD YOUR CUSTOM IGNORES BELOW
 # Propagation preserves this section.
 # Template-only ignores.
+/rust-code-technical-books
+/xtask/**/__pycache__/
+/xtask/src/bin/m19_conversion_receipt.rs

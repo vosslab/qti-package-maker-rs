@@ -1,0 +1,17 @@
+[package]
+name = "qti-raster"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+cssparser.workspace = true
+scraper.workspace = true
+thiserror.workspace = true
+cosmic-text.workspace = true
+tiny-skia.workspace = true
+png.workspace = true
+resvg.workspace = true
+base64.workspace = true

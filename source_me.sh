@@ -18,13 +18,22 @@ source ~/.bashrc
 export PYTHONUNBUFFERED=1
 export PYTHONDONTWRITEBYTECODE=1
 
-# --- Optional: repo-root import path (disabled by default) -------------------
-# Uncomment ONLY if this repo needs its repo-root modules importable when
-# commands run from a subdirectory without installing the repo -- most commonly
-# a repo-root package imported package-qualified (e.g. `import mypkg.thing`)
-# from an application-facing launcher, or tests that import repo-root modules.
-# Must come after sourcing ~/.bashrc, which clears PYTHONPATH.
-# Assumes the repo is inside a Git work tree (git rev-parse).
-#REPO_ROOT="$(git rev-parse --show-toplevel)"
-#export PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}"
-#unset REPO_ROOT
+# Qualified development helper imports must work from any caller directory.
+# Derive the repository from this script after ~/.bashrc clears PYTHONPATH.
+QTI_DEVEL_REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PYTHONPATH="$QTI_DEVEL_REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+unset QTI_DEVEL_REPO_ROOT
+
+# Development-only Python parity oracle; shipping Rust code never imports Python.
+QTI_ORACLE_ROOT="${QTI_ORACLE_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../qti-package-maker" && pwd)}"
+export PYTHONPATH="$QTI_ORACLE_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+unset QTI_ORACLE_ROOT
+
+# Corpus subprocesses run in an isolated directory with source helpers on their import path.
+if [[ -n "${QTI_CORPUS_IMPORT_PATH:-}" ]]; then
+	export PYTHONPATH="$QTI_CORPUS_IMPORT_PATH${PYTHONPATH:+:$PYTHONPATH}"
+fi
+# This host installs the Python 3.12 development-oracle modules here (see AGENTS.md).
+if [[ -d /opt/homebrew/lib/python3.12/site-packages ]]; then
+	export PYTHONPATH="/opt/homebrew/lib/python3.12/site-packages${PYTHONPATH:+:$PYTHONPATH}"
+fi

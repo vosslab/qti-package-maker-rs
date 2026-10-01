@@ -1,0 +1,28 @@
+[package]
+name = "xtask"
+default-run = "xtask"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+qti-cli = { path = "../crates/qti-cli" }
+zip.workspace = true
+quick-xml.workspace = true
+qti-core = { path = "../crates/qti-core" }
+qti-raster = { path = "../crates/qti-raster" }
+qti-engines = { path = "../crates/qti-engines" }
+qti-molecule = { path = "../crates/qti-molecule" }
+qti-integrity = { path = "../crates/qti-integrity" }
+serde_json.workspace = true
+sha2.workspace = true
+regex.workspace = true
+scraper.workspace = true
+serde.workspace = true
+base64.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

@@ -779,6 +779,31 @@ these should have a reason, because a derive cannot drift out of sync with the f
   `>=LATEST`, where `LATEST` is the stable version available at refresh time.
 - `Cargo.lock` resolves the current reviewed manifest and passes dependency security checks.
 
+## 18. Project command boundaries
+
+This workspace ships two native binaries from `qti-cli`: `bbq-converter` for BBQ conversion and
+`qti-package-maker` for capability and package-integrity inspection. Keep their process roots thin
+and put parsing, dispatch, writer behavior, and diagnostics in testable library code. Build both
+from source with:
+
+```bash
+cargo build --release -p qti-cli --bins
+```
+
+Use the compiled `qti-package-maker engines` command to inspect the registered engine set instead
+of duplicating a format list in source comments. `bbq-converter` reports recoverable writer media
+diagnostics on standard error and reserves standard output for progress and completion receipts.
+
+The production binaries never import Python. Python is a development-only oracle for `cargo xtask`
+corpus, integrity, parity, and benchmark commands. Native table rendering has no browser dependency.
+The optional RDKit canvas shim is runtime-loaded only when a conversion reaches a static canvas;
+keep its FFI boundary isolated in `qti-molecule` and its install evidence in
+[RDKIT_DEPENDENCY_DECISION.md](RDKIT_DEPENDENCY_DECISION.md).
+
+Do not claim format parity, visual acceptance, speed, or release readiness from a successful build
+or focused crate test. The active plan, [PARITY.md](PARITY.md), and
+[../refactor_progress.md](../refactor_progress.md) name the remaining evidence gates.
+
 ## References
 
 Every source cited here is freely readable online. Three carry most of the weight:

@@ -1,0 +1,36 @@
+[workspace]
+members = ["crates/qti-core", "crates/qti-integrity", "crates/qti-engines", "crates/qti-cli", "crates/qti-raster", "crates/qti-molecule", "xtask"]
+resolver = "3"
+
+[workspace.package]
+version = "26.9.0"
+repository = "https://github.com/vosslab/qti-package-maker-rs"
+edition = "2024"
+rust-version = "1.98.1"
+license = "LGPL-3.0-or-later"
+
+[workspace.dependencies]
+time = { version = "*", features = ["local-offset"] }
+clap = { version = "*", features = ["derive"] }
+serde = { version = "*", features = ["derive"] }
+thiserror = "*"
+crc = "*"
+regex = "*"
+serde_json = { version = "*", features = ["float_roundtrip"] }
+quick-xml = "*"
+scraper = "*"
+markup5ever = "*"
+indexmap = "*"
+tempfile = "*"
+sha2 = "*"
+lol_html = "*"
+serde_yaml_ng = "*"
+base64 = "*"
+percent-encoding = "*"
+cssparser = "*"
+cosmic-text = "*"
+tiny-skia = "*"
+png = "*"
+resvg = "*"
+rayon = "*"
+zip = { version = "*", default-features = false, features = ["deflate"] }

@@ -1,56 +1,63 @@
 # qti-package-maker-rs
 
-An in-progress Rust workspace for producing assessment-package formats from BBQ question banks,
-built to reach feature parity with the established Python converter.
+An in-progress Rust workspace for producing assessment packages from BBQ question banks, built to
+reach feature parity with the established Python converter.
 
-## Port status
+## Current status
 
-This repository is at the workspace-foundation stage. The Rust port has no shipped converter yet,
-and it does not currently create QTI, Blackboard, or other assessment packages. The active plan
-defines the parity work, including native table and canvas rasterization, corpus checks, and
-cross-language verification before a converter is presented as ready.
+The native converter and inspection binaries are implemented. This is not a release certification:
+format parity, native-table visual acceptance, and the required speed comparison remain open gates.
 
 The workspace currently provides these foundations:
 
-- Separate crates for core data and helpers, package integrity, output engines, and the future CLI.
-- An `xtask` development entry point for parity and corpus tooling as those checks are implemented.
-- A Rust 2024 workspace with a declared minimum Rust version of 1.98.1.
+- Ten registered writers and four readers, with native CLI reporting for writer media warnings.
+- A validated core library for the seven Python assessment-item types, item banks, media, ZIPs, and
+  package integrity checks.
+- A pinned CRC corpus check that agrees for 1,108 Python items from 191 files and seven synthetic
+  shape cases.
+
+The workspace uses the Rust 2024 edition and is compiled with Rust 1.98.1 or later.
 
 ## Quick start
 
-Install Rust 1.98.1 or later, then build the workspace and inspect the available development entry
-point:
+Install Rust 1.98.1 or later, then build the native binaries and inspect registered engines:
 
 ```bash
-cargo build
-cargo xtask --help
+cargo build --release -p qti-cli --bins
+./target/release/qti-package-maker engines
 ```
 
-`cargo build` compiles the current workspace. The second command prints the `xtask` usage message
-and states that parity and corpus commands are still under implementation. It does not convert a
-question bank or write a package.
+The first command creates `bbq-converter` and `qti-package-maker`. The second lists the current
+read/write and media-policy capabilities. See [docs/INSTALL.md](docs/INSTALL.md) for source builds
+and the optional native RDKit canvas shim.
 
-## Current command
+## Native commands
 
 ```text
-$ cargo xtask --help
-Usage: cargo xtask --help
-Parity and corpus commands are under implementation.
+$ ./target/release/bbq-converter --help
+Convert BBQ questions to assessment formats
+
+Usage: bbq-converter [OPTIONS] --input <INPUT>
 ```
 
-The `xtask` command is a Cargo alias configured in
-[.cargo/config.toml](.cargo/config.toml). It is the current executable front door while converter
-commands are being built.
+`bbq-converter` converts a BBQ input to selected formats. `qti-package-maker` lists engines and
+item kinds or checks a finished package. [docs/USAGE.md](docs/USAGE.md) documents their options,
+output names, and warning behavior.
 
-## Development roadmap
+## Development progress
 
-The implementation target is feature parity with the maintained Python converter, not a smaller
-replacement. The current plan covers the workspace crates, question-bank behavior, package
-writers, validation, CLI behavior, cross-language parity checks, and the native `--html-to-image`
-path.
+The implementation target is feature parity with the maintained Python converter. Current package
+writers and CLI behavior have evidence, while full cross-format parity, native raster visual
+acceptance, speed comparison, and release gates remain in progress.
 
 - [docs/active_plans/active/rust_port_plan.md](docs/active_plans/active/rust_port_plan.md) - active
   Rust-port plan and acceptance criteria.
+- [refactor_progress.md](refactor_progress.md) - current milestone states and remaining gates.
+- [docs/INSTALL.md](docs/INSTALL.md) - source build and optional native dependencies.
+- [docs/USAGE.md](docs/USAGE.md) - native CLI commands and output contracts.
+- [docs/PARITY.md](docs/PARITY.md) - parity authority and currently completed evidence.
+- [docs/RDKIT_DEPENDENCY_DECISION.md](docs/RDKIT_DEPENDENCY_DECISION.md) - optional canvas-renderer
+  dependency and recorded platform evidence.
 - [docs/RUST_STYLE.md](docs/RUST_STYLE.md) - Rust and Cargo conventions for contributors.
 - [docs/REPO_STYLE.md](docs/REPO_STYLE.md) - repository-wide development conventions.
 
