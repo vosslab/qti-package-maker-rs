@@ -57,7 +57,7 @@ impl FragmentRenderer for ChromiumFragmentRenderer {
         let shim = std::env::var_os("QTI_RDKIT_SHIM")
             .map(|path| path.to_string_lossy().into_owned())
             .unwrap_or_else(|| "unconfigured".to_owned());
-        format!("chromium-v1;browser={browser};scale=2;rdkit-shim={shim}")
+        format!("chromium-v2;browser={browser};scale=2;rdkit-shim={shim}")
     }
 
     fn render_canvas(&self, source: &CanvasSource) -> Result<RenderedPng, Self::Error> {

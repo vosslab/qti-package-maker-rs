@@ -6,7 +6,7 @@
 validated assessment-item kinds, optionally converts supported HTML tables and static molecule
 canvases to PNG media, and writes assessment packages. It also inspects completed packages and
 provides parity, corpus, benchmark, and gallery tooling. [Cargo.toml](../Cargo.toml) defines the
-seven workspace members and the Rust 1.98.1 minimum version.
+six workspace members and the Rust 1.98.1 minimum version.
 
 Each crate root is a small public facade. It re-exports stable types and functions while focused
 implementation modules remain private where possible.
@@ -43,13 +43,13 @@ selects supported fragments, statically parses permitted canvas scripts, renders
 tables, assigns item-scoped names, and uses a content-hash cache. The CLI invokes this conversion
 once before sending the converted bank to eligible selected writers.
 
-### Native rendering
+### Table and molecule rendering
 
 ```text
 HTML fragment with embedded media
   -> shared Chromium session
   -> browser HTML/CSS layout
-  -> element PNG screenshot
+  -> document-bounds PNG capture
 ```
 
 Chromium owns HTML/CSS layout. The adapter serializes access to one lazily created page;
@@ -102,19 +102,19 @@ documentation, source-size, and tooling rules.
 - Add an engine in a responsibility-named module under
   [crates/qti-engines/src/lib.rs](../crates/qti-engines/src/lib.rs), implement its trait, and
   register it in [crates/qti-engines/src/registry.rs](../crates/qti-engines/src/registry.rs).
-- Add a table construct at its parser, style, layout, or paint owner. Update
-  [HTML_TO_IMAGE.md](HTML_TO_IMAGE.md) and add a focused regression before expanding the subset.
+- Keep HTML/CSS layout in Chromium. Change selection, asset preparation, or screenshot capture
+  in the owning `html_to_image` module when a demonstrated conversion problem requires it.
 - Add CLI behavior in [crates/qti-cli/src/app.rs](../crates/qti-cli/src/app.rs) with a process
   assertion in [crates/qti-cli/tests/cli_contract.rs](../crates/qti-cli/tests/cli_contract.rs).
 - Add reproducible development evidence as an `xtask` subcommand instead of a production-crate
   dependency.
 
-## Known gaps
+## Validation boundaries
 
-- Complete M13 differential parity across supported item kinds and media cases; the current
-  M13 status is incomplete in [PARITY.md](PARITY.md).
-- Record the required user visual signoff for the native-renderer gallery in
-  [refactor_progress.md](../refactor_progress.md).
-- Complete M19's current-binary benchmark comparison and remaining local and remote release
-  gates listed in [active_plans/active/rust_port_plan.md](active_plans/active/rust_port_plan.md).
+Implementation verification covers all formats, the refreshed Chromium corpus, and platform
+builds. [PARITY.md](PARITY.md) distinguishes semantic agreement from incidental serialization
+and frozen-reference defects. Chromium can delay its first screenshot; see the
+[benchmark report](active_plans/reports/html_to_image_native_benchmark.md).
 
+Real LMS imports and native Linux amd64 Chromium execution remain external validation.
+Manual release preparation operates on human-committed source, as described in [INSTALL.md](INSTALL.md).

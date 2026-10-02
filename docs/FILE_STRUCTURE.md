@@ -48,13 +48,6 @@ crates/
 |  +- src/checker.rs                XML, manifest, media, and format checks
 |  `- src/checker_tests.rs          Focused checker regressions
 +- qti-raster/fonts/                Bundled font assets and licenses (renderer removed)
-|  +- src/subset.rs                 Parser and typed unsupported-feature errors
-|  +- src/style.rs                  Styles, defaults, and CSS values
-|  +- src/table_layout/             Grid and collapsed-border layout helpers
-|  +- src/inline_layout.rs          Text, inline, and decorated-box layout
-|  +- src/render_assembly.rs        Display-list assembly
-|  +- src/paint.rs                  Raster painting and PNG encoding
-|  `- fonts/                        Embedded Atkinson font files and licenses
 +- qti-molecule/                    Optional RDKit canvas renderer
 |  +- src/source.rs                 Validated CanvasSource model
 |  +- src/renderer.rs               Safe runtime shim loader
@@ -119,12 +112,12 @@ Rust build products are written to `target/` by Cargo. Python helper caches can 
 - [INSTALL.md](INSTALL.md) explains source builds and the optional RDKit shim.
 - [USAGE.md](USAGE.md) documents native command-line interfaces and output contracts.
 - [RUST_STYLE.md](RUST_STYLE.md) defines Rust and Cargo conventions.
-- [HTML_TO_IMAGE.md](HTML_TO_IMAGE.md) defines the supported native-rendering subset.
+- [HTML_TO_IMAGE.md](HTML_TO_IMAGE.md) defines Chromium rendering and the static-canvas contract.
 - [PARITY.md](PARITY.md) records completed parity evidence and open scope.
 - [DEPENDENCY_DECISIONS.md](DEPENDENCY_DECISIONS.md) and
   [RDKIT_DEPENDENCY_DECISION.md](RDKIT_DEPENDENCY_DECISION.md) record dependency choices.
 - [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md) describes component boundaries and data flow.
-- [active_plans/active/rust_port_plan.md](active_plans/active/rust_port_plan.md) is the active
+- [archive/rust_port_plan.md](archive/rust_port_plan.md) is the completed
   Rust-port plan; [refactor_progress.md](../refactor_progress.md) records milestone state.
 
 ## Where to add new work
@@ -135,7 +128,5 @@ Rust build products are written to `target/` by Cargo. Python helper caches can 
   directory. Put repository-policy tests under [tests/TESTS_README.md](../tests/TESTS_README.md).
 - Put development evidence commands under [xtask/src/main.rs](../xtask/src/main.rs) and Python
   support under [xtask/support/parity_oracle.py](../xtask/support/parity_oracle.py).
-- Put durable reference documents directly in [RUST_STYLE.md](RUST_STYLE.md). Put in-flight plans,
-  decisions, reports, and workstreams under
-  [active_plans/active/rust_port_plan.md](active_plans/active/rust_port_plan.md), as described by
-  [REPO_STYLE.md](REPO_STYLE.md).
+- Put durable reference documents in `docs/`, in-flight work in `docs/active_plans/`, and
+  completed plans in `docs/archive/`, following [REPO_STYLE.md](REPO_STYLE.md).

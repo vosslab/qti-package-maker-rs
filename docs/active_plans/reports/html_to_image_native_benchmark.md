@@ -2,14 +2,14 @@
 
 This receipt invokes the real release `bbq-converter` binary on each manifest input. It does not model or project Rust performance.
 
-- Binary: `/Users/vosslab/nsh/PROBLEMS/qti-package-maker-rs/output_tables/native_table_bench/run-80228/bbq-converter`
-- SHA-256: `0d7094f78f1e1bb0f543a40db4c73eb4184e1dac905c3f8cfb9555b3fcb09d39`
+- Binary: `/Users/vosslab/nsh/PROBLEMS/qti-package-maker-rs/output_tables/native_table_bench/run-23373/bbq-converter`
+- SHA-256: `841a6612568bb28dcd049308cd55d737ec66550d9b2add454308890dbdb63a0f`
 - Corpus: `/Users/vosslab/nsh/PROBLEMS/qti-package-maker-rs/output_tables/corpus`
 
 | Run | Inputs | Wall seconds | Artifacts | Short outputs | Failures |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| `blackboard_export` | 181 | 18.124 | 181 | 0 | 0 |
-| `three_format` | 181 | 19.202 | 540 | 3 | 0 |
+| `blackboard_export` | 181 | 915.990 | 181 | 0 | 0 |
+| `three_format` | 181 | 909.205 | 540 | 3 | 0 |
 
 ## Capability receipt
 
@@ -24,9 +24,36 @@ The release-binary lane records only end-to-end wall time and artifacts. The sep
 
 ## Library conversion metrics
 
-A separate library pass uses the same manifest inputs and one fresh run-scoped cache per input, matching the CLI conversion scope. `conversion_wall_seconds` is elapsed sequential wall time for that pass. Layout, paint, encode, materialization, and bookkeeping are cumulative work under Rayon and must not be summed or compared directly to wall time.
+A separate library pass uses the same manifest inputs and one fresh run-scoped cache per input, matching the CLI conversion scope. `conversion_wall_seconds` is elapsed sequential wall time for that pass. Chromium does not expose separate layout, paint, or PNG encoding timings here; those fields are null. Materialization and bookkeeping are cumulative work under Rayon, not elapsed wall time.
 
-| Run | Requests | Attempts | Cache hit/wait/miss | Conversion wall | Layout work | Paint work | Encode work | Write work | Bookkeeping work |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `blackboard_export` | 651 | 391 | 196/64/391 | 44.520 | 6.003 | 17.747 | 20.879 | 0.073 | 10.364 |
-| `three_format` | 651 | 391 | 202/58/391 | 43.007 | 3.758 | 17.689 | 20.859 | 0.076 | 10.320 |
+| Run | Requests | Attempts | Cache hit/wait/miss | Conversion wall | Write work | Bookkeeping work |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `blackboard_export` | 651 | 391 | 178/82/391 | 26.771 | 0.075 | 0.990 |
+| `three_format` | 651 | 391 | 184/76/391 | 27.148 | 0.076 | 1.066 |
+
+## Python comparison and validation
+
+The retained Python baseline and this run use identical paths and SHA-256 hashes for all
+181 inputs. The comparison receipt is `output_tables/native_table_bench/run-23373/comparison_receipt.json`.
+
+| Mode | Python seconds | Rust Chromium seconds |
+| --- | ---: | ---: |
+| Blackboard | 197.234 | 915.990 |
+| Three formats | 445.820 | 909.205 |
+
+These measurements establish a substantial CLI cost; they do not establish a speedup.
+The separate library conversion passes take 26.771 and 27.148 seconds, reusing a renderer
+across inputs. A sampled corpus CLI case spends about 10.5 seconds waiting inside table rendering,
+while two canvas-only cases finish in about 0.1 seconds. Temporary instrumentation isolates
+the wait to screenshot capture: DOM/fonts/geometry finish in 22 milliseconds and activation
+adds about 1 millisecond; capture returns at about 10 seconds. The browser is Chrome for
+Testing 153.0.8010.12. This is consistent with the reported
+[first-capture stall](https://github.com/vercel-labs/agent-browser/issues/1859), though that
+report does not establish an identical underlying cause. No speculative browser flags or
+fixed sleeps were added. There is no arbitrary speed threshold.
+
+All 721 ZIPs pass package integrity with zero errors or warnings. Their public-content and
+grading projections agree with verified run 80228, with identical input provenance and output
+paths. Image pixels are excluded from this comparison; gallery and focused rendering checks
+cover image correctness. Detailed evidence is in `integrity_receipt.json` and
+`semantic_receipt.json` beside the benchmark receipt.

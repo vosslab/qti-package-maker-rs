@@ -1,5 +1,9 @@
 # Plan: Rust port of qti-package-maker
 
+Historical predecessor of the completed [rust_port_plan.md](rust_port_plan.md). Its unchecked
+checklist is retained as original planning text; the successor records final acceptance.
+
+
 ## Context
 
 `qti-package-maker` converts question banks between LMS assessment formats: it reads BBQ text,

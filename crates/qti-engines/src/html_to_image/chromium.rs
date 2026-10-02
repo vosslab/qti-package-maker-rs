@@ -10,9 +10,12 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use base64::{Engine, engine::general_purpose::STANDARD};
-use chromiumoxide::cdp::browser_protocol::page::CaptureScreenshotFormat;
+use chromiumoxide::cdp::browser_protocol::page::{
+    CaptureScreenshotFormat, Viewport as ScreenshotViewport,
+};
 use chromiumoxide::cdp::js_protocol::runtime::{CallArgument, CallFunctionOnParams};
 use chromiumoxide::handler::viewport::Viewport;
+use chromiumoxide::page::ScreenshotParams;
 use chromiumoxide::{Browser, BrowserConfig, Page};
 use futures::StreamExt;
 use tempfile::TempDir;
@@ -247,8 +250,32 @@ impl BrowserState {
                 chromiumoxide::error::CdpError::NotFound => ChromiumError::MissingTable,
                 other => ChromiumError::Browser(other.to_string()),
             })?;
-        table
-            .screenshot(CaptureScreenshotFormat::Png)
+        let bounds = table
+            .bounding_box()
+            .await
+            .map_err(|error| ChromiumError::Browser(error.to_string()))?;
+        let viewport = self
+            .page
+            .layout_metrics()
+            .await
+            .map_err(|error| ChromiumError::Browser(error.to_string()))?
+            .css_layout_viewport;
+        // Capture document coordinates once, including content outside the viewport.
+        // Element::screenshot scrolls first and double-counts offsets in chromiumoxide 0.9.1.
+        self.page
+            .screenshot(
+                ScreenshotParams::builder()
+                    .format(CaptureScreenshotFormat::Png)
+                    .capture_beyond_viewport(true)
+                    .clip(ScreenshotViewport {
+                        x: bounds.x + viewport.page_x as f64,
+                        y: bounds.y + viewport.page_y as f64,
+                        width: bounds.width,
+                        height: bounds.height,
+                        scale: 1.,
+                    })
+                    .build(),
+            )
             .await
             .map_err(|error| ChromiumError::Browser(error.to_string()))
     }

@@ -91,5 +91,5 @@ remaining plan-specific check, then promote or remove it.
   construction and shared hygiene helpers.
 - [../docs/E2E_TESTS.md](../docs/E2E_TESTS.md) explains permanent whole-system tests.
 - [../docs/PARITY.md](../docs/PARITY.md) records completed parity evidence and remaining gates.
-- [../docs/active_plans/active/rust_port_plan.md](../docs/active_plans/active/rust_port_plan.md)
+- [../docs/archive/rust_port_plan.md](../docs/archive/rust_port_plan.md)
   defines the Rust-port acceptance criteria.

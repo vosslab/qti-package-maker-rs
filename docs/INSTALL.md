@@ -104,17 +104,24 @@ against source content, grading, media, and package integrity before deciding wh
 product fix is needed. The classified corpus evidence does not make that command pass;
 new or changed findings still need investigation.
 
-To run the complete Linux amd64 check locally under Podman, including the native RDKit lane, use:
+To run the complete Linux check locally under Podman, including Chromium and native RDKit, use:
 
 ```bash
 bash devel/run_linux_release_check.sh
 ```
 
-The helper uses an immutable Rust 1.98.1 Debian 13 image, clones committed HEAD and the local
-pinned Python Git commit into ignored output_tables/, copies the harvested corpus, builds the Debian
-RDKit shim, and runs the same full local gate. On an arm64 macOS host this is amd64 emulation
-evidence, not a native Linux-hardware receipt. If the emulated Rust executable cannot start, run
-this script on a native Linux host; a failed emulator startup is not a release pass.
+The helper uses an immutable multi-architecture Rust 1.98.1 Debian 13 image, clones committed HEAD
+and the local pinned Python Git commit into ignored output_tables/, copies the harvested corpus,
+installs Chromium, builds the Debian RDKit shim, and runs the same full local gate. It also installs
+the Python reference's comparison dependencies, including current lxml and Playwright; Debian's
+lxml 5.3 cannot import the pinned reference's annotations. These are development dependencies in
+the disposable container, not Rust application requirements. Each run records the installed Python
+package versions and both Chromium versions in `prerequisites.txt`, so comparison-environment
+changes can be diagnosed while continuing to use current dependencies. Browser and
+validation commands run as a non-root user with Chromium's sandbox enabled. It uses the Podman
+host's architecture: arm64 on an Apple Silicon VM and amd64 on an amd64 Linux host. Run on an
+amd64 Linux host for amd64 browser validation; Chromium could not start under this Mac's amd64
+emulator. A failed emulator startup is not a release pass.
 
 The release helper prints a notes-drafting prompt when no notes file is supplied. Supply
 `--notes-file <path>` to preview a release with prepared notes, then use `--write` to build source
@@ -124,8 +131,13 @@ It does not run the Rust validation checks or publish a release itself.
 ## Known gaps
 
 - Complete release validation from the intended committed source before preparing a release with
-  `devel/make_release.py`. Working-tree builds on macOS arm64 and Linux arm64 pass; the Linux
-  x86_64 release binaries are cross-built and pass three-format table conversion and package
-  checks under amd64 emulation.
-- Repeat HTML-to-image corpus, package, and visual evidence after the Chromium renderer is
-  integrated. The prior native-raster gallery is historical evidence only.
+  `devel/make_release.py`. Chromium-based working-tree builds pass on macOS arm64 and Linux arm64;
+  Linux x86_64 release binaries cross-compile successfully. Linux arm64 also passes three-format
+  rendering and package checks for both reported failures and the script/redirect fixtures.
+- Native Linux amd64 Chromium runtime validation remains open. Earlier amd64 rendering receipts
+  used the retired custom renderer and do not cover Chromium.
+- The Chromium gallery renders all 290 tables, and all 721 refreshed corpus ZIPs pass integrity
+  and public-content/grading comparison. Chrome for Testing 153.0.8010.12 can delay the first
+  screenshot by about ten seconds; later captures in a reused renderer are fast. The measured
+  CLI batches are slower than the retained Python baseline. See the
+  [benchmark report](active_plans/reports/html_to_image_native_benchmark.md).

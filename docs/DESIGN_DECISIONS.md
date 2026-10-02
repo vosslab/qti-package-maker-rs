@@ -37,7 +37,7 @@ Rust translates the implementation through owned data, exhaustive enums, and obj
 **Consequence.** Each engine owns its format-specific code under its own directory. Shared
 media, validation, archive, and integrity contracts keep one authoritative implementation.
 
-**Owner.** [rust_port_plan.md](active_plans/active/rust_port_plan.md).
+**Owner.** [rust_port_plan.md](archive/rust_port_plan.md).
 
 ### Shared temporary media ownership
 

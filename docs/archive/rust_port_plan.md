@@ -1,5 +1,16 @@
 # Plan: Rust port of qti-package-maker with native table rasterization
 
+## Completion: 2026-10-01
+
+Implementation is complete under the Chromium amendment and the user's manual-release direction.
+The refreshed corpus has 721 integrity-clean ZIPs and zero public-content/grading differences;
+all 290 gallery entries render. macOS and Linux builds/checks pass, including Linux x86_64
+cross-builds. The measured Chromium first-capture delay is a documented performance limitation.
+Real LMS imports, native amd64 browser validation, human commits, and publication remain delivery
+activities, not claims made by this implementation receipt.
+See [refactor_progress.md](../../refactor_progress.md) for the final evidence and historical ledger.
+
+
 ## Context
 
 `rust-port-plan.md` (untracked at the repo root, written against Python commit `29fdd36`,
@@ -52,7 +63,7 @@ circles. HTML/CSS is a moving target, so this port uses local Chromium through R
 - Static RDKit canvases continue through their bounded parser and local shim before table render.
   Existing sugar-library PNG/SVG exports bypass HTML rendering.
 - The four user-classified malformed HTML sources and two obsolete HTML sugars recorded in
-  [../../../refactor_progress.md](../../../refactor_progress.md) are outside table acceptance.
+  [../../refactor_progress.md](../../refactor_progress.md) are outside table acceptance.
 - Benchmark evidence measures browser lifecycle and conversion cost. It guides practical
   improvements but does not require a fixed time or Rust faster than Python.
 
@@ -644,19 +655,27 @@ the corpus itself is regenerated rather than committed.
 
 ## Rollout and release checklist
 
-- [ ] Copy this plan to `docs/active_plans/active/rust_port_plan.md`. Keep the original
-      `rust-port-plan.md` beside it as `rust_port_plan_v1.md` for the carried-forward sections.
-- [ ] M15 baseline report written, naming where Python's time goes.
-- [ ] M16 and M18 decisions in `docs/DEPENDENCY_DECISIONS.md`.
-- [ ] M17 gallery signed off by the user.
-- [ ] M19 benchmark comparison recorded beside the baseline.
-- [ ] `docs/HTML_TO_IMAGE.md`, `docs/INSTALL.md` (RDKit step), and `docs/USAGE.md` updated.
-- [ ] Python `convert_bank` `media_base_dir` finding reported with a reproduction.
+- [x] Originally copied this plan and its predecessor into `docs/active_plans/active/`.
+      Both are now archived here as `rust_port_plan.md` and `rust_port_plan_v1.md`.
+- [x] M15 baseline report written, naming where Python's time goes.
+- [x] M16 and M18 decisions in `docs/DEPENDENCY_DECISIONS.md`; the Chromium amendment
+      supersedes the original custom-renderer choice.
+- [x] M17 replacement accepted: on 2026-10-01 the user said "good work" and observed that
+      the Chromium renderer matches the Python Chromium renderer. The new gallery renders
+      all 290 tables; the two reported failures also pass focused macOS and Linux visual review.
+- [x] M19 benchmark comparison recorded beside the baseline. Run 23373 has 721 clean
+      packages and zero content/grading differences. The measured first-screenshot wait is
+      documented as a Chromium performance limitation; this measurement does not claim a speedup.
+- [x] `docs/HTML_TO_IMAGE.md`, `docs/INSTALL.md` (RDKit and Chromium), and `docs/USAGE.md` updated.
+- [x] Python `convert_bank` `media_base_dir` finding reported with a reproduction in
+      [../active_plans/reports/html_to_image_baseline.md](../active_plans/reports/html_to_image_baseline.md) and
+      [../PARITY.md](../PARITY.md).
 
 ## Documentation close-out requirements
 
-- Active plan / progress tracker: `docs/active_plans/active/rust_port_plan.md`, plus
-  `refactor_progress.md` gaining M15-M19 rows.
+- Completed plan: `docs/archive/rust_port_plan.md`; the original proposal remains at
+  `docs/active_plans/majestic-shimmying-tiger.md`. The progress tracker is
+  `refactor_progress.md`, including M15-M19 evidence.
 - docs/CHANGELOG.md entry: per milestone, with `### Decisions and Failures` recording:
   - native subset rasterizer over Chromium, and why;
   - convert-once-per-run;

@@ -13,4 +13,4 @@ On this user's macOS (Homebrew Python 3.12), Python modules are installed to `/o
 
 ## Rust environment
 See docs/RUST_STYLE.md for Rust and Cargo conventions.
-The active implementation plan is docs/active_plans/active/rust_port_plan.md.
+The completed Rust-port plan is archived in docs/archive/rust_port_plan.md.

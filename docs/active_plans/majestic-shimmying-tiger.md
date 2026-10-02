@@ -1,5 +1,10 @@
 # Plan: Rust port of qti-package-maker with native table rasterization
 
+The completed implementation plan is [../archive/rust_port_plan.md](../archive/rust_port_plan.md).
+Its 2026-10-01 amendment records the user's decision to replace the custom renderer with Chromium.
+This original proposal remains as historical context; superseded rendering requirements below
+are not current acceptance gates.
+
 ## Context
 
 `rust-port-plan.md` (untracked at the repo root, written against Python commit `29fdd36`,

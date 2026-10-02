@@ -2,6 +2,56 @@
 
 ## 2026-10-01
 
+- Measured website-style Rust/Python exports using 12 copied question sets (570 questions),
+  three alternating-order rounds, and fresh output directories. Median matched totals were
+  50.29 seconds for Rust and 30.99 for Python: Rust was faster without HTML-to-image, while
+  Chromium capture delays dominated image-enabled exports. Verified ZIP/XML integrity and
+  matching question/image counts; excluded unsupported ordering exports. Temporary scripts
+  live in `tests/_temp/website_speed/` and evidence in `output_website_speed/browser_allowed/`.
+  This measures converter subprocesses, not the entire website build; no permanent tests added.
+
+- Closed the actionable audit follow-ups: Linux release receipts now record installed Python
+  packages and Playwright's Chromium version alongside system Chromium. Archived and verified
+  the one-time Chromium probe sources, binaries, and input fixture before retiring their loose
+  copies; retained validation receipts and rendered outputs. No dependency pins or permanent
+  tests were added.
+
+- Six independent audit passes identified and corrected a stale M13-incomplete statement,
+  ambiguous historical progress labels, and archived-plan references. Dependency-environment
+  reproducibility and temporary-probe cleanup were identified for follow-up; no permanent tests added.
+
+- Completed the amended Rust feature-parity plan and archived both plan documents with Git
+  moves. Updated architecture, file layout, README, and progress documentation to reflect
+  Chromium, final corpus validation, and the remaining external release-validation boundaries.
+
+- Synchronized the written Python benchmark measurements with the retained 181-input baseline
+  receipt so the Chromium comparison uses the documented source measurements.
+
+- Fixed missing content in Chromium screenshots of tables larger than the initial viewport.
+  A temporary oversized-table check exposed white areas where authored cells should appear.
+  Capture now uses document bounds once and explicitly includes content beyond the viewport;
+  all four corners remain visible. Updated the renderer cache identity. The earlier corpus
+  benchmark was stopped and retained as incomplete evidence; no permanent browser test was added.
+  Corrected capture passes macOS and Linux checks, including both Linux Rust architectures,
+  six oversized-table packages, and a refreshed 290-table gallery. The full refreshed corpus
+  produces 721 packages with zero integrity errors/warnings or public-content/grading
+  differences. Recorded the slower CLI benchmark and isolated its wait to the first screenshot
+  capture, consistent with an upstream Chromium report. Kept this as a documented performance
+  limitation; temporary instrumentation was removed and no permanent test was added.
+
+- Repaired the Linux comparison environment: install the pinned Python reference's missing
+  dependencies and browser, set its explicit checkout path, and use current lxml because Debian
+  13's lxml 5.3 fails on the reference's annotations. Added a prerequisite import check so this
+  environment failure is reported before Rust compilation. The prerequisite run and the 26.10
+  manual release dry-run pass. The Rust runtime remains Python-free.
+
+- Updated Linux release validation for Chromium: use the native container architecture, install
+  the browser, retain its sandbox through a non-root runtime user, and locate RDKit libraries
+  for that architecture. Fresh Linux arm64 checks pass 245 workspace tests, strict Clippy,
+  formatting, release builds, and 12 Chromium-rendered package integrity checks. Both x86_64
+  CLIs cross-compile; amd64 Chromium runtime validation remains open because the Mac emulator
+  fails before browser startup.
+
 - Chromium replacement verification passes: all 290 gallery tables render; the reported pathway
   colors/circles and gel shadows render correctly in three-format exports. All 12 final smoke
   packages pass integrity, including script/redirect boundary fixtures. Workspace tests (248),

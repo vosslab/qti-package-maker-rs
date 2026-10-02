@@ -1,10 +1,19 @@
 # Parity record
 
-The 2026-10-01 switch to Chromium reopens HTML-to-image verification. The results below
-describe the previous renderer; they do not certify the replacement. Readability and preserved
-source content govern visual acceptance, rather than matching Python's table appearance.
+The 2026-10-01 Chromium replacement passes the refreshed corpus: run 23373 exports all
+721 expected ZIPs with zero integrity errors/warnings and zero public-content or grading
+differences from verified run 80228. All 181 input paths and hashes match the Python baseline.
+The gallery renders all 290 tables; focused checks cover the reported gel/pathway failures,
+oversized tables, and blocked authored scripts/redirects. Readability and preserved source
+content govern visual acceptance, rather than matching Python's table appearance.
 
-This record applies the authority order in the active Rust-port plan: observed
+The older reference comparisons below establish the unchanged format and conversion behavior.
+Current renderer evidence is in `output_tables/native_table_bench/run-23373/` and
+`output_tables/gallery/run-1790861624/`. The measured Chromium first-screenshot delay is a
+performance limitation, not a content or grading difference.
+
+This record applies the authority order in the completed
+[archive/rust_port_plan.md](archive/rust_port_plan.md): observed
 LMS behavior, documented format requirements, Python runtime behavior at the
 pinned revision, then advisory signals. Plain exports pass the full differential corpus;
 converted exports have the classified semantic evidence described below. The raw HTML
@@ -155,7 +164,12 @@ within the repository source-file limit.
 
 ## M13 status
 
-M13 is **incomplete**. The M6 oracle agreement proves the integrity checker
-matches the pinned Python checker on its independent corpora; it does not prove
-all reader/writer formats have semantic parity, item-fingerprint round trips,
-or a clean full-workspace integration gate. Those remain M13 acceptance work.
+M13 implementation verification is complete under the documented parity authority.
+The full plain corpus, reader round-trip contracts, workspace checks, classified converted
+reference comparisons, and refreshed Chromium corpus provide the evidence described above
+and in [refactor_progress.md](../refactor_progress.md). M6 oracle agreement alone is not
+evidence of reader/writer parity.
+
+The raw HTML differential command retains the classified reference and presentation findings;
+this status does not claim that command exits zero. Real LMS imports, native amd64 Chromium
+execution, and validation of a human-committed release remain separate delivery checks.

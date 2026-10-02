@@ -6,11 +6,11 @@ while keeping one editable source.
 
 ## Native status
 
-The native converter is pre-release software that builds from this source checkout. Cross-format
-workflow verification, table-image visual acceptance, and speed verification are still in progress.
-The goal is useful compatibility with the established Python workflows; harmless presentation
-differences do not matter. Review an imported package in its target LMS before relying on it for a
-course or exam.
+The native converter builds from this source checkout and has completed cross-format and table-image
+verification. No release installer is published yet. It preserves useful Python workflows while
+allowing harmless presentation differences. Chrome 153 can pause about ten seconds on the first
+table screenshot; see [docs/INSTALL.md](docs/INSTALL.md) for setup and known limitations. Review an
+imported package in its target LMS before relying on it for a course or exam.
 
 ## One bank, many uses
 
@@ -103,8 +103,9 @@ bindings; it does not replace review of the imported questions in the target LMS
 - [docs/ENGINES.md](docs/ENGINES.md) - the current reader, writer, and media-capability inventory.
 
 The maintained [Python QTI Package Maker](https://github.com/vosslab/qti-package-maker) remains the
-reference implementation while this Rust port completes its verification. Developers can follow the
-[active port plan](docs/active_plans/active/rust_port_plan.md) and
+reference implementation. The Rust implementation has completed its documented verification;
+real LMS imports and release publication remain separate steps. Developers can read the
+[completed port plan](docs/archive/rust_port_plan.md) and
 [refactor_progress.md](refactor_progress.md).
 
 ## License
