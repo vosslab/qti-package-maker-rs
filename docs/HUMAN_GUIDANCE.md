@@ -10,6 +10,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ## Rust port
 
+- Faster conversion is important for the Rust library to justify its existence; demonstrate
+  performance benefits on practical workloads.
+
+- Chromium must always run headlessly. Prefer sensible fixed internal behavior; add configuration
+  only for demonstrated caller needs. When in doubt, use the simpler shared design.
+
 - Use Chromium for HTML-to-image. Python table rendering is not a visual target: it also
   needed improvements and remains poor. Prioritize readable tables and preserved content.
 

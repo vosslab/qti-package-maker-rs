@@ -162,6 +162,8 @@ impl BrowserState {
     async fn start() -> Result<Self, ChromiumError> {
         let profile = tempfile::tempdir().map_err(ChromiumError::Profile)?;
         let mut config = BrowserConfig::builder()
+            // Chromiumoxide's default mode adds --headless; never expose a headed mode.
+            .headless_mode(Default::default())
             .user_data_dir(profile.path())
             .viewport(Viewport {
                 width: VIEWPORT_WIDTH,
@@ -283,7 +285,7 @@ impl BrowserState {
 
 fn configured_executable() -> Result<Option<PathBuf>, ChromiumError> {
     let Some(path) = env::var_os("QTI_CHROMIUM") else {
-        return Ok(None);
+        return Ok(find_headless_shell());
     };
     let path = PathBuf::from(path);
     if path.is_file() {
@@ -291,6 +293,55 @@ fn configured_executable() -> Result<Option<PathBuf>, ChromiumError> {
     } else {
         Err(ChromiumError::InvalidExecutable { path })
     }
+}
+
+/// Prefer the dedicated shell over a full browser; both always launch headlessly.
+fn find_headless_shell() -> Option<PathBuf> {
+    if let Some(path) = env::var_os("PATH") {
+        for directory in env::split_paths(&path) {
+            for name in ["chrome-headless-shell", "chromium-headless-shell"] {
+                let executable = directory.join(name);
+                if executable.is_file() {
+                    return Some(executable);
+                }
+            }
+        }
+    }
+    // Reuse an installed Playwright shell without needing Python or Node at runtime.
+    let home = PathBuf::from(env::var_os("HOME")?);
+    let cache = if cfg!(target_os = "macos") {
+        home.join("Library/Caches/ms-playwright")
+    } else {
+        home.join(".cache/ms-playwright")
+    };
+    let mut revisions: Vec<_> = std::fs::read_dir(cache)
+        .ok()?
+        .flatten()
+        .filter_map(|entry| {
+            let name = entry.file_name();
+            let revision = name
+                .to_str()?
+                .strip_prefix("chromium_headless_shell-")?
+                .parse::<u32>()
+                .ok()?;
+            Some((revision, entry.path()))
+        })
+        .collect();
+    revisions.sort_unstable_by_key(|entry| std::cmp::Reverse(entry.0));
+    for (_, revision) in revisions {
+        let Ok(platforms) = std::fs::read_dir(revision) else {
+            continue;
+        };
+        for platform in platforms.flatten() {
+            for name in ["chrome-headless-shell", "headless_shell"] {
+                let executable = platform.path().join(name);
+                if executable.is_file() {
+                    return Some(executable);
+                }
+            }
+        }
+    }
+    None
 }
 
 fn static_document() -> String {

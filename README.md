@@ -8,8 +8,8 @@ while keeping one editable source.
 
 The native converter builds from this source checkout and has completed cross-format and table-image
 verification. No release installer is published yet. It preserves useful Python workflows while
-allowing harmless presentation differences. Chrome 153 can pause about ten seconds on the first
-table screenshot; see [docs/INSTALL.md](docs/INSTALL.md) for setup and known limitations. Review an
+allowing harmless presentation differences. Table rendering always runs headlessly and automatically
+prefers Chromium headless shell; see [docs/INSTALL.md](docs/INSTALL.md) for setup and known limitations. Review an
 imported package in its target LMS before relying on it for a course or exam.
 
 ## One bank, many uses

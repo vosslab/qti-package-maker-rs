@@ -2,6 +2,18 @@
 
 ## 2026-10-01
 
+- Preserved the headless-shell speed comparison in
+  [WEBSITE_EXPORT_BENCHMARK.md](WEBSITE_EXPORT_BENCHMARK.md), including methodology, per-round
+  totals, source provenance, exclusions, and the boundary between permanent summary and local evidence.
+
+- Made headless rendering an explicit fixed behavior and automatically prefer Chromium headless
+  shell from `PATH` or the installed Playwright cache. No new modes or settings were added.
+  The repeated 12-set website export benchmark now takes 18.38 seconds in Rust versus 31.64 in
+  Python (median of three rounds), with 204 matched successful exports and unchanged validation
+  checks. This supersedes the earlier full-browser speed comparison for the automatic shell path.
+  Evidence: `output_website_speed/automatic_headless/`; recorded the user's speed and simplicity
+  requirements. Existing engine tests and strict Clippy pass; no permanent tests added.
+
 - Measured website-style Rust/Python exports using 12 copied question sets (570 questions),
   three alternating-order rounds, and fresh output directories. Median matched totals were
   50.29 seconds for Rust and 30.99 for Python: Rust was faster without HTML-to-image, while

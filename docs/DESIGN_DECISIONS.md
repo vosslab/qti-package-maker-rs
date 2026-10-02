@@ -105,6 +105,20 @@ for table conversion; the production binary has no Python or Node.js runtime dep
 
 **Owner.** [HTML_TO_IMAGE.md](HTML_TO_IMAGE.md).
 
+### Headless browser selection
+
+**Decision.** Always launch Chromium headlessly. Prefer a dedicated headless shell on `PATH`
+or in the standard installed Playwright cache before discovering a full browser. Retain the
+existing executable-path setting for nonstandard installations; add no rendering-mode options.
+
+**Why.** The same pathway export took a median 13.10 seconds with full Chromium and 2.91 seconds
+with headless shell. Executable discovery owns this internal performance decision.
+
+**Consequence.** Installed shells work automatically without Python or Node at runtime. A full
+browser remains usable in headless mode when no shell is installed. Chromium's sandbox stays enabled.
+
+**Owner.** [HTML_TO_IMAGE.md](HTML_TO_IMAGE.md).
+
 - 2026-09-30: Release preparation uses the existing manual `devel/make_release.py`. Rust
   checks remain local in `devel/rust_release_check.sh`; Linux/macOS validation evidence is
   required before release. No GitHub Actions release workflow is part of this design.

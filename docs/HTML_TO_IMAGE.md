@@ -7,7 +7,9 @@ the presentation authority. Python PNG layout is useful diagnostic evidence, not
 target.
 
 The production binary uses `chromiumoxide` to launch Chromium lazily and reuse it during one
-conversion. Set `QTI_CHROMIUM` to an executable path when automatic local-browser discovery is
+conversion. It always runs headlessly, preferring a dedicated headless shell on `PATH` or in the
+standard local Playwright browser cache (newest installed revision first). Otherwise it discovers
+a full Chromium browser and runs that headlessly. Set `QTI_CHROMIUM` to an executable path when automatic local-browser discovery is
 unsuitable. Chromium is required only when the selected input actually needs table conversion;
 ordinary package generation needs neither Chromium, Python, nor Node.js.
 

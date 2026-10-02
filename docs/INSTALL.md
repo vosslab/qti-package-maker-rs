@@ -36,7 +36,9 @@ capabilities. These commands run without Python.
 
 ## HTML-to-image tables
 
-Table conversion uses a local Chromium process controlled directly by the Rust binary. It does
+Table conversion always uses headless Chromium controlled directly by the Rust binary. Discovery
+prefers `chrome-headless-shell` or `chromium-headless-shell` on `PATH`, then the newest headless shell
+in the standard Playwright cache, then a full browser launched headlessly. It does
 not require a Node.js or Python production runtime. Use `QTI_CHROMIUM` when the browser is not
 discoverable on `PATH`:
 
@@ -137,7 +139,10 @@ It does not run the Rust validation checks or publish a release itself.
 - Native Linux amd64 Chromium runtime validation remains open. Earlier amd64 rendering receipts
   used the retired custom renderer and do not cover Chromium.
 - The Chromium gallery renders all 290 tables, and all 721 refreshed corpus ZIPs pass integrity
-  and public-content/grading comparison. Chrome for Testing 153.0.8010.12 can delay the first
-  screenshot by about ten seconds; later captures in a reused renderer are fast. The measured
-  CLI batches are slower than the retained Python baseline. See the
+  and public-content/grading comparison. Full Chrome for Testing 153.0.8010.12 can delay the first
+  screenshot by about ten seconds even in headless mode. Automatic discovery now prefers the
+  dedicated headless shell, which avoided that delay in focused checks. The earlier full-browser
+  comparison is superseded for automatic shell selection by
+  [WEBSITE_EXPORT_BENCHMARK.md](WEBSITE_EXPORT_BENCHMARK.md). The historical full-browser
+  CLI batches were slower than the retained Python baseline. See the historical
   [benchmark report](active_plans/reports/html_to_image_native_benchmark.md).
