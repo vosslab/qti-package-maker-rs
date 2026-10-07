@@ -1,5 +1,21 @@
 # Design decisions
 
+### Graphify normalization and overwrite protection
+
+**Decision.** Keep the reclustering correction upstream in Graphify. The tested
+candidate compares independently normalized disk and candidate graphs, preserving
+canonical node IDs and remapped links.
+
+**Why.** Cargo workspace aliases legitimately reconcile with AST package nodes;
+raw JSON counts falsely report data loss, while stale link endpoints drop dependencies.
+
+**Consequence.** Unexpected canonical-node loss still refuses overwrite in the candidate.
+This converter does not force writes, maintain a dependency fork, or patch packages at runtime.
+The released Graphify 0.9.80 still has the fault pending an upstream correction.
+
+**Owner.** Graphify `build_from_json`, `export.to_json`, and `cluster-only`/`label`;
+[GRAPHIFY_CLUSTER_NORMALIZATION.md](GRAPHIFY_CLUSTER_NORMALIZATION.md).
+
 - 2026-09-30: QTI 2.1 serialization decodes HTML named entities using the existing
   `markup5ever` table before preserving XML escaping. Raw HTML-only entities such as
   `&alpha;` cannot remain in assessment XML; serialization preserves source item identity.

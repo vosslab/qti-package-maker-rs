@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-07
+
+- Reproduced the clean Graphify 0.9.80 reclustering crash and validated an upstream
+  fix without forcing writes: six Cargo aliases reconcile with AST package nodes,
+  preserving all production symbols and ten dependency links. The candidate passes
+  the exact fresh mapping command and 252 focused tests. Restore the official package
+  after validation, following the user's preference against third-party patches and
+  wrapper workarounds. Evidence: [GRAPHIFY_CLUSTER_NORMALIZATION.md](GRAPHIFY_CLUSTER_NORMALIZATION.md).
+
+### Fixes and Maintenance
+
+- Synchronized shared style guides, tests, and repository support files from the starter template.
 ## 2026-10-01
 
 - Preserved the headless-shell speed comparison in

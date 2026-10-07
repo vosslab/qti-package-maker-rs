@@ -10,6 +10,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ## Rust port
 
+- Preserve Graphify's shrinkage safety check. Compare equivalent graph representations
+  so legitimate normalization does not trigger it; verify a completely fresh mapping run.
+- Avoid maintaining patches to third-party code or wrapper hacks around upstream faults;
+  future upstream fixes should not create conflicts or break our workflow.
+
 - Faster conversion is important for the Rust library to justify its existence; demonstrate
   performance benefits on practical workloads.
 
