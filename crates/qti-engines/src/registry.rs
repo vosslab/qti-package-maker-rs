@@ -124,6 +124,12 @@ pub const ENGINES: &[EngineEntry] = &[
         make_writer: Some(crate::bbq_text_upload::boxed_writer),
         make_reader: Some(crate::bbq_text_upload::boxed_reader),
     },
+    EngineEntry {
+        name: "ple_native_json",
+        media_policy: MediaPolicy::Package,
+        make_writer: Some(crate::ple_native_json::boxed_writer),
+        make_reader: None,
+    },
 ];
 
 fn current_utc_date() -> String {
@@ -169,6 +175,7 @@ mod tests {
             ("canvas_qti_v1_2", MediaPolicy::Package),
             ("blackboard_qti_v2_1", MediaPolicy::Package),
             ("bbq_text_upload", MediaPolicy::ReferenceWarn),
+            ("ple_native_json", MediaPolicy::Package),
         ];
         assert_eq!(ENGINES.len(), expected_writers.len());
         for (name, policy) in expected_writers {

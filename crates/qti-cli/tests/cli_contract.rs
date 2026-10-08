@@ -45,7 +45,25 @@ fn conversion_flag_rejects_an_explicit_non_package_output() {
         .output()
         .expect("run converter");
     assert_eq!(output.status.code(), Some(2));
-    assert!(stderr(&output).contains("--html-to-image applies only to ZIP packaging engines"));
+    assert!(stderr(&output).contains("--html-to-image applies only to supported output formats"));
+}
+
+#[test]
+fn conversion_flag_accepts_the_ple_directory_writer_with_explicit_output() {
+    let output = Command::new(bbq_converter())
+        .args([
+            "-i",
+            "bbq-not-opened-questions.txt",
+            "-f",
+            "ple_native_json",
+            "--html-to-image",
+            "-o",
+            "ple-output",
+        ])
+        .output()
+        .expect("run converter");
+    assert_eq!(output.status.code(), Some(1));
+    assert!(stderr(&output).contains("could not access"));
 }
 
 #[test]
@@ -78,7 +96,7 @@ fn quiet_and_verbose_preserve_the_legacy_content_and_completion_receipt() {
 }
 
 #[test]
-fn all_formats_write_each_named_artifact_and_report_ten_attempts() {
+fn all_formats_write_each_named_artifact_and_report_eleven_attempts() {
     let directory = tempfile::tempdir().expect("temporary directory");
     let input = directory.path().join("bbq-all-formats-questions.txt");
     fs::write(&input, "MC\tQuestion\ta\tCorrect\tb\tIncorrect\n").expect("fixture");
@@ -92,7 +110,7 @@ fn all_formats_write_each_named_artifact_and_report_ten_attempts() {
     assert!(output.status.success(), "{}", stderr(&output));
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "Content Name: all-formats\nDONE, saved 10 of 10 output files\n"
+        "Content Name: all-formats\nDONE, saved 11 of 11 output files\n"
     );
     for name in [
         "qti12-all-formats.zip",
@@ -108,6 +126,38 @@ fn all_formats_write_each_named_artifact_and_report_ten_attempts() {
     ] {
         assert!(directory.path().join(name).is_file(), "missing {name}");
     }
+    let ple_directory = directory.path().join("ple-all-formats");
+    assert!(ple_directory.is_dir(), "missing PLE directory");
+    assert!(ple_directory.join("item_00001.json").is_file());
+}
+
+#[test]
+fn ple_format_writes_to_an_explicit_directory() {
+    let directory = tempfile::tempdir().expect("temporary directory");
+    let input = directory.path().join("bbq-ple-questions.txt");
+    fs::write(&input, "MC\tQuestion\ta\tCorrect\tb\tIncorrect\n").expect("fixture");
+    let destination = directory.path().join("native-questions");
+
+    let output = Command::new(bbq_converter())
+        .args([
+            "-i",
+            path_text(&input),
+            "-f",
+            "ple_native_json",
+            "-o",
+            path_text(&destination),
+            "-q",
+        ])
+        .output()
+        .expect("run converter");
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "Content Name: ple\nDONE, saved 1 of 1 output files\n"
+    );
+    assert!(destination.is_dir());
+    assert!(destination.join("item_00001.json").is_file());
 }
 
 #[test]

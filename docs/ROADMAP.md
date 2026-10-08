@@ -11,7 +11,7 @@ is [refactor_progress.md](../refactor_progress.md). This document does not certi
 | --- | --- | --- |
 | Core model | validated seven-kind items, CRC identity, ordered banks, media ownership | focused core tests and cross-language CRC evidence |
 | Integrity | independent archive and QTI/Blackboard package checker | pinned-oracle corpus comparison |
-| Engines and CLI | ten writers, four readers, static registry, process adapters | format contracts, round trips, and CLI tests |
+| Engines and CLI | eleven writers, four readers, static registry, process adapters | format contracts, round trips, and CLI tests |
 | Image rendering | Chromium tables and runtime-loaded RDKit canvas adapter | source-faithful gallery, package checks, and browser boundary checks |
 | Conversion | select, render, cache, rewrite, and fan out once per run | structural parity and measured benchmark |
 | Delivery | Cargo metadata, release scripts, platform builds | local checks and manual source-release preparation |

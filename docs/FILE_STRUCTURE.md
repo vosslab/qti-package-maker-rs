@@ -41,6 +41,7 @@ crates/
 |  +- src/registry.rs               Registered engine metadata and factories
 |  +- src/html_to_image/            Selection, static canvas parsing, conversion, cache
 |  +- src/blackboard_export_zip/    Blackboard export reader and writer
+|  +- src/ple_native_json/          PLE source model, mapping, scan, export, writer
 |  +- src/<format>/                 One module for each other format engine
 |  `- tests/browser_proof.rs        Standalone self-test browser evidence
 +- qti-integrity/                   Independent completed-package checker
@@ -62,7 +63,7 @@ crates/
 The literal `<format>` placeholder in the tree represents format-specific directories under
 [crates/qti-engines/src/lib.rs](../crates/qti-engines/src/lib.rs), including BBQ text upload, Canvas
 QTI 1.2, Blackboard QTI 2.1, Blackboard export ZIP, exam YAML, standalone self-test,
-human-readable HTML, Moodle Aiken, Okla CHRST BQGen, and text2qti.
+human-readable HTML, Moodle Aiken, Okla CHRST BQGen, text2qti, and PLE Native JSON.
 
 ## Development and verification
 

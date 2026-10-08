@@ -1,21 +1,16 @@
 #!/usr/bin/env bash
-# Run the complete local release gate in an isolated native-architecture Debian container.
-#
-# On macOS this validates Linux inside the Podman VM. It neither creates a
-# tag nor contacts GitHub. The source clone, Cargo cache, target directory, native shim,
-# and Python oracle copy are all ignored evidence below output_tables/.
+# Run the complete local gate in a native-architecture Debian container; macOS uses Podman.
+# No tag or GitHub contact. Source clone, Cargo/target caches, shim and Python oracle stay under ignored output_tables/.
 set -euo pipefail
-
 readonly REPOSITORY="$(git rev-parse --show-toplevel)"
 readonly PINNED_ORACLE=55e5f368777f7809fe2e91b5d070caf6df0cb581
 readonly RUST_VERSION=1.98.1
-# The multi-architecture index of rust:1.98.1-trixie (Debian 13), verified 2026-10-01.
+# Debian 13 multi-architecture index verified 2026-10-01.
 readonly RUST_IMAGE="${QTI_LINUX_RELEASE_IMAGE:-docker.io/library/rust@sha256:a8a5f0a1e5fe7dfe1d352591e4a1c7dd2c08fd70475cae872cf3458ba0df0546}"
 readonly EVIDENCE_ROOT="$REPOSITORY/output_tables/linux_release_check/run_$$"
 readonly SOURCE_DIR="$EVIDENCE_ROOT/source"
 readonly ORACLE_REPOSITORY="${QTI_LINUX_RELEASE_ORACLE_SOURCE:-$REPOSITORY/../qti-package-maker}"
 readonly ORACLE_SOURCE="$EVIDENCE_ROOT/oracle_source"
-
 require_directory() {
 	local path="$1"
 	local description="$2"
@@ -57,8 +52,7 @@ podman run --rm --workdir /src \
 			python3 python3-crcmod python3-defusedxml python3-lxml python3-num2words \
 			python3-numpy python3-pip python3-rdkit python3-tabulate python3-yaml
 		source source_me.sh
-		# The pinned Python annotations require current lxml; Debian 13 ships lxml 5.3.
-		# These packages are only for the comparison in this disposable container.
+		# Current lxml is needed by the pinned Python oracle; upgrades stay in this disposable container.
 		python3 -m pip install --upgrade --break-system-packages lxml playwright
 		python3 -m playwright install chromium
 		test "$(rustc --version | awk '\''{print $2}'\'')" = "'"$RUST_VERSION"'"
@@ -91,8 +85,7 @@ PY
 			git -C /src rev-parse HEAD
 			git -C /work/oracle_source rev-parse HEAD
 		} | tee /work/prerequisites.txt
-		# Chromium requires a non-root user to retain its sandbox. Only these disposable
-		# source/cache mounts change ownership; no host checkout is mounted here.
+		# Chromium needs a non-root sandbox user; only disposable source/cache mounts are chowned.
 		useradd --create-home qti
 		chown -R qti:qti /work /src
 		runuser -u qti -- chromium --headless --dump-dom about:blank > /work/chromium_smoke.html

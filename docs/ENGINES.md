@@ -8,7 +8,7 @@ factory for a dynamic `Writer` and/or `Reader` trait object. Inspect the compile
 cargo run -p qti-cli --bin qti-package-maker -- engines
 ```
 
-The registry contains ten writers and four readers. Writers report their completed artifact and
+The registry contains eleven writers and four readers. Writers report their completed artifact and
 ordered recoverable media warnings through `WriteOutcome`; a missing path means the selected bank
 contained no item that the writer emitted. Readers return valid records and recoverable warnings in
 source order through `ReadOutcome`. Fatal input, validation, archive, XML, media, and I/O failures
@@ -32,6 +32,7 @@ kinds. `MC`, `MA`, `MATCH`, `NUM`, `FIB`, `MULTI_FIB`, and `ORDER` are defined i
 | `moodle_aiken` | Moodle Aiken text | `MC` | `PlaceholderWarn` |
 | `okla_chrst_bqgen` | OKLA Christian BQGen text | `MC`, `MA`, `MATCH`, `FIB` | `PlaceholderWarn` |
 | `text2qti` | text2qti source text | `MC`, `MA`, `NUM`, `FIB` | `ReferenceWarn` |
+| `ple_native_json` | PLE Native JSON directory | all seven | `Package` |
 
 The `canvas_qti_v1_2` writer returns no path for an `ORDER`-only bank. The
 `blackboard_export_zip` writer instead creates its valid empty package and returns an ordered
@@ -58,7 +59,8 @@ from `bbq-<name>-questions.txt` and uses it for default output names. See [USAGE
 commands and [FORMATS.md](FORMATS.md) for the output contracts.
 
 `EngineOptions` carries owned document title/date metadata. The CLI resolves them once per run and
-clones them into factories. The three ZIP package writers participate in the shared
+clones them into factories. The three ZIP package writers and PLE Native JSON participate in the
+shared
 `--html-to-image` conversion path; conversion happens once before multi-format fan-out.
 
 ## Extension boundary
@@ -67,4 +69,3 @@ The engine registry is deliberately compiled into `qti-engines`; it does not dis
 load format code at runtime. Trait objects let the static registry store heterogeneous engines,
 while keeping supported formats, media policies, and factories auditable in one source file. See
 [ENGINE_AUTHORING.md](ENGINE_AUTHORING.md) before adding an engine.
-

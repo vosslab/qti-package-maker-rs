@@ -16,6 +16,7 @@ const HTML_TO_IMAGE_ENGINES: &[&str] = &[
     "canvas_qti_v1_2",
     "blackboard_qti_v2_1",
     "blackboard_export_zip",
+    "ple_native_json",
 ];
 
 /// `bbq-converter`, matching the established Python entry point.
@@ -364,7 +365,10 @@ fn validate_output_and_conversion(
             .is_some_and(|entry| is_html_to_image_engine(entry))
     {
         return Err(CliError::Arguments {
-            message: "--html-to-image applies only to ZIP packaging engines (canvas_qti_v1_2, blackboard_qti_v2_1, blackboard_export_zip) when --output is supplied".to_owned(),
+            message: format!(
+                "--html-to-image applies only to supported output formats ({}) when --output is supplied",
+                HTML_TO_IMAGE_ENGINES.join(", ")
+            ),
         });
     }
     Ok(())
@@ -416,6 +420,9 @@ fn extract_content_name(input: &Path) -> Result<String, CliError> {
 }
 
 fn output_name(engine: &str, content_name: &str) -> PathBuf {
+    if engine == "ple_native_json" {
+        return PathBuf::from(format!("ple-{content_name}"));
+    }
     let (prefix, extension) = match engine {
         "canvas_qti_v1_2" => ("qti12", "zip"),
         "blackboard_qti_v2_1" => ("qti21", "zip"),
@@ -506,6 +513,7 @@ mod tests {
             ("exam_yaml", "exam-genetics.yaml"),
             ("okla_chrst_bqgen", "okla-genetics.txt"),
             ("text2qti", "text2qti-genetics.txt"),
+            ("ple_native_json", "ple-genetics"),
         ];
         for (engine, expected) in names {
             assert_eq!(output_name(engine, "genetics"), PathBuf::from(expected));

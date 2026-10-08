@@ -206,6 +206,9 @@ second per-writer conversion during CLI fan-out.
 ## Authoring checklist
 
 - Document the format and its exact supported kinds in [FORMATS.md](FORMATS.md).
+- Document its output shape and discoverable library export in [USAGE.md](USAGE.md), when present.
+- For directory outputs, document owned replacement behavior and how foreign or edited contents
+  are handled.
 - State media behavior in [MEDIA.md](MEDIA.md) and match its registry policy.
 - Add unit tests for rendering and meaningful fatal/recoverable input boundaries.
 - Add a semantic round-trip or package-integrity test when the format has a reader or archive.

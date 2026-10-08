@@ -24,6 +24,7 @@ serves the next teaching task.
 | Let students practice | Self-grading HTML | A standalone browser quiz with immediate feedback |
 | Review before release | Human-readable HTML | A readable copy of the questions and answers |
 | Reuse elsewhere | Aiken, YAML, text2qti, BBQ, or BQGen | Text formats for Moodle, exams, and other tools |
+| Hand questions to PLE | PLE Native JSON directory | One JSON document per question with associated media |
 
 The same bank can produce several of these outputs in one command, so edits stay in the source
 questions instead of becoming separate copies in each learning system.
@@ -60,7 +61,7 @@ human copy before publishing, then import the ZIP appropriate to the LMS.
 
 ## Choose an output
 
-Use the short flags for common destinations. `--all` writes all ten registered formats; use
+Use the short flags for common destinations. `--all` selects all eleven registered writers; use
 `--format <engine-name>` when the output does not have a shortcut.
 
 ```bash
@@ -72,10 +73,14 @@ Use the short flags for common destinations. `--all` writes all ten registered f
 
 # Moodle Aiken text
 ./target/release/bbq-converter --input bbq-genetics-questions.txt --aiken
+
+# PLE Native JSON and associated files
+./target/release/bbq-converter --input bbq-genetics-questions.txt --format ple_native_json
 ```
 
-`--html-to-image` is available for Canvas QTI 1.2, Blackboard QTI 2.1, and Blackboard Original
-pool exports. Table rendering requires Chromium or Chrome. It needs the optional RDKit shim
+`--html-to-image` is available for Canvas QTI 1.2, Blackboard QTI 2.1, Blackboard Original
+pool exports, and PLE Native JSON. Table rendering requires Chromium or Chrome. It needs the
+optional RDKit shim
 only when the bank contains an RDKit canvas. See
 [docs/HTML_TO_IMAGE.md](docs/HTML_TO_IMAGE.md) for the supported content and setup.
 
@@ -97,7 +102,7 @@ bindings; it does not replace review of the imported questions in the target LMS
 - [docs/INSTALL.md](docs/INSTALL.md) - source build, platform requirements, and the optional RDKit
   shim.
 - [docs/USAGE.md](docs/USAGE.md) - CLI flags, output names, and practical conversion commands.
-- [docs/FORMATS.md](docs/FORMATS.md) - all ten outputs, media behavior, and format limits.
+- [docs/FORMATS.md](docs/FORMATS.md) - all eleven outputs, media behavior, and format limits.
 - [docs/QUESTION_TYPES.md](docs/QUESTION_TYPES.md) - fields for the seven supported assessment
   types.
 - [docs/ENGINES.md](docs/ENGINES.md) - the current reader, writer, and media-capability inventory.

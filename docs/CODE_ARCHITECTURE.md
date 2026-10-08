@@ -38,6 +38,16 @@ describes read, write, and media-policy capabilities. `EngineOptions` carries do
 and `html_to_image`; `Writer::save_package` returns `WriteOutcome`, including writers that
 intentionally complete without producing an artifact.
 
+The PLE Native JSON engine maps each validated item to one of seven response kinds; its source
+model is in [source.rs](../crates/qti-engines/src/ple_native_json/source.rs). The public
+`export_bank` function returns per-question
+JSON, item identity, associated file bytes, and warnings for direct library consumption. The
+writer uses that export to stage a directory of question JSON and `media/` files. QPM validates
+its mapping and lossless transport; PLE's decoder owns its private count, size, and length limits.
+For PLE, media collection runs over mapped display fields only and uses the shared `qti-core::media`
+scan, resolution, naming, policy, and HTML rewrite functions. Whole-bank media traversal would
+inspect FIB accepted-answer literals and could change grading or report false missing files.
+
 [crates/qti-engines/src/html_to_image/mod.rs](../crates/qti-engines/src/html_to_image/mod.rs)
 selects supported fragments, statically parses permitted canvas scripts, renders canvases before
 tables, assigns item-scoped names, and uses a content-hash cache. The CLI invokes this conversion
@@ -73,7 +83,7 @@ BBQ input
        -> Chromium table PNGs
        -> rewritten item media
   -> selected qti-engines writers
-  -> package files or text outputs
+  -> package files, text outputs, or a PLE JSON/media directory
   -> optional qti-integrity inspection
 ```
 

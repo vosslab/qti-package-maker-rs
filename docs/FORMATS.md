@@ -1,6 +1,6 @@
 # Supported formats
 
-The Rust CLI writes ten format engines from a validated BBQ item bank. It reads BBQ text for its
+The Rust CLI writes eleven format engines from a validated BBQ item bank. It reads BBQ text for its
 conversion entry point; four engines additionally expose readers for library callers. The current
 authoritative inventory is [ENGINES.md](ENGINES.md).
 
@@ -16,9 +16,11 @@ authoritative inventory is [ENGINES.md](ENGINES.md).
 | Exam YAML | `exam_yaml` | `exam-<name>.yaml` | write |
 | OKLA Christian BQGen | `okla_chrst_bqgen` | `okla-<name>.txt` | read/write |
 | text2qti source | `text2qti` | `text2qti-<name>.txt` | read/write |
+| PLE Native JSON | `ple_native_json` | `ple-<name>/` | write |
 
 `<name>` is the core of an input named `bbq-<name>-questions.txt`. An explicit `--output` is valid
-only with one selected writer. `--all` writes all ten named outputs.
+only with one selected writer. `--all` selects all eleven writers; unsupported item kinds can
+leave an individual writer with no rendered output.
 
 ## Packaging formats
 
@@ -31,9 +33,20 @@ Canvas and Blackboard Original do not represent `ORDER`. Canvas creates no artif
 `ORDER`-only bank; Blackboard Original creates its format-valid empty package and returns a
 structured diagnostic. Blackboard QTI 2.1 represents all seven item kinds.
 
-`--html-to-image` is relevant to these three ZIP writers. The CLI renders selected table and canvas
-fragments once into a derived in-memory bank before writing package formats. See
+`--html-to-image` is relevant to these three ZIP writers and PLE Native JSON. The CLI renders
+selected table and canvas fragments once into a derived in-memory bank before writing eligible
+formats. See
 [HTML_TO_IMAGE.md](HTML_TO_IMAGE.md) for its supported subset and runtime requirements.
+
+## PLE Native JSON
+
+PLE Native JSON writes `item_NNNNN.json` documents and their associated files under `media/` in
+one directory. It represents all seven item kinds and preserves each question's answer meaning.
+The library export returns JSON and associated-file bytes per question as a converter handoff for
+PLE to decode. QPM does not import the handoff into PLE, assign PLE asset IDs, or control student
+presentation; server import, asset binding, and rendering remain PLE-owned follow-up work with no
+operational connection from QPM. The CLI directory also includes a hidden ownership manifest; see
+[USAGE.md](USAGE.md).
 
 ## Text and document formats
 
@@ -59,4 +72,3 @@ cargo run -p qti-cli --bin qti-package-maker -- check path/to/package.zip
 
 `check` reports `OK` only when no integrity violations are found. It reports diagnostics for ZIP
 and XML safety, manifests, QTI answer binding, Blackboard side resources, and referenced media.
-

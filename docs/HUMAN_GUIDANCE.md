@@ -10,6 +10,19 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ## Rust port
 
+- 2026-10-07: For the PLE handoff, QPM supplies canonical question content and correct-answer
+  information. PLE owns student presentation and any shuffling; QPM adds no permutations.
+- 2026-10-07: Ordinary FIB answers ignore capitalization and incidental whitespace. `DNA`,
+  `dNa`, and `DnA` should match; PLE may simplify its matching model separately.
+- 2026-10-07: Treat the Native JSON handoff files as task inputs and focus on the writer. Leave
+  their Git disposition alone except for moves required by implementation.
+- 2026-10-07: Record PLE problems in a QPM-discovered PLE issues document, then continue the
+  writer. The issues document is separate from the QPM implementation specification.
+- 2026-10-07: Reuse QPM's table-to-image and media pipeline for assets it already produces.
+  Record unsupported inline images as a separate QPM capability gap.
+- 2026-10-07: Complete this plan with manager and subagents. Use independent agent assessments
+  and automated tests in place of human gates; prefer more, smaller milestones.
+
 - Preserve Graphify's shrinkage safety check. Compare equivalent graph representations
   so legitimate normalization does not trigger it; verify a completely fresh mapping run.
 - Avoid maintaining patches to third-party code or wrapper hacks around upstream faults;

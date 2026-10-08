@@ -11,6 +11,7 @@ pub mod html_to_image;
 pub mod human_readable;
 pub mod moodle_aiken;
 pub mod okla_chrst_bqgen;
+pub mod ple_native_json;
 pub mod registry;
 pub mod text2qti;
 pub mod traits;
