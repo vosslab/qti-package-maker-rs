@@ -56,29 +56,39 @@ pub(in crate::blackboard_export_zip) fn write_package(
         .filter(|asset| asset.kind == AssetKind::Local)
         .map(|asset| asset.src.clone())
         .collect::<BTreeSet<_>>();
-    let mut token_by_source = BTreeMap::new();
+    let mut xid_by_source = BTreeMap::new();
+    let mut xid_by_content = BTreeMap::new();
     let mut embedded = Vec::new();
-    for (index, asset) in assets
+    for asset in assets
         .iter()
         .filter(|asset| rendered_local_sources.contains(&asset.src))
-        .enumerate()
     {
-        let xid = format!("{}_{:01}", index + 1, 1);
-        token_by_source.insert(asset.src.as_str(), format!("{TOKEN_PREFIX}{xid}"));
-        embedded.push((xid, asset));
+        let output_name = asset.output_name.as_deref().unwrap_or(&asset.src);
+        // Share bytes only when their packaged media interpretation also agrees.
+        let content = (
+            asset.mime_type.as_deref(),
+            extension(output_name),
+            asset.shared_bytes().map_err(media_error)?,
+        );
+        let xid = xid_by_content.entry(content).or_insert_with(|| {
+            let xid = format!("{}_1", embedded.len() + 1);
+            embedded.push((xid.clone(), asset));
+            xid
+        });
+        xid_by_source.insert(asset.src.as_str(), xid.clone());
     }
-    // Blackboard assigns every xid to the first item that refers to its source
-    // in bank order.  The same ASI form is emitted in `skeleton`, so Learn can
+    // Blackboard assigns every xid to the first item that refers to any of its
+    // sources in bank order. The same ASI form is emitted in `skeleton`, so Learn can
     // resolve a CSResourceLinks parentId without relying on server metadata.
-    let mut parent_by_source = BTreeMap::new();
+    let mut parent_by_xid = BTreeMap::new();
     for item in bank
         .iter_ordered()
         .filter(|item| kinds.contains(&item.kind()))
     {
         for asset in collected.dependencies_for(item.crc()).unwrap_or_default() {
-            if token_by_source.contains_key(asset.src.as_str()) {
-                parent_by_source
-                    .entry(asset.src.to_owned())
+            if let Some(xid) = xid_by_source.get(asset.src.as_str()) {
+                parent_by_xid
+                    .entry(xid.clone())
                     .or_insert_with(|| format!("_{}_1", item.crc()));
             }
         }
@@ -98,9 +108,9 @@ pub(in crate::blackboard_export_zip) fn write_package(
     }
     let pre = |item: &qti_core::Item| {
         rewrite_item_media(item, |source| {
-            token_by_source
+            xid_by_source
                 .get(source)
-                .cloned()
+                .map(|xid| format!("{TOKEN_PREFIX}{xid}"))
                 .unwrap_or_else(|| source.to_owned())
         })
         .map_err(media_error)
@@ -122,7 +132,7 @@ pub(in crate::blackboard_export_zip) fn write_package(
     );
     archive.insert(
         "res00005.dat".to_owned(),
-        resource_links(&embedded, &parent_by_source)?.into_bytes(),
+        resource_links(&embedded, &parent_by_xid)?.into_bytes(),
     );
     for (name, body) in fixed_sidecars() {
         archive.insert(name.to_owned(), body.into_bytes());
@@ -207,18 +217,17 @@ fn fixed_sidecars() -> [(&'static str, String); 5] {
 
 fn resource_links(
     embedded: &[(String, &qti_core::media::MediaAsset)],
-    parent_by_source: &BTreeMap<String, String>,
+    parent_by_xid: &BTreeMap<String, String>,
 ) -> Result<String, EngineError> {
     let mut links = String::new();
     for (xid, asset) in embedded {
-        let parent =
-            parent_by_source
-                .get(asset.src.as_str())
-                .ok_or_else(|| EngineError::InvalidFormat {
-                    engine: NAME,
-                    format: "media",
-                    message: format!("local asset '{}' has no owning item", asset.src),
-                })?;
+        let parent = parent_by_xid
+            .get(xid)
+            .ok_or_else(|| EngineError::InvalidFormat {
+                engine: NAME,
+                format: "media",
+                message: format!("local asset '{}' has no owning item", asset.src),
+            })?;
         links.push_str(&format!(
             "<cms_resource_link><parentId>{parent}</parentId><resourceId>{xid}</resourceId></cms_resource_link>"
         ));

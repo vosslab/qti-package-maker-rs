@@ -74,6 +74,35 @@ independent coverage and resolved migration findings make it unnecessary.
 
 **Owner.** [SELFTEST_COMPATIBILITY.md](SELFTEST_COMPATIBILITY.md).
 
+### Selftest presentation repairs
+
+**Decision.** Restore demonstrated Python selftest presentation features in the shared Rust writer.
+Use seeded `fastrand` shuffling of presentation indices; retain source identities and grading keys.
+
+**Why.** Rust omitted palette application, dark styling, compact choices, and some responsive
+content handling. It reversed MATCH/ORDER answers instead of shuffling. `fastrand` is already in
+the lockfile and provides the needed shuffle without a custom generator or additional packages.
+
+**Consequence.** Keep CSS scoped to generated controls and preserve authored content. Use browser
+behavior checks for these regressions; dimensions and implementation techniques are not new public
+requirements. Website integration and unrelated renderer redesign remain separate.
+
+**Owner.** [SELFTEST_COMPATIBILITY.md](SELFTEST_COMPATIBILITY.md).
+
+### BPW practice and progress scope
+
+**Decision.** Preserve existing question identities and integration behavior. Treat BPW progress
+as lightweight motivation, without adding authoritative storage, tamper resistance, migrations,
+or elaborate consistency mechanisms.
+
+**Why.** Reliable rendering, grading, feedback, regeneration, and advancement directly affect
+student practice. Engineering complexity should reflect the consequences of failure.
+
+**Consequence.** Keep feature-parity repairs focused on demonstrated defects and lost features;
+do not expand progress tracking into a separate architectural concern.
+
+**Owner.** [SELFTEST_COMPATIBILITY.md](SELFTEST_COMPATIBILITY.md).
+
 ### PLE Native JSON authority and export
 
 **Decision.** QPM maps its seven validated item kinds to PLE Native JSON without changing answer

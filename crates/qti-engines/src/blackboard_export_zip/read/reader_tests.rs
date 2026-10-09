@@ -13,6 +13,13 @@ const PNG: &[u8] = &[
     0, 1, 255, 137, 153, 61, 29, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
 ];
 
+// The same pixel with a different valid IDAT encoding: byte identity governs packaging.
+const PNG_ALTERNATE: &[u8] = &[
+    137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0,
+    0, 0, 31, 21, 196, 137, 0, 0, 0, 16, 73, 68, 65, 84, 120, 1, 1, 5, 0, 250, 255, 0, 255, 0, 0,
+    255, 5, 0, 1, 255, 250, 92, 136, 209, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+];
+
 fn package(bank: &ItemBank, assets: &MemoryAssets) -> crate::WriteOutcome {
     let context = WriteContext::new(
         "pool.zip".to_owned(),
@@ -314,9 +321,12 @@ fn csfiles_lom_sidecars_match_frozen_namespace_and_collision_safe_names() {
         "Repeated <img src=\"images/a/shared.png\" alt=\"first\" /> <img src=\"images/b/shared.png\" alt=\"second\" />",
     );
     let mut assets = MemoryAssets::new();
-    for src in ["images/a/shared.png", "images/b/shared.png"] {
+    for (src, bytes) in [
+        ("images/a/shared.png", PNG),
+        ("images/b/shared.png", PNG_ALTERNATE),
+    ] {
         assets
-            .insert(src.to_owned(), PNG.to_vec())
+            .insert(src.to_owned(), bytes.to_vec())
             .expect("source image");
     }
     let entries = package_entries(&bank, &assets);
@@ -339,7 +349,7 @@ fn csfiles_lom_sidecars_match_frozen_namespace_and_collision_safe_names() {
     assert!(question.contains("shared.png"));
     assert!(question.contains("shared(1).png"));
     assert_eq!(recovered.assets.entries()["shared.png"], PNG);
-    assert_eq!(recovered.assets.entries()["shared(1).png"], PNG);
+    assert_eq!(recovered.assets.entries()["shared(1).png"], PNG_ALTERNATE);
     // Reader collision handling must also work for external packages whose LOM
     // names collide, independent of the writer's own naming convention.
     let mut collisions = entries;
@@ -352,7 +362,7 @@ fn csfiles_lom_sidecars_match_frozen_namespace_and_collision_safe_names() {
         .into_bytes();
     let recovered = read(&collisions);
     assert_eq!(recovered.assets.entries()["shared.png"], PNG);
-    assert_eq!(recovered.assets.entries()["shared_2.png"], PNG);
+    assert_eq!(recovered.assets.entries()["shared_2.png"], PNG_ALTERNATE);
     assert!(
         recovered
             .bank
@@ -366,11 +376,12 @@ fn csfiles_lom_sidecars_match_frozen_namespace_and_collision_safe_names() {
 }
 
 #[test]
-fn cs_resource_links_assign_each_image_to_its_first_referencing_item() {
-    let mut bank = image_bank("First <img src=\"first.png\" alt=\"first\" />");
+fn identical_image_bytes_share_one_resource_owned_by_the_first_referring_item() {
+    let mut bank = image_bank("First <img src=\"z_first.png\" alt=\"first\" />");
     let first_parent = format!("_{}_1", bank.iter_ordered().next().expect("first").crc());
     let second = Item::new(
-        "Second <img src=\"second.png\" alt=\"second\" />".to_owned(),
+        "Second <img src=\"a_second.png\" alt=\"second\" /> <img src=\"m_distinct.png\" />"
+            .to_owned(),
         ItemBody::Mc {
             choices: vec!["one".to_owned(), "two".to_owned()],
             answer: "two".to_owned(),
@@ -381,21 +392,65 @@ fn cs_resource_links_assign_each_image_to_its_first_referencing_item() {
     bank.add_item(second).expect("add second");
     let mut assets = MemoryAssets::new();
     assets
-        .insert("first.png".to_owned(), PNG.to_vec())
+        .insert("z_first.png".to_owned(), PNG.to_vec())
         .expect("first image");
     assets
-        .insert("second.png".to_owned(), PNG.to_vec())
+        .insert("a_second.png".to_owned(), PNG.to_vec())
         .expect("second image");
+    assets
+        .insert("m_distinct.png".to_owned(), PNG_ALTERNATE.to_vec())
+        .expect("distinct image");
     let entries = package_entries(&bank, &assets);
-    let links = String::from_utf8_lossy(&entries["res00005.dat"]);
-    for parent in [first_parent, second_parent] {
-        assert_eq!(
-            links
-                .matches(&format!("<parentId>{parent}</parentId>"))
-                .count(),
-            1
-        );
+    let binaries = entries
+        .iter()
+        .filter(|(name, _)| name.starts_with("csfiles/") && name.ends_with(".png"))
+        .collect::<Vec<_>>();
+    assert_eq!(binaries.len(), 2);
+    assert_eq!(
+        binaries
+            .iter()
+            .filter(|(_, bytes)| bytes.as_slice() == PNG)
+            .count(),
+        1
+    );
+    assert_eq!(
+        binaries
+            .iter()
+            .filter(|(_, bytes)| bytes.as_slice() == PNG_ALTERNATE)
+            .count(),
+        1
+    );
+    for (name, _) in &binaries {
+        assert!(entries.contains_key(&format!("{name}.xml")));
     }
+    let pool = String::from_utf8_lossy(&entries["res00002.dat"]);
+    assert_eq!(pool.matches("<item ").count(), 2);
+    assert_eq!(pool.matches("bbcswebdav/xid-1_1").count(), 2);
+    assert_eq!(pool.matches("bbcswebdav/xid-2_1").count(), 1);
+    let links = String::from_utf8_lossy(&entries["res00005.dat"]);
+    assert!(links.contains(&format!(
+        "<parentId>{first_parent}</parentId><resourceId>1_1</resourceId>"
+    )));
+    assert!(links.contains(&format!(
+        "<parentId>{second_parent}</parentId><resourceId>2_1</resourceId>"
+    )));
+    assert_eq!(links.matches("<cms_resource_link>").count(), 2);
+    let recovered = read(&entries);
+    assert_eq!(recovered.bank.iter_ordered().count(), 2);
+    for (original, restored) in bank.iter_ordered().zip(recovered.bank.iter_ordered()) {
+        assert_eq!(original.body(), restored.body());
+    }
+    let restored = recovered.bank.iter_ordered().collect::<Vec<_>>();
+    assert!(restored[0].common().question_text.contains("a_second.png"));
+    assert!(restored[1].common().question_text.contains("a_second.png"));
+    assert!(
+        restored[1]
+            .common()
+            .question_text
+            .contains("m_distinct.png")
+    );
+    assert_eq!(recovered.assets.entries()["a_second.png"], PNG);
+    assert_eq!(recovered.assets.entries()["m_distinct.png"], PNG_ALTERNATE);
 }
 
 fn order_bank(stem: &str) -> ItemBank {

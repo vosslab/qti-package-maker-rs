@@ -4,11 +4,8 @@
 //! Python generators. It never evaluates an item script.
 
 mod cache;
-mod canvas_script;
 mod chromium;
 mod convert;
-mod naming;
-mod selectors;
 
 pub use cache::{CacheOutcome, RenderCache, RenderMetrics, RenderedPng};
 pub use convert::{
@@ -16,8 +13,8 @@ pub use convert::{
     ConversionMetrics, FragmentRenderer, convert_bank, convert_bank_with_metrics,
 };
 
-pub use canvas_script::{CanvasScriptError, parse_canvas_script};
-pub use selectors::{
+pub use qti_render::{CanvasScriptError, parse_canvas_script};
+pub use qti_render::{
     CanvasTarget, FieldConversionPlan, Fragment, FragmentId, FragmentKind, FragmentReplacement,
     HtmlToImageError, PreparedFragment, apply_replacements, find_canvas_targets,
     find_table_fragments, remove_rdkit_loader_scripts,

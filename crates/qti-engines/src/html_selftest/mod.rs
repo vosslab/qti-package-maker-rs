@@ -91,10 +91,10 @@ impl Writer for HtmlSelftestWriter {
         .map_err(media_error)?;
         // Question, choice, and prompt fields are authored HTML.  Preserve them as the Python
         // writer does: this output is a self-test renderer, not an HTML sanitizer.
-        let fragment = render_item(&view)?;
+        let fragment = render_item(&view, context.shuffle_seed)?;
         let controls = item_control_assets(item.kind(), item.crc().to_string().as_str());
         let document = format!(
-            "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n<title>QTI self-test</title><style>{BASE_CSS}{CSS}</style></head><body><main class=\"qti-selftest\">{fragment}</main><script>{CONTROLS}</script>{controls}</body></html>\n"
+            "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>QTI self-test</title><style>{BASE_CSS}{CSS}</style></head><body><main class=\"qti-selftest\">{fragment}</main><script>{CONTROLS}</script>{controls}</body></html>\n"
         );
         Ok(WriteOutcome {
             artifact: Some(WriteArtifact::File {
@@ -179,7 +179,7 @@ fn asset_data_uri(asset: &MediaAsset) -> Result<String, EngineError> {
     }
 }
 
-fn render_item(item: &ItemRenderView) -> Result<String, EngineError> {
+fn render_item(item: &ItemRenderView, seed: u64) -> Result<String, EngineError> {
     let crc = item.crc().to_string();
     let stem = &item.common().question_text;
     let mut html = format!(
@@ -235,14 +235,11 @@ fn render_item(item: &ItemRenderView) -> Result<String, EngineError> {
             html = inject_blanks(html, answers, &crc);
         }
         ItemBody::Match { prompts, choices } => {
-            html.push_str(&match_controls(&crc, prompts, choices))
+            html.push_str(&match_controls(&crc, prompts, choices, seed))
         }
-        ItemBody::Order { answers } => html.push_str(&order_controls(&crc, answers)),
+        ItemBody::Order { answers } => html.push_str(&order_controls(&crc, answers, seed)),
     }
-    html.push_str(buttons(item.kind()));
-    html.push_str(&format!(
-        "<div id=\"result_{crc}\" class=\"qti-feedback-result\" aria-live=\"polite\"></div>"
-    ));
+    html.push_str(&actions(item.kind(), &crc));
     html.push_str(
         "<div class=\"qti-sr-only\" role=\"status\" aria-live=\"polite\" aria-atomic=\"true\"></div></div>",
     );
@@ -261,6 +258,60 @@ fn kind_name(kind: ItemKind) -> &'static str {
     }
 }
 
+fn has_rich_content(html: &scraper::Html) -> bool {
+    let selector = scraper::Selector::parse("table, div, p, ul, ol, svg, canvas, img")
+        .expect("static rich-content selector");
+    html.select(&selector).next().is_some()
+}
+
+fn choice_layout(choices: &[String]) -> &'static str {
+    if choices.len() <= 3
+        || choices.iter().any(|choice| {
+            let fragment = scraper::Html::parse_fragment(choice);
+            has_rich_content(&fragment)
+                || fragment
+                    .root_element()
+                    .text()
+                    .collect::<String>()
+                    .chars()
+                    .count()
+                    > 50
+        })
+    {
+        ""
+    } else if choices.len() <= 5 {
+        "qti-auto-grid-compact"
+    } else {
+        "qti-auto-grid"
+    }
+}
+
+fn scroll_attributes(content: &str) -> &'static str {
+    if has_rich_content(&scraper::Html::parse_fragment(content)) {
+        " tabindex=\"0\" role=\"group\" aria-label=\"Scrollable question content\""
+    } else {
+        ""
+    }
+}
+
+fn actions(kind: ItemKind, crc: &str) -> String {
+    format!(
+        "<div class=\"qti-game-actions\">{}<div id=\"result_{crc}\" class=\"qti-feedback-result\" aria-live=\"polite\"></div></div>",
+        buttons(kind)
+    )
+}
+
+// Shuffle presentation indices only: source item contents, CRC, and grading tokens stay fixed.
+fn shuffled_indices(len: usize, seed: u64) -> Vec<usize> {
+    let mut indices = (0..len).collect::<Vec<_>>();
+    let mut rng = fastrand::Rng::with_seed(seed);
+    // Fixed-width draws keep native and wasm32 arrangements identical for the same seed.
+    for end in 1..len {
+        indices.swap(end, rng.u64(..=end as u64) as usize);
+    }
+    indices
+}
+
 fn choice_list(
     crc: &str,
     choices: &[String],
@@ -268,42 +319,52 @@ fn choice_list(
     multiple: bool,
 ) -> String {
     let input_type = if multiple { "checkbox" } else { "radio" };
-    let mut html = format!("<ul id=\"choices_{crc}\">");
+    let layout = choice_layout(choices);
+    let mut html = format!("<ul id=\"choices_{crc}\" class=\"{layout}\">");
     for (index, choice) in choices.iter().enumerate() {
         let option_number = if multiple { index + 1 } else { index };
         let id = format!("option_{crc}_{option_number}");
         let letter = letter(index);
-        html.push_str(&format!("<li><input type=\"{input_type}\" id=\"{id}\" name=\"answer_{crc}\" data-correct=\"{}\"><label for=\"{id}\"><strong>{letter}.</strong><span class=\"qti-choice-content\">{choice}</span></label></li>", correct(choice)));
+        html.push_str(&format!("<li><input type=\"{input_type}\" id=\"{id}\" name=\"answer_{crc}\" data-correct=\"{}\"><label for=\"{id}\"><strong>{letter}.</strong><div class=\"qti-choice-content\">{choice}</div></label></li>", correct(choice)));
     }
     html.push_str("</ul>");
     html
 }
 
-fn match_controls(crc: &str, prompts: &[String], choices: &[String]) -> String {
-    let mut html = "<p class=\"qti-control-instructions\">Drag a choice to a row, or click a choice and then a row. With a slot focused, type a letter to move that choice here.</p><table class=\"qti-match-table\"><thead><tr><th>Feedback</th><th>Your choice</th><th>Prompt</th></tr></thead><tbody>".to_owned();
+fn match_controls(crc: &str, prompts: &[String], choices: &[String], seed: u64) -> String {
+    let mut html = "<p class=\"qti-control-instructions\">Drag a choice to a row, or click a choice and then a row. With a slot focused, type a letter to move that choice here.</p><div class=\"qti-match-layout\"><table class=\"qti-match-table\"><thead><tr><th scope=\"col\"><span class=\"qti-sr-only\">Feedback</span></th><th>Your choice</th><th>Prompt</th></tr></thead><tbody>".to_owned();
     for (index, prompt) in prompts.iter().enumerate() {
         let token = format!("{crc}_{:03}", index + 1);
-        html.push_str(&format!("<tr class=\"qti-match-row\"><td class=\"feedback\"></td><td class=\"qti-match-answer\"><button type=\"button\" class=\"qti-match-slot\" data-correct=\"{token}\" data-prompt=\"{}\" aria-label=\"Assign a choice to prompt {}\" aria-describedby=\"prompt_{crc}_{}\">Drop Your Choice Here</button></td><td class=\"qti-match-prompt\" id=\"prompt_{crc}_{}\">{}. {prompt}</td></tr>", index + 1, index + 1, index + 1, index + 1, index + 1));
+        let scroll = scroll_attributes(prompt);
+        html.push_str(&format!("<tr class=\"qti-match-row\"><td class=\"feedback\"></td><td class=\"qti-match-answer\"><button type=\"button\" class=\"qti-match-slot\" data-correct=\"{token}\" data-prompt=\"{}\" aria-label=\"Assign a choice to prompt {}\" aria-describedby=\"prompt_{crc}_{}\">Drop Your Choice Here</button></td><td class=\"qti-match-prompt\" id=\"prompt_{crc}_{}\"><div class=\"qti-match-prompt-content\"{scroll}>{}. {prompt}</div></td></tr>", index + 1, index + 1, index + 1, index + 1, index + 1));
     }
-    html.push_str("</tbody></table><ul class=\"qti-match-bank\" aria-label=\"Answer choices\">");
+    html.push_str("</tbody></table>");
+    html.push_str("<ul class=\"qti-match-bank\" aria-label=\"Answer choices\">");
     // Match choices are displayed in a shuffled order, but their token always retains the
     // original pair position.  A slot grades against that source token, never its display letter.
-    for (display_index, (source_index, choice)) in choices.iter().enumerate().rev().enumerate() {
+    for (display_index, source_index) in shuffled_indices(choices.len(), seed)
+        .into_iter()
+        .enumerate()
+    {
+        let choice = &choices[source_index];
         let letter = letter(display_index);
         let palette = display_index % 5 + 1;
         html.push_str(&format!("<li><button type=\"button\" class=\"qti-match-choice qti-choice-{palette}\" data-value=\"{crc}_{:03}\" data-letter=\"{letter}\" draggable=\"true\" aria-pressed=\"false\"><strong>{letter}.</strong> <span class=\"qti-choice-content\">{choice}</span></button></li>", source_index + 1));
     }
-    html.push_str("</ul>");
+    html.push_str("</ul></div>");
     html
 }
 
-fn order_controls(crc: &str, answers: &[String]) -> String {
+fn order_controls(crc: &str, answers: &[String], seed: u64) -> String {
     let mut html = "<p class=\"qti-control-instructions\">Drag and drop rows to arrange the answers, or use Move up and Move down. You can also use the arrow keys while a move button is focused.</p><ol class=\"qti-order-list\" aria-label=\"Your answer order\">".to_owned();
-    // Reverse rather than shuffle: every author answer stays present, and output selection still
-    // varies at the bank level.  A deterministic starting order supports reproducible tests.
-    for (index, answer) in answers.iter().enumerate().rev() {
-        let position = answers.len() - index;
-        html.push_str(&format!("<li class=\"qti-order-row qti-choice-{}\" data-value=\"{crc}_{:03}\" data-initial=\"{position}\" draggable=\"true\"><span class=\"feedback\"></span><strong class=\"qti-order-position\">{position}</strong><span class=\"qti-choice-content\">{answer}</span><span class=\"qti-order-actions\"><button type=\"button\" class=\"qti-order-move\" data-direction=\"up\">Move up</button><button type=\"button\" class=\"qti-order-move\" data-direction=\"down\">Move down</button></span></li>", position % 5 + 1, index + 1));
+    for (display_index, index) in shuffled_indices(answers.len(), seed)
+        .into_iter()
+        .enumerate()
+    {
+        let answer = &answers[index];
+        let position = display_index + 1;
+        let scroll = scroll_attributes(answer);
+        html.push_str(&format!("<li class=\"qti-order-row qti-choice-{}\" data-value=\"{crc}_{:03}\" data-initial=\"{position}\" draggable=\"true\"><span class=\"feedback\"></span><strong class=\"qti-order-position\">{position}</strong><div class=\"qti-choice-content\"{scroll}>{answer}</div><span class=\"qti-order-actions\"><button type=\"button\" class=\"qti-order-move\" data-direction=\"up\">Move up</button><button type=\"button\" class=\"qti-order-move\" data-direction=\"down\">Move down</button></span></li>", position % 5 + 1, index + 1));
     }
     html.push_str("</ol>");
     html
@@ -346,7 +407,7 @@ fn inject_blanks(
 fn buttons(kind: ItemKind) -> &'static str {
     match kind {
         ItemKind::Match | ItemKind::Order => {
-            "<div class=\"qti-game-actions\"><button type=\"button\" class=\"qti-btn\" data-action=\"grade\">Check Answer</button><button type=\"button\" class=\"qti-btn qti-btn-reset\" data-action=\"reset\">Reset</button></div>"
+            "<div class=\"qti-game-buttons\"><button type=\"button\" class=\"qti-btn\" data-action=\"grade\">Check Answer</button><button type=\"button\" class=\"qti-btn qti-btn-reset\" data-action=\"reset\">Reset</button></div>"
         }
         ItemKind::Ma => {
             "<button type=\"button\" class=\"qti-btn\" data-action=\"grade\">Check Answer</button><button type=\"button\" class=\"qti-btn qti-btn-reset\" data-action=\"reset\">Clear Selection</button>"
@@ -436,7 +497,7 @@ mod tests {
             },
         ];
         for body in cases {
-            let rendered = render_item(&item(body).render_view()).expect("render");
+            let rendered = render_item(&item(body).render_view(), 0).expect("render");
             assert!(rendered.contains("data-kind"));
             assert!(rendered.contains("Check Answer"));
         }
@@ -448,7 +509,7 @@ mod tests {
             answers: vec!["yes".into()],
         });
         let fib_crc = fib.crc().to_string();
-        let fib_html = render_item(&fib.render_view()).expect("render FIB");
+        let fib_html = render_item(&fib.render_view(), 0).expect("render FIB");
         assert!(fib_html.starts_with(&format!(
             "<div class=\"qti-selftest-item\" id=\"question_html_{fib_crc}\""
         )));
@@ -461,7 +522,7 @@ mod tests {
             tolerance: 0.1,
             tolerance_message: false,
         });
-        let number_html = render_item(&number.render_view()).expect("render NUM");
+        let number_html = render_item(&number.render_view(), 0).expect("render NUM");
         assert!(number_html.contains(&format!("id=\"num_input_{}\"", number.crc())));
 
         let multiple = item(ItemBody::Ma {
@@ -470,7 +531,7 @@ mod tests {
             min_answers_required: 1,
             allow_all_correct: false,
         });
-        let multiple_html = render_item(&multiple.render_view()).expect("render MA");
+        let multiple_html = render_item(&multiple.render_view(), 0).expect("render MA");
         assert!(multiple_html.contains(&format!("id=\"option_{}_1\"", multiple.crc())));
         assert!(!multiple_html.contains("Reveal answer"));
         assert!(multiple_html.contains("Clear Selection"));
@@ -489,7 +550,7 @@ mod tests {
         )
         .expect("valid multi FIB");
         let crc = item.crc().to_string();
-        let rendered = render_item(&item.render_view()).expect("render");
+        let rendered = render_item(&item.render_view(), 0).expect("render");
         let document = Html::parse_fragment(&rendered);
         let inputs = Selector::parse(".fib-blank").expect("input selector");
         let ids = document
@@ -601,7 +662,7 @@ mod tests {
             "<script>window.authorHook=1</script><a href=\"https://example.test\" onclick=\"window.authorHook=2\">x</a>".into(),
             ItemBody::Fib { answers: vec!["yes".into()] },
         ).expect("valid");
-        let rendered = render_item(&item.render_view()).expect("render");
+        let rendered = render_item(&item.render_view(), 0).expect("render");
         assert!(rendered.contains("window.authorHook=1"));
         assert!(rendered.contains("href=\"https://example.test\""));
         assert!(rendered.contains("onclick=\"window.authorHook=2\""));
@@ -613,6 +674,7 @@ mod tests {
             "c0de",
             &["A".to_owned(), "C".to_owned()],
             &["T".to_owned(), "G".to_owned()],
+            0,
         );
         let document = Html::parse_fragment(&html);
         let prompt_selector = Selector::parse(".qti-match-prompt").expect("prompt selector");
@@ -670,7 +732,8 @@ mod tests {
                     .to_owned()
             })
             .collect::<Vec<_>>();
-        assert_eq!(display, ["G", "T"], "the bank is shuffled for display");
+        assert_eq!(display.len(), 2);
+        assert!(display.contains(&"G".to_owned()) && display.contains(&"T".to_owned()));
     }
 
     #[test]

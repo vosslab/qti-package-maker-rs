@@ -57,6 +57,13 @@ crates/
 |  +- src/checker/                  Blackboard, grading, identifiers, manifest, media, XML, image checks
 |  `- src/checker_tests.rs          Focused checker regressions
 +- qti-raster/fonts/                Bundled font assets and licenses (renderer removed)
++- qti-render/                      Portable rendering contract
+|  +- src/render_plan.rs            Selection, dependency planning, PNG validation, finalization
+|  +- src/canvas_script.rs          Bounded static canvas parser
+|  +- src/canvas_source.rs          CanvasSource and source-owned RDKit options/query
+|  +- src/selectors.rs              Eligible display fragments
+|  +- src/naming.rs                 Item-scoped generated media names
+|  `- src/wrapper.rs                Shared static capture document
 +- qti-native/                      Native host services
 |  +- src/assets.rs                 Canonical-root lazy DirectoryAssets
 |  +- src/input.rs                  Bounded filesystem loading and package checks
@@ -64,14 +71,15 @@ crates/
 |  +- src/ple_output.rs             PLE staging and publication facade
 |  +- src/ple_output/               Ownership verification and native regressions
 |  +- src/metadata.rs               Once-resolved native document context
-|  +- src/html_to_image/            Selection, canvas parsing, rendering, cache
+|  +- src/html_to_image/            Native Chromium/Rayon/RDKit execution and cache
 +- qti-wasm/                        Typed Wasm adapter
 |  +- src/transport.rs              Rust-authoritative tsify request/result types
 |  +- src/adapter.rs                Pure owned transport validation/dispatch
 |  +- src/boundary.rs               JavaScript preflight and wasm-bindgen exports
+|  +- src/render_transport.rs       Typed render jobs and completions
+|  +- src/render_adapter.rs         Stateless planning and final conversion
 |  `- src/diagnostics.rs            Structured error and warning transport
 +- qti-molecule/                    Optional RDKit canvas renderer
-|  +- src/source.rs                 Validated CanvasSource model
 |  +- src/renderer.rs               Safe runtime shim loader
 |  +- native/                       Versioned C ABI shim sources and build helper
 |  `- tests/                        Canvas corpus and shim integration coverage

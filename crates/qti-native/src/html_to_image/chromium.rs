@@ -9,7 +9,6 @@ use std::fmt;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use base64::{Engine, engine::general_purpose::STANDARD};
 use chromiumoxide::cdp::browser_protocol::page::{
     CaptureScreenshotFormat, Viewport as ScreenshotViewport,
 };
@@ -26,11 +25,6 @@ use tokio::task::JoinHandle;
 const VIEWPORT_WIDTH: u32 = 1280;
 const VIEWPORT_HEIGHT: u32 = 720;
 const DEVICE_SCALE_FACTOR: f64 = 2.0;
-
-const NEXT_FONT: &[u8] =
-    include_bytes!("../../../qti-raster/fonts/atkinson_hyperlegible_next_variable.ttf");
-const MONO_FONT: &[u8] =
-    include_bytes!("../../../qti-raster/fonts/atkinson_hyperlegible_mono_variable.ttf");
 
 /// A Chromium table-rendering failure with a direct recovery path when Chromium is unavailable.
 #[derive(Debug, Error)]
@@ -100,7 +94,7 @@ impl ChromiumRenderer {
     ///
     /// Browser startup is deliberately deferred to this method, so runs without a selected table
     /// never require Chromium.
-    pub(crate) fn render(&self, html: &str) -> Result<Vec<u8>, ChromiumError> {
+    pub(crate) fn render(&self, html: &str) -> Result<(Vec<u8>, f64, f64), ChromiumError> {
         let mut state = self
             .state
             .lock()
@@ -192,7 +186,7 @@ impl BrowserState {
             .new_page("about:blank")
             .await
             .map_err(|error| ChromiumError::Browser(error.to_string()))?;
-        page.set_content(static_document())
+        page.set_content(qti_render::static_document(""))
             .await
             .map_err(|error| ChromiumError::Browser(error.to_string()))?;
         Ok(Self {
@@ -203,7 +197,7 @@ impl BrowserState {
         })
     }
 
-    async fn render(&self, html: &str) -> Result<Vec<u8>, ChromiumError> {
+    async fn render(&self, html: &str) -> Result<(Vec<u8>, f64, f64), ChromiumError> {
         // ASVS 1.2.3: HTML travels as a CDP JSON value, never as interpolated JavaScript source.
         // ASVS 1.3.1/1.3.5: parse markup in an inert template, remove active document elements,
         // then rely on the static document CSP to prevent authored scripts and network loads.
@@ -264,7 +258,8 @@ impl BrowserState {
             .css_layout_viewport;
         // Capture document coordinates once, including content outside the viewport.
         // Element::screenshot scrolls first and double-counts offsets in chromiumoxide 0.9.1.
-        self.page
+        let bytes = self
+            .page
             .screenshot(
                 ScreenshotParams::builder()
                     .format(CaptureScreenshotFormat::Png)
@@ -279,7 +274,8 @@ impl BrowserState {
                     .build(),
             )
             .await
-            .map_err(|error| ChromiumError::Browser(error.to_string()))
+            .map_err(|error| ChromiumError::Browser(error.to_string()))?;
+        Ok((bytes, bounds.width, bounds.height))
     }
 }
 
@@ -342,21 +338,4 @@ fn find_headless_shell() -> Option<PathBuf> {
         }
     }
     None
-}
-
-fn static_document() -> String {
-    let next = STANDARD.encode(NEXT_FONT);
-    let mono = STANDARD.encode(MONO_FONT);
-    format!(
-        r#"<!doctype html>
-<html><head><meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; connect-src 'none'; img-src data:; font-src data:; style-src 'unsafe-inline'; media-src data:; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'">
-<style>
-@font-face {{ font-family: 'Atkinson Hyperlegible Next'; font-style: normal; font-weight: 200 800; src: url(data:font/ttf;base64,{next}) format('truetype'); }}
-@font-face {{ font-family: 'Atkinson Hyperlegible Mono'; font-style: normal; font-weight: 200 800; src: url(data:font/ttf;base64,{mono}) format('truetype'); }}
-html {{ margin: 0; background: white; }}
-body {{ margin: 16px; font-family: 'Atkinson Hyperlegible Next', sans-serif; }}
-#qti-render-root {{ display: flow-root; }}
-</style></head><body><main id="qti-render-root"></main></body></html>"#,
-    )
 }

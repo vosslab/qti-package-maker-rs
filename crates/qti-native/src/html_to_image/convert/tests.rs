@@ -31,7 +31,9 @@ impl FragmentRenderer for TestRenderer {
 
     fn render_canvas(&self, _source: &CanvasSource) -> Result<RenderedPng, Self::Error> {
         Ok(RenderedPng {
-            bytes: vec![7],
+            bytes: test_png(),
+            width: 120.0,
+            height: 80.0,
             metrics: Default::default(),
         })
     }
@@ -42,7 +44,9 @@ impl FragmentRenderer for TestRenderer {
             Err(TestRenderError)
         } else {
             Ok(RenderedPng {
-                bytes: vec![137, 80, 78, 71],
+                bytes: test_png(),
+                width: 120.0,
+                height: 80.0,
                 metrics: Default::default(),
             })
         }
@@ -223,7 +227,9 @@ fn only_images_inside_rendered_tables_are_read_and_inlined() {
             assert!(html.contains("data:image/png;base64,aW5zaWRlIGJ5dGVz"));
             assert!(!html.contains("inside.png"));
             Ok(RenderedPng {
-                bytes: vec![1],
+                bytes: test_png(),
+                width: 120.0,
+                height: 80.0,
                 metrics: Default::default(),
             })
         }
@@ -644,5 +650,61 @@ impl FragmentRenderer for MetricsRenderer {
             };
             png
         })
+    }
+}
+
+fn test_png() -> Vec<u8> {
+    use base64::Engine;
+    base64::engine::general_purpose::STANDARD.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGP4DwQACfsD/fteaysAAAAASUVORK5CYII=").expect("valid PNG")
+}
+
+#[test]
+fn native_adapter_matches_portable_identity_grading_media_and_css_sizing() {
+    let mut bank = ItemBank::new(false);
+    for stem in [
+        "<table><tr><td>x</td></tr></table>",
+        "<table><tbody><tr><td>x</td></tr></tbody></table>",
+    ] {
+        bank.add_item(mc(stem)).expect("distinct source items");
+    }
+    let source = qti_core::media::MemoryAssets::new();
+    let renderer = TestRenderer::default();
+    let plan = qti_render::plan_bank(&bank, &[ItemKind::Mc], &source).expect("plan");
+    let completions = plan
+        .jobs
+        .iter()
+        .map(|job| {
+            let rendered = renderer
+                .render_table(job.html.as_deref().expect("table"))
+                .expect("render");
+            qti_render::RenderCompletion {
+                id: job.id.clone(),
+                png: rendered.bytes,
+                width: rendered.width,
+                height: rendered.height,
+            }
+        })
+        .collect::<Vec<_>>();
+    let (portable, portable_assets) =
+        qti_render::finish_bank(&bank, &plan, &completions).expect("portable finish");
+    let (native, native_assets) = convert_bank(
+        &bank,
+        &[ItemKind::Mc],
+        &source,
+        &renderer,
+        &RenderCache::new(),
+    )
+    .expect("native finish");
+    assert_eq!(native.len(), 2);
+    assert_eq!(native_assets, portable_assets);
+    for ((original, native), portable) in bank
+        .iter_ordered()
+        .zip(native.iter_ordered())
+        .zip(portable.iter_ordered())
+    {
+        assert_eq!(original.crc(), native.crc());
+        assert_eq!(native.common(), portable.common());
+        assert_eq!(native.body(), portable.body());
+        assert_eq!(native.body(), original.body());
     }
 }

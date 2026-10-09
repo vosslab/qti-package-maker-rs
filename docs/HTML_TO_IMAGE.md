@@ -23,18 +23,41 @@ uses the local RDKit shim to create its PNG, and inlines that PNG before Chromiu
 that contains it. Existing sugar-library PNG/SVG exports stay images and do not enter the HTML
 table renderer.
 
-## Native ownership
+## Shared rendering ownership
 
-Rendering lives in [html_to_image/mod.rs](../crates/qti-native/src/html_to_image/mod.rs), outside
-portable engines. The native pre-pass uses a read-only `AssetSource` rooted at the input parent,
-and returns a rewritten bank with owned generated image bytes. Callers combine generated assets
-with recovered/input providers through the shared `qti-engines::AssetOverlay` before writing.
-The browser package consumes existing images and has no renderer runtime.
+[crates/qti-render/src/lib.rs](../crates/qti-render/src/lib.rs) owns portable selection, canvas
+parsing, deterministic job planning, naming, the static wrapper, and completion validation.
+Its finalizer rewrites presentation fields while retaining the original bank's CRCs, order,
+source item numbers, and grading, including when different items acquire identical presentations.
+Generated images carry logical CSS dimensions and responsive sizing; PNG pixel dimensions may
+be larger than their displayed dimensions.
+
+The native adapter in
+[html_to_image/mod.rs](../crates/qti-native/src/html_to_image/mod.rs) retains Chromium, Rayon,
+the render cache, and runtime RDKit loading. Its read-only `AssetSource` is rooted at the input
+parent. Generated assets combine with recovered/input providers through
+`qti-engines::AssetOverlay` before writing.
+
+The Wasm package exposes stateless `planRenderJobs(originalRequest)` and
+`finishConvert(originalRequest, renders)`. A browser host executes planned canvas and table jobs;
+Rust owns the source interpretation and packaging. Plans identify canvas dependencies inside
+tables and supply `drawingDetails` plus optional source-owned `peptideQuery` metadata for RDKit.
+The final call reparses the original request, reconstructs bindings, and overlays generated,
+recovered, and companion assets. See
+[packages/qti-wasm/docs/rendering.md](../packages/qti-wasm/docs/rendering.md) for the host API.
+
+Every completion supplies a job ID, PNG bytes, and positive finite logical CSS dimensions.
+The portable finalizer checks the actual PNG signature, decodes rows with the PNG decoder's
+default allocation limit, verifies checksums and the end chunk, and rejects malformed bytes.
+Missing, duplicate, unknown, or invalid completions return typed render diagnostics.
 
 Selection follows eligible selected writers' supported kinds. A table's display-image sources
 are inlined only when that table is rendered; unrelated references remain lazy. FIB/MULTIFIB
 accepted-answer literals are grading fields and stay outside rendering-media scans. The core
 `ItemBank::with_rewritten_items` map preserves source identity, kind, order, and source item numbers.
+Blackboard Original packaging shares media only when bytes, MIME type, and extension all match.
+It retains the earliest item's media ownership and every rewritten reference while preserving
+source grading.
 Shared-engine correction and acceptance status is recorded in
 [shared_engine_delivery.md](active_plans/reports/shared_engine_delivery.md).
 

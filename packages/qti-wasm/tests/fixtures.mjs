@@ -1,6 +1,6 @@
 export const bbqText = "MC\t<p>Identify the image: <img src=\"pixel.png\" alt=\"pixel\" /> alpha</p>\talpha\tCorrect\tbeta\tIncorrect\n";
 export const bbqBytes = new TextEncoder().encode(bbqText);
-export const pixelBytes = new Uint8Array(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==", "base64"));
+export const pixelBytes = new Uint8Array(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGP4DwQACfsD/fteaysAAAAASUVORK5CYII=", "base64"));
 
 export function request(outputFormat, outputName) {
   return {

@@ -5,8 +5,14 @@ export async function initialize(bytes: Uint8Array): Promise<void> {
   await init({ module_or_path: new Uint8Array(bytes) });
 }
 
-export { formats, convert, checkPackage } from "../generated/qti_wasm.js";
+export { formats, convert, checkPackage, planRenderJobs, finishConvert } from "../generated/qti_wasm.js";
 export type {
+  CanvasSpec,
+  DrawingDetails,
+  PeptideQuery,
+  RenderJob,
+  RenderCompletion,
+  RenderPlanResult,
   Artifact,
   CheckPackageResult,
   ConversionInput,

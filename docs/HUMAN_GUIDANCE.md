@@ -15,6 +15,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ## Rust port
 
+- 2026-10-09: I relaxed byte-for-byte equivalence, not feature parity. Preserve the functionality
+  and useful presentation of Python self-tests while allowing Rust its own architecture. Compare
+  standalone QPM output; the website team handles its own CSS interference and lifecycle bugs.
 - 2026-10-08: I want the native CLI, WebAssembly package, and generated TypeScript API to use the
   same Rust parsing, validation, and media-writer implementation. Keep the native CLI free of Node
   prerequisites.

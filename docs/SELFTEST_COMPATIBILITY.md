@@ -4,6 +4,12 @@ Rust QPM owns generated selftest HTML, controls, and grading in both native and 
 The website owns variant selection and persisted completion. Completion belongs to the complete
 question CRC, never the question bank or just the stem component of the CRC.
 
+BPW is a static educational practice website. Its progress tracking is lightweight motivation,
+not an authoritative assessment record. Preserve existing identity and integration behavior without
+adding tamper resistance, authoritative storage, progress migrations, or elaborate consistency
+mechanisms. Prioritize reliable rendering, grading, feedback, regeneration, and advancement;
+engineering complexity should reflect the consequences of failure.
+
 ## Migration and authority
 
 Current Python QPM is a transitional behavior reference. During migration, explicit differential
@@ -23,6 +29,17 @@ accepted. At that point, remove Python comparison commands and their development
 from active workflows and archive their evidence. Do not keep maintaining Python just to test Rust.
 
 ## Website-facing contract
+
+Presentation parity preserves useful content, colors, themes, layout, and controls, not HTML byte
+equality. Short MC/MA choices use compact layouts; long or rich choices remain vertical. Generated
+MATCH table rules must not alter nested scientific tables, and wide scientific content stays within
+its control. Theme selection follows the Python reference: system preference unless the body's
+explicit `data-md-color-scheme="default"` or `"slate"` overrides it. Authored colors remain intact.
+
+MATCH and ORDER shuffle presentation indices using the existing caller seed. Source CRCs and
+answer tokens remain unchanged; ORDER reset restores the initial displayed arrangement. The exact
+permutation is not a public contract. Regression checks protect behavior without requiring particular
+CSS techniques, pixel dimensions, random algorithms, or byte-identical documents.
 
 - Each item exposes `question_html_<CRC>`, `statement_text_<CRC>`, and `result_<CRC>`.
   Preserve Python's question/statement container shape and applicable answer input identifiers.

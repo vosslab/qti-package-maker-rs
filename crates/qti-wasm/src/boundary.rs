@@ -51,6 +51,94 @@ pub fn convert(request: Ts<ConvertRequest>) -> Result<Ts<ConvertResult>, JsError
         .map_err(|error| JsError::new(&error.to_string()))
 }
 
+/// Plans portable render jobs from the original conversion request.
+#[wasm_bindgen(js_name = planRenderJobs)]
+pub fn plan_render_jobs(
+    request: Ts<ConvertRequest>,
+) -> Result<Ts<crate::RenderPlanResult>, JsError> {
+    let result = match decode_request(request) {
+        Ok(request) => crate::plan_render_jobs_request(request, &utc_date()),
+        Err(error) => crate::RenderPlanResult::Error {
+            error: *error,
+            warnings: Vec::new(),
+        },
+    };
+    result
+        .into_ts()
+        .map_err(|error| JsError::new(&error.to_string()))
+}
+
+/// Finalizes PNGs against a freshly reconstructed original conversion request.
+#[wasm_bindgen(js_name = finishConvert)]
+pub fn finish_convert(
+    request: Ts<ConvertRequest>,
+    renders: Ts<crate::RenderCompletions>,
+) -> Result<Ts<ConvertResult>, JsError> {
+    let result = match decode_request(request).and_then(|request| {
+        render_preflight(&renders.js_value())?;
+        let renders = renders
+            .to_rust()
+            .map_err(|error| Box::new(Diagnostic::request("invalidRequest", error.to_string())))?;
+        Ok((request, renders.0))
+    }) {
+        Ok((request, renders)) => crate::finish_convert_request(request, renders, &utc_date()),
+        Err(error) => ConvertResult::Error {
+            error: *error,
+            warnings: Vec::new(),
+        },
+    };
+    result
+        .into_ts()
+        .map_err(|error| JsError::new(&error.to_string()))
+}
+
+fn decode_request(request: Ts<ConvertRequest>) -> Result<ConvertRequest, Box<Diagnostic>> {
+    conversion_preflight(&request.js_value())?;
+    request
+        .to_rust()
+        .map_err(|error| Box::new(Diagnostic::request("invalidRequest", error.to_string())))
+}
+
+fn utc_date() -> String {
+    Date::new_0()
+        .to_iso_string()
+        .as_string()
+        .unwrap_or_default()
+        .get(..10)
+        .unwrap_or("")
+        .to_owned()
+}
+
+fn render_preflight(value: &JsValue) -> Result<(), Box<Diagnostic>> {
+    if !Array::is_array(value) {
+        return Err(Box::new(Diagnostic::request(
+            "invalidRequest",
+            "renders must be an array",
+        )));
+    }
+    let renders = value.unchecked_ref::<Array>();
+    if renders.length() as usize > MAX_FILES {
+        return Err(Box::new(Diagnostic::request(
+            "inputLimit",
+            "render completions exceed 10000 files",
+        )));
+    }
+    let mut total = 0;
+    // ASVS 1.5.2 / 2.2.1 / 5.2.1: enforce typed byte bounds before copying completions.
+    for index in 0..renders.length() {
+        let render = renders.get(index);
+        check_fields(
+            &render,
+            &format!("renders[{index}]"),
+            &["id", "png", "width", "height"],
+        )?;
+        check_string(&render, "id", 4096)?;
+        total += bytes_size(&get(&render, "png")?, MAX_ENTRY_BYTES)?;
+        adapter::bound_size(total, MAX_TOTAL_BYTES)?;
+    }
+    Ok(())
+}
+
 /// Inspects owned ZIP or entry bytes and returns invalid transport as `CheckPackageResult::Error`.
 ///
 /// Serialization failures can throw; malformed package content becomes checker findings.

@@ -24,14 +24,14 @@ type RenderedHost = { name: "native" | "wasm"; html: Record<SourceName, string> 
 
 let rendered: RenderedHost[];
 
-function wasmHtml(source: string): string {
+function wasmHtml(source: string, seed = 0): string {
   const result = convert({
     inputFormat: "bbq_text_upload",
     outputFormat: "html_selftest",
     input: { kind: "file", name: "selftest.txt", bytes: encoder.encode(source) },
     allowMixed: true,
     document: { title: "Self-test parity", date: "2026-10-09" },
-    shuffleSeed: 0,
+    shuffleSeed: seed,
   });
   assert.equal(result.status, "success", JSON.stringify(result));
   assert.ok(result.artifact);
@@ -83,6 +83,9 @@ async function mount(page: Page, html: string): Promise<string> {
   const id = crc(html);
   await expect(page.locator(`#question_html_${id}`)).toHaveCount(1);
   await expect(page.locator(`#statement_text_${id}`)).toHaveCount(1);
+  await page.evaluate(() => {
+    Reflect.set(window, "__initialOrder", Array.from(document.querySelectorAll(".qti-order-row .qti-choice-content"), row => row.textContent));
+  });
   return id;
 }
 
@@ -115,6 +118,17 @@ async function resultText(page: Page, id: string): Promise<string> {
   return page.locator(`#result_${id}`).textContent().then((value) => value ?? "");
 }
 
+async function arrangeOrder(page: Page, id: string, answers: string[]): Promise<void> {
+  const box = page.locator(`#question_html_${id}`);
+  // Move desired rows to the front, last desired row first. This works for any shuffle.
+  for (const answer of [...answers].reverse()) {
+    const row = box.locator(".qti-order-row", { hasText: answer });
+    while (await row.locator("[data-direction=up]").isEnabled()) {
+      await row.locator("[data-direction=up]").click();
+    }
+  }
+}
+
 async function gradeCorrectViaControls(page: Page, id: string): Promise<string> {
   const box = page.locator(`#question_html_${id}`);
   const kind = await box.getAttribute("data-kind");
@@ -137,12 +151,7 @@ async function gradeCorrectViaControls(page: Page, id: string): Promise<string> 
     await box.getByRole("button", { name: /cytosine/ }).click();
     await box.getByRole("button", { name: /Assign a choice to prompt 2/ }).click();
   } else if (kind === "order") {
-    // Authored order: transcription, RNA processing, translation. The rendered
-    // fixture begins reversed, so move transcription to first, then RNA to second.
-    const transcription = box.locator(".qti-order-row", { hasText: "transcription" });
-    await transcription.locator("[data-direction=up]").click();
-    await transcription.locator("[data-direction=up]").click();
-    await box.locator(".qti-order-row", { hasText: "RNA processing" }).locator("[data-direction=up]").click();
+    await arrangeOrder(page, id, ["transcription", "RNA processing", "translation"]);
   } else throw new Error(`unknown self-test kind ${kind}`);
   await box.locator("[data-action=grade]").click();
   return resultText(page, id);
@@ -161,7 +170,7 @@ async function gradeMeaningfullyWrong(page: Page, id: string): Promise<void> {
     await box.getByRole("button", { name: /cytosine/ }).click();
     await box.getByRole("button", { name: /Assign a choice to prompt 1/ }).click();
   } else if (kind === "order") {
-    // The fixture's initial order is intentionally reversed.
+    await arrangeOrder(page, id, ["translation", "RNA processing", "transcription"]);
   } else throw new Error(`unknown self-test kind ${kind}`);
   await box.locator("[data-action=grade]").click();
 }
@@ -180,7 +189,7 @@ async function resetAndExpectCurrentBehavior(page: Page, id: string): Promise<vo
   } else if (kind === "order") {
     await reset.click();
     await expect(box.locator("[role=status]")).toContainText("Order reset.");
-    await expect(box.locator(".qti-order-row").first()).toContainText("translation");
+    await expect(box.locator(".qti-order-row .qti-choice-content")).toHaveText(await page.evaluate(() => Reflect.get(window, "__initialOrder") as string[]));
   } else {
     await expect(reset).toHaveCount(0);
   }
@@ -389,7 +398,7 @@ test("wrapped grading survives same-node replay, concurrent questions, and A-B-A
   expect(await hookCalls(page)).toEqual([idA, idB, idA]);
 
   // Mount two questions together. Their feedback and completion state must stay
-  // local even though the public hook names share the same global namespace.
+  // local while their distinct CRC-keyed hooks run in one document.
   await page.goto("about:blank");
   await page.setContent(`${htmlA}${htmlB}`);
   await wrapGrade(page, idA);
@@ -404,4 +413,73 @@ test("wrapped grading survives same-node replay, concurrent questions, and A-B-A
   await b.locator("[data-action=grade]").click();
   await expect(b.locator(`#result_${idB}`)).toHaveText("incorrect");
   await expect(a.locator(`#result_${idA}`)).toHaveText("CORRECT");
+});
+
+test("standalone controls retain compact layouts, theme colors, and usable feedback", async ({ page }) => {
+  const compact = "MA\t<p>Choose bases.</p><p>Select purines.</p>\tadenine\tCorrect\tguanine\tCorrect\tcytosine\tIncorrect\tthymine\tIncorrect\turacil\tIncorrect\tother\tIncorrect\n";
+  for (const html of [nativeHtml([compact])[0]!, wasmHtml(compact)]) {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mount(page, html);
+    const rows = await page.locator("ul[id^=choices_] > li").evaluateAll(items => items.map(item => item.getBoundingClientRect().top));
+    expect(new Set(rows).size).toBeLessThan(rows.length);
+    await expect(page.locator(".qti-statement > p")).toHaveCount(2);
+  }
+  for (const host of rendered) {
+    await page.emulateMedia({ colorScheme: "light" });
+    await mount(page, host.html.match);
+    const colors = () => page.locator(".qti-match-choice").evaluateAll(choices => choices.map(choice => ({ bg: getComputedStyle(choice).backgroundColor, fg: getComputedStyle(choice).color })));
+    const light = await colors();
+    expect(new Set(light.map(color => color.bg)).size).toBe(2);
+    await page.emulateMedia({ colorScheme: "dark" });
+    const dark = await colors();
+    expect(dark).not.toEqual(light);
+    await page.evaluate(() => document.body.dataset.mdColorScheme = "default");
+    expect(await colors()).toEqual(light);
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.evaluate(() => document.body.dataset.mdColorScheme = "slate");
+    expect(await colors()).toEqual(dark);
+    const choice = page.locator(".qti-match-choice").first();
+    const color = await choice.evaluate(button => getComputedStyle(button).backgroundColor);
+    await choice.click();
+    await page.locator(".qti-match-slot").first().click();
+    expect(await page.locator(".qti-match-slot").first().evaluate(button => getComputedStyle(button).backgroundColor)).toBe(color);
+  }
+});
+
+test("scientific content stays intact and scrolls within narrow controls", async ({ page }) => {
+  const table = '<table style="width:600px"><tbody><tr><td style="padding:1px;color:#006600">Scientific diagram</td></tr></tbody></table>';
+  const fixtures = [
+    `MAT\tMatch structures\t${table}\tstructure\tOther\tother\n`,
+    `MC\tChoose structure\t<canvas width="600" height="100"></canvas>\tCorrect\tOther\tIncorrect\n`,
+    `ORD\tOrder structures\t${table}\tsecond\tthird\n`,
+  ];
+  const native = nativeHtml(fixtures);
+  for (const html of [...native, ...fixtures.map(source => wasmHtml(source))]) {
+    for (const width of [1280, 700, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await mount(page, html);
+      // Also exercise a narrow embedded container within a wide desktop viewport.
+      if (width === 1280) {
+        await page.locator(".qti-selftest").evaluate(main => main.style.width = "360px");
+        expect(await page.locator(".qti-selftest").evaluate(main => main.scrollWidth <= main.clientWidth)).toBe(true);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      const diagram = page.locator("table[style]");
+      if (await diagram.count()) {
+        expect(await diagram.locator("tr").evaluate(row => getComputedStyle(row).display)).toBe("table-row");
+        expect(await diagram.locator("td").evaluate(cell => getComputedStyle(cell).padding)).toBe("1px");
+        expect(await diagram.locator("td").evaluate(cell => getComputedStyle(cell).color)).toBe("rgb(0, 102, 0)");
+        const scroll = page.locator('[role="group"][tabindex="0"]');
+        await scroll.focus();
+        await expect(scroll).toBeFocused();
+        expect(await scroll.evaluate(group => getComputedStyle(group).overflowX)).toBe("auto");
+      }
+      const slot = page.locator(".qti-match-slot").first();
+      if (await slot.count()) {
+        const cell = await slot.locator("..").boundingBox();
+        expect((await slot.boundingBox())!.width).toBeLessThanOrEqual(cell!.width);
+        await expect(slot).toBeVisible();
+      }
+    }
+  }
 });

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { checkPackage, convert, formats, initialize } from "../dist/src/index.js";
+import { checkPackage, convert, formats, initialize, planRenderJobs, finishConvert } from "../dist/src/index.js";
 import { artifactFiles, bbqBytes, pixelBytes, request } from "./fixtures.mjs";
 
 const started = performance.now();
@@ -145,4 +145,78 @@ test("malformed inputs return discriminated diagnostics without throwing", () =>
   assert.ok(archive.report.errors.some((finding) => finding.code === "package-input"));
   const entries = checkPackage({ kind: "entries", entries: [{ name: "../escape.txt", bytes: new Uint8Array([1]) }] });
   assert.equal(entries.status, "error");
+});
+
+
+test("stateless render completion preserves original items, grading and logical dimensions", () => {
+  const original = {
+    ...request("bbq_text_upload", "rendered.txt"),
+    input: { kind: "file", name: "original.txt", bytes: new TextEncoder().encode(
+      'MC\t<table><tr><td>one</td></tr></table>\tA\tcorrect\tB\tincorrect\n' +
+      'MC\t<table><tr><td>two</td></tr></table>\tA\tincorrect\tB\tcorrect\n'), companions: [] },
+  };
+  const plan = planRenderJobs(original);
+  assert.equal(plan.status, "success", JSON.stringify(plan));
+  assert.equal(plan.itemCount, 2);
+  assert.equal(plan.jobs.length, 2);
+  assert.ok(plan.wrapper.includes('id="qti-render-root"'));
+  assert.ok(plan.jobs.every((job) => job.kind === "table" && job.html.includes("<table")));
+  const renders = plan.jobs.map((job) => ({ id: job.id, png: pixelBytes, width: 73.5, height: 22.25 }));
+  const result = finishConvert(original, renders);
+  assert.equal(result.status, "success", JSON.stringify(result));
+  assert.equal(result.itemCount, 2);
+  const output = new TextDecoder().decode(result.artifact.primary.bytes);
+  assert.equal(output.trim().split("\n").length, 2);
+  assert.ok(output.toLowerCase().includes(". a\tcorrect"));
+  assert.ok(output.toLowerCase().includes(". a\tincorrect"));
+  assert.ok(output.includes("73.5"));
+  assert.ok(output.includes("22.25"));
+  const missing = finishConvert(original, []);
+  assert.equal(missing.status, "error");
+  assert.equal(missing.error.category, "render");
+  assert.match(missing.error.message, /missing/i);
+  for (const malformed of [null, [{ ...renders[0], png: [1, 2] }], [{ ...renders[0], unexpected: true }]]) {
+    assert.equal(finishConvert(original, malformed).status, "error");
+  }
+  assert.equal(finishConvert(original, renders).status, "success");
+});
+
+
+test("nested scientific canvas plans canonical details and dependent table jobs", () => {
+  const html = '<table><tr><td><canvas id="canvas_peptide" width="120" height="80"></canvas>' +
+    '<script>initRDKitModule();let smiles="CC(=O)NCC(=O)O";let mol=RDKitModule.get_mol(smiles);' +
+    'let mdetails={};mdetails["bonds"]=getPeptideBonds(mol);mdetails["atoms"]=[0,2];' +
+    'mdetails["legend"]="peptide";canvas=document.getElementById("canvas_peptide");' +
+    'mol.draw_to_canvas_with_highlights(canvas,JSON.stringify(mdetails));</script></td></tr></table>';
+  const original = { ...request("bbq_text_upload", "science.txt"), input: {
+    kind: "file", name: "science.txt", bytes: new TextEncoder().encode(`MC\t${html}\tA\tcorrect\tB\tincorrect\n`),
+  }};
+  const plan = planRenderJobs(original);
+  assert.equal(plan.status, "success", JSON.stringify(plan));
+  const canvas = plan.jobs.find((job) => job.kind === "canvas");
+  const table = plan.jobs.find((job) => job.kind === "table");
+  assert.ok(canvas && table);
+  assert.deepEqual(table.dependencies, [canvas.id]);
+  assert.ok(table.html.includes(`qti-render:${canvas.id}`));
+  assert.equal(canvas.canvasSpec.drawingDetails instanceof Map, false);
+  assert.deepEqual(canvas.canvasSpec.drawingDetails.atoms, [0, 2]);
+  assert.deepEqual(canvas.canvasSpec.peptideQuery, {smarts: "CC(=O)NC", bondAtoms: [1, 3]});
+  const result = finishConvert(original, plan.jobs.map((job) => ({id: job.id, png: pixelBytes, width: 120, height: 80})));
+  assert.equal(result.status, "success", JSON.stringify(result));
+  assert.equal(result.itemCount, 1);
+});
+
+
+test("render finish overlays generated images with original companion media", () => {
+  const original = request("text2qti", "media.txt");
+  original.input.bytes = new TextEncoder().encode(
+    'MC\t<table><tr><td>diagram</td></tr></table><img src="pixel.png" alt="original" />\tA\tcorrect\tB\tincorrect\n');
+  const plan = planRenderJobs(original);
+  assert.equal(plan.status, "success", JSON.stringify(plan));
+  const result = finishConvert(original, plan.jobs.map((job) => ({
+    id: job.id, png: pixelBytes, width: 180, height: 40,
+  })));
+  assert.equal(result.status, "success", JSON.stringify(result));
+  assert.equal(result.artifact.companions.length, 2);
+  assert.ok(result.artifact.companions.every((file) => Buffer.from(file.bytes).equals(Buffer.from(pixelBytes))));
 });

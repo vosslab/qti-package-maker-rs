@@ -2,7 +2,7 @@
 //!
 //! ASVS V1.3.2 and V2.2.1: input is positively validated and never executed.
 
-use qti_molecule::{CanvasSource, MAX_CANVAS_DIMENSION};
+use crate::{CanvasSource, MAX_CANVAS_DIMENSION};
 use regex::Regex;
 use thiserror::Error;
 

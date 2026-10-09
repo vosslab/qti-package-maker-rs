@@ -6,7 +6,7 @@
 validated assessment-item kinds, optionally converts supported HTML tables and static molecule
 canvases to PNG media, and writes assessment packages. It also inspects completed packages and
 provides parity, corpus, benchmark, and gallery tooling. [Cargo.toml](../Cargo.toml) defines the
-eight workspace members and the Rust 1.98.1 minimum version. The native default member set
+workspace members and compiler requirement. The native default member set
 excludes `qti-wasm`; the browser package is built explicitly.
 
 Each crate root is a small public facade. It re-exports stable types and functions while focused
@@ -18,6 +18,7 @@ implementation modules remain private where possible.
 | --- | --- | --- |
 | [crates/qti-core/Cargo.toml](../crates/qti-core/Cargo.toml) | Validated items, ordered banks, CRCs, fingerprints, media, manifests, and ZIP assembly. | [crates/qti-core/src/lib.rs](../crates/qti-core/src/lib.rs) exports the item, bank, media, manifest, and ZIP contracts. |
 | [crates/qti-engines/Cargo.toml](../crates/qti-engines/Cargo.toml) | Portable format readers/writers, one registry, typed byte artifacts, and conversion orchestration. | [crates/qti-engines/src/traits.rs](../crates/qti-engines/src/traits.rs) and [crates/qti-engines/src/registry.rs](../crates/qti-engines/src/registry.rs). |
+| [crates/qti-render/Cargo.toml](../crates/qti-render/Cargo.toml) | Portable selection, canvas parsing, render jobs, static wrapper, naming, and completion finalization. | [crates/qti-render/src/lib.rs](../crates/qti-render/src/lib.rs) and [HTML_TO_IMAGE.md](HTML_TO_IMAGE.md). |
 | [crates/qti-native/Cargo.toml](../crates/qti-native/Cargo.toml) | Filesystem input, lazy directory assets, atomic persistence, PLE ownership, local context, and native rendering. | [crates/qti-native/src/lib.rs](../crates/qti-native/src/lib.rs) exports host services. |
 | [crates/qti-wasm/Cargo.toml](../crates/qti-wasm/Cargo.toml) | Owned typed JavaScript transport over the shared engine and integrity API. | [crates/qti-wasm/src/lib.rs](../crates/qti-wasm/src/lib.rs) and [WASM_PACKAGE.md](WASM_PACKAGE.md). |
 | [crates/qti-molecule/Cargo.toml](../crates/qti-molecule/Cargo.toml) | Optional runtime RDKit C-ABI loading and molecule-canvas PNG rendering. | [crates/qti-molecule/src/lib.rs](../crates/qti-molecule/src/lib.rs) exports `CanvasSource`, `RdkitRenderer`, and typed errors. |
@@ -65,10 +66,13 @@ For PLE, media collection runs over mapped display fields only and uses the shar
 scan, resolution, naming, policy, and HTML rewrite functions. Whole-bank media traversal would
 inspect FIB accepted-answer literals and could change grading or report false missing files.
 
-[crates/qti-native/src/html_to_image/mod.rs](../crates/qti-native/src/html_to_image/mod.rs)
-selects supported fragments, statically parses permitted canvas scripts, renders canvases before
-tables, assigns item-scoped names, and uses a content-hash cache. The CLI invokes this conversion
-once before sending the converted bank to eligible selected writers.
+[crates/qti-render/src/lib.rs](../crates/qti-render/src/lib.rs) selects supported fragments,
+parses permitted canvas scripts, plans dependencies, and finalizes item-scoped presentation
+rewrites. Native Chromium/Rayon/cache/RDKit execution remains in
+[crates/qti-native/src/html_to_image/mod.rs](../crates/qti-native/src/html_to_image/mod.rs).
+The CLI invokes this conversion once before sending the converted bank to eligible writers.
+Wasm exposes the same planner/finalizer through stateless host calls; see
+[packages/qti-wasm/docs/rendering.md](../packages/qti-wasm/docs/rendering.md).
 
 ### Table and molecule rendering
 
@@ -95,7 +99,8 @@ platform contract is [RDKIT_DEPENDENCY_DECISION.md](RDKIT_DEPENDENCY_DECISION.md
 Native paths -> qti-native input/DirectoryAssets -> shared read_bank
 Browser bytes -> qti-wasm owned transport       -> shared read_bank
   -> qti-core ItemBank plus recovered MemoryAssets
-  -> native-only optional rendering -> bank plus generated MemoryAssets
+  -> shared render plan -> native or browser host PNGs -> shared finalizer
+  -> original-identity bank plus generated MemoryAssets
   -> shared AssetOverlay and write_bank
   -> WriteArtifact files/companions/directory entries
   -> native persist_artifact or browser/Node byte handoff

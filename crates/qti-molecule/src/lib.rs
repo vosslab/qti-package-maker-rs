@@ -6,8 +6,7 @@
 
 mod error;
 mod renderer;
-mod source;
 
 pub use error::MoleculeError;
+pub use qti_render::{CanvasSource, MAX_CANVAS_DIMENSION};
 pub use renderer::{RdkitRenderer, render_canvas_png};
-pub use source::{CanvasSource, MAX_CANVAS_DIMENSION};

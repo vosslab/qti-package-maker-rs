@@ -1,6 +1,6 @@
 [workspace]
-members = ["crates/qti-core", "crates/qti-integrity", "crates/qti-engines", "crates/qti-native", "crates/qti-cli", "crates/qti-molecule", "crates/qti-wasm", "xtask"]
-default-members = ["crates/qti-core", "crates/qti-integrity", "crates/qti-engines", "crates/qti-native", "crates/qti-cli", "crates/qti-molecule", "xtask"]
+members = ["crates/qti-core", "crates/qti-render", "crates/qti-integrity", "crates/qti-engines", "crates/qti-native", "crates/qti-cli", "crates/qti-molecule", "crates/qti-wasm", "xtask"]
+default-members = ["crates/qti-core", "crates/qti-render", "crates/qti-integrity", "crates/qti-engines", "crates/qti-native", "crates/qti-cli", "crates/qti-molecule", "xtask"]
 resolver = "3"
 
 [workspace.package]
@@ -31,6 +31,8 @@ sha2 = "*"
 lol_html = "*"
 serde_yaml_ng = "*"
 base64 = "*"
+fastrand = { version = "*", default-features = false }
+png = "*"
 percent-encoding = "*"
 rayon = "*"
 # All writers use ordinary Deflate; the optional Zopfli encoder is unused.

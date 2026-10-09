@@ -54,10 +54,14 @@ impl std::ops::AddAssign for RenderMetrics {
 }
 
 /// Renderer output with timings for the render attempt that produced it.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RenderedPng {
     /// Complete PNG payload.
     pub bytes: Vec<u8>,
+    /// Logical CSS width, independent of device pixel density.
+    pub width: f64,
+    /// Logical CSS height, independent of device pixel density.
+    pub height: f64,
     /// Local renderer-stage durations.
     pub metrics: RenderMetrics,
 }
@@ -94,7 +98,7 @@ pub struct RenderCache {
 #[derive(Debug)]
 enum CacheEntry {
     Rendering,
-    Ready(Vec<u8>),
+    Ready(RenderedPng),
 }
 
 impl RenderCache {
@@ -125,7 +129,9 @@ impl RenderCache {
                             CacheOutcome::Hit
                         },
                         Ok(RenderedPng {
-                            bytes: png.clone(),
+                            bytes: png.bytes.clone(),
+                            width: png.width,
+                            height: png.height,
                             metrics: RenderMetrics::default(),
                         }),
                     );
@@ -151,7 +157,7 @@ impl RenderCache {
             .expect("render cache mutex is not poisoned");
         match &rendered {
             Ok(png) => {
-                state.insert(key, CacheEntry::Ready(png.bytes.clone()));
+                state.insert(key, CacheEntry::Ready(png.clone()));
             }
             Err(_) => {
                 state.remove(&key);
@@ -189,6 +195,8 @@ mod tests {
                             thread::sleep(Duration::from_millis(30));
                             Ok::<_, ()>(RenderedPng {
                                 bytes: vec![1, 2, 3],
+                                width: 120.0,
+                                height: 80.0,
                                 metrics: Default::default(),
                             })
                         })
@@ -225,6 +233,8 @@ mod tests {
                         started.wait();
                         Ok::<_, ()>(RenderedPng {
                             bytes: input.as_bytes().to_vec(),
+                            width: 120.0,
+                            height: 80.0,
                             metrics: Default::default(),
                         })
                     })

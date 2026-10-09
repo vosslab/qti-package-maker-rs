@@ -65,7 +65,10 @@ pub fn convert_request(request: ConvertRequest, default_date: &str) -> ConvertRe
     }
 }
 
-fn dispatch(request: ConvertRequest, default_date: &str) -> Result<ConvertResult, Box<Diagnostic>> {
+pub(crate) fn prepare_request(
+    request: &ConvertRequest,
+    default_date: &str,
+) -> Result<PreparedRequest, Box<Diagnostic>> {
     let entry = qti_engines::engine(&request.output_format).ok_or_else(|| {
         Box::new(diagnostics::engine_error(
             &qti_engines::EngineError::UnknownEngine {
@@ -75,6 +78,7 @@ fn dispatch(request: ConvertRequest, default_date: &str) -> Result<ConvertResult
     })?;
     let output_name = request
         .output_name
+        .clone()
         .unwrap_or_else(|| entry.default_output_name.into());
     let date = request.document.date.as_deref().unwrap_or(default_date);
     validate_date(date).map_err(|mut diagnostic| {
@@ -84,7 +88,11 @@ fn dispatch(request: ConvertRequest, default_date: &str) -> Result<ConvertResult
     let context = WriteContext::new(
         &output_name,
         DocumentMetadata {
-            title: request.document.title.unwrap_or_else(|| "Exam".into()),
+            title: request
+                .document
+                .title
+                .clone()
+                .unwrap_or_else(|| "Exam".into()),
             date: date.into(),
         },
         request.shuffle_seed.into(),
@@ -94,7 +102,7 @@ fn dispatch(request: ConvertRequest, default_date: &str) -> Result<ConvertResult
         diagnostic.logical_name = Some(output_name);
         Box::new(diagnostic)
     })?;
-    let (name, bytes, archive, assets) = match request.input {
+    let (name, bytes, archive, assets) = match request.input.clone() {
         ConversionInput::File {
             name,
             bytes,
@@ -123,37 +131,61 @@ fn dispatch(request: ConvertRequest, default_date: &str) -> Result<ConvertResult
         diagnostic.logical_name = Some(name.clone());
         Box::new(diagnostic)
     })?;
-    let input = match (&bytes, &archive) {
-        (Some(bytes), _) => ReadInput::File { name: &name, bytes },
-        (_, Some(entries)) => ReadInput::Archive {
-            name: &name,
-            entries,
-        },
-        _ => {
-            return Err(Box::new(Diagnostic::request(
-                "invalidRequest",
-                "input has no payload",
-            )));
+    Ok(PreparedRequest {
+        name,
+        bytes,
+        archive,
+        assets,
+        context,
+    })
+}
+
+pub(crate) struct PreparedRequest {
+    pub name: String,
+    bytes: Option<Vec<u8>>,
+    archive: Option<EntryMap>,
+    pub assets: MemoryAssets,
+    pub context: WriteContext,
+}
+
+impl PreparedRequest {
+    pub fn input(&self) -> ReadInput<'_> {
+        match (&self.bytes, &self.archive) {
+            (Some(bytes), _) => ReadInput::File {
+                name: &self.name,
+                bytes,
+            },
+            (_, Some(entries)) => ReadInput::Archive {
+                name: &self.name,
+                entries,
+            },
+            _ => unreachable!("validated input has a payload"),
         }
-    };
+    }
+}
+
+fn dispatch(request: ConvertRequest, default_date: &str) -> Result<ConvertResult, Box<Diagnostic>> {
+    let prepared = prepare_request(&request, default_date)?;
     let result = qti_engines::convert(ConversionRequest {
         input_format: &request.input_format,
         output_format: &request.output_format,
-        input,
-        assets: &assets,
+        input: prepared.input(),
+        assets: &prepared.assets,
         allow_mixed: request.allow_mixed,
         max_items: request.limit.map(|limit| limit as usize),
-        context: &context,
+        context: &prepared.context,
     })
     .map_err(|error| {
         let mut diagnostic = diagnostics::engine_error(&error);
-        diagnostic.logical_name.get_or_insert_with(|| name.clone());
+        diagnostic
+            .logical_name
+            .get_or_insert_with(|| prepared.name.clone());
         Box::new(diagnostic)
     })?;
     let warnings = result
         .read_warnings
         .into_iter()
-        .map(|warning| diagnostics::read_warning(warning, &request.input_format, &name))
+        .map(|warning| diagnostics::read_warning(warning, &request.input_format, &prepared.name))
         .chain(
             result
                 .write_warnings
@@ -168,7 +200,7 @@ fn dispatch(request: ConvertRequest, default_date: &str) -> Result<ConvertResult
     })
 }
 
-fn artifact(artifact: WriteArtifact) -> Artifact {
+pub(crate) fn artifact(artifact: WriteArtifact) -> Artifact {
     match artifact {
         WriteArtifact::File {
             primary,

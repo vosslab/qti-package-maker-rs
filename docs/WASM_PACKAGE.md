@@ -5,9 +5,10 @@ same Rust core, integrity checker, four readers, and eleven writers used by the 
 Generated declarations come from Rust `tsify` transport types and wasm-bindgen exports. TypeScript
 owns initialization and host examples; conversion algorithms remain in Rust.
 
-The package targets `wasm32-unknown-unknown`, not WASI. Screenshot and molecule rendering require
-native host services and are available through the CLI. This workflow builds local artifacts;
-it does not publish an npm package or deploy a site.
+The package targets `wasm32-unknown-unknown`, not WASI. The portable Rust renderer plans and
+finalizes screenshot and molecule jobs; a browser host supplies their PNGs. The native CLI uses
+Chromium and the local RDKit shim for the same shared contract. This workflow builds local
+artifacts; it does not publish an npm package or deploy a site.
 
 ## Build and verify
 
@@ -121,6 +122,21 @@ The browser example offers one ZIP download envelope for a directory or a file w
 preserving every relative name and byte payload. A directory envelope includes its artifact name
 as the root folder. A single primary without companions downloads directly. This host packaging
 does not change the shared `file`/`directory` artifact API or reinterpret question content.
+
+## Render through a host
+
+Use `planRenderJobs(originalRequest)` to select render jobs, then execute canvases before the
+tables that depend on them. Finish with `finishConvert(originalRequest, renders)` using the
+original source bytes and options. Both calls are stateless and use the ordinary conversion
+request contract. The shared finalizer preserves original identity and grading, validates PNG
+payloads and logical CSS dimensions, and retains companion and recovered media alongside
+generated assets. Use `convert` when no rendering is requested.
+
+The detailed job, dependency, wrapper, canvas, completion, and diagnostic contract is
+[packages/qti-wasm/docs/rendering.md](../packages/qti-wasm/docs/rendering.md).
+[HTML_TO_IMAGE.md](HTML_TO_IMAGE.md) documents shared ownership and native execution.
+Browser capture acceptance runs in the consuming website; package transport tests verify the
+exported API and artifacts.
 
 ## Defaults and diagnostics
 

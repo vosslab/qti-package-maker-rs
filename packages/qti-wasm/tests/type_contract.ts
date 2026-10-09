@@ -1,5 +1,5 @@
 import { checkPackage, convert, formats } from "@vosslab/qti-wasm";
-import type { ConvertRequest, NamedBytes } from "@vosslab/qti-wasm";
+import type { ConvertRequest, ConvertResult, NamedBytes } from "@vosslab/qti-wasm";
 
 const request: ConvertRequest = {
   inputFormat: "bbq_text_upload",
@@ -36,3 +36,15 @@ const wrongInput: ConvertRequest = { ...request, input: { kind: "url", name: "x"
 // @ts-expect-error exact optional properties reject explicitly undefined booleans
 const undefinedOption: ConvertRequest = { ...request, allowMixed: undefined };
 void [wrongBytes, wrongInput, undefinedOption];
+
+// Render API consumes the original request and owned PNG completions without handles.
+import { planRenderJobs, finishConvert } from "@vosslab/qti-wasm";
+import type { RenderCompletion, RenderPlanResult } from "@vosslab/qti-wasm";
+const renderPlan: RenderPlanResult = planRenderJobs(request);
+if (renderPlan.status === "success") {
+  const completions: RenderCompletion[] = renderPlan.jobs.map((job) => ({
+    id: job.id, png: new Uint8Array(), width: 100, height: 50,
+  }));
+  const finished: ConvertResult = finishConvert(request, completions);
+  void finished;
+}

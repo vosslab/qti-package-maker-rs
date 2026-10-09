@@ -2,8 +2,8 @@
 
 use scraper::{Html, Selector};
 
+use crate::CanvasSource;
 use qti_core::ItemCrc;
-use qti_molecule::CanvasSource;
 
 /// The reserved directory leaf used for generated images when it is unoccupied.
 pub(crate) const GENERATED_DIRECTORY: &str = "__qti_generated";
@@ -86,8 +86,8 @@ pub(crate) fn canvas_alt_text(source: &CanvasSource) -> String {
 #[cfg(test)]
 mod tests {
     use super::{canvas_alt_text, generated_directory, generated_leaf_name, table_alt_text};
+    use crate::CanvasSource;
     use qti_core::ItemCrc;
-    use qti_molecule::CanvasSource;
 
     #[test]
     fn generated_names_keep_original_crc_and_reserve_authored_sources() {

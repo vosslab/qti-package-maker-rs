@@ -11,14 +11,13 @@ description = "Typed browser adapter for shared QTI conversion and integrity che
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+qti-render = { path = "../qti-render" }
 qti-core = { path = "../qti-core" }
 qti-engines = { path = "../qti-engines" }
 qti-integrity = { path = "../qti-integrity" }
 serde.workspace = true
+serde_json.workspace = true
 serde_bytes = "*"
 tsify = { version = "*", default-features = false, features = ["js"] }
 wasm-bindgen = "*"
 js-sys = "*"
-
-[dev-dependencies]
-serde_json.workspace = true

@@ -1,12 +1,13 @@
 //! HTML fragment selection for table and static RDKit canvas conversion.
 
+use serde::{Deserialize, Serialize};
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
+use crate::CanvasSource;
 use lol_html::html_content::ContentType;
 use lol_html::{Settings, element, rewrite_str};
-use qti_molecule::CanvasSource;
 use scraper::{ElementRef, Html, Selector};
 use thiserror::Error;
 
@@ -15,10 +16,10 @@ use super::{CanvasScriptError, parse_canvas_script};
 const RDKIT_LOADER_URL: &str = "https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js";
 
 /// A selected HTML fragment. Conversion owns the serialized, ASCII-only text.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct FragmentId(pub usize);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum FragmentKind {
     Table,
     Canvas,
