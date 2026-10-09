@@ -9,6 +9,5 @@ tree-sitter  # Rust parsing for the Graphify cfg(test) prune step
 tree-sitter-rust  # Rust grammar for the Graphify cfg(test) prune step
 
 # === LOCAL DEVELOPMENT DEPENDENCIES === [ADD REPOSITORY-SPECIFIC DEPENDENCIES HERE]
-qti-package-maker @ git+https://github.com/vosslab/qti-package-maker.git@55e5f368777f7809fe2e91b5d070caf6df0cb581
 defusedxml  # bounded XML parsing in the development-only parity oracle
 lxml  # HTML DOM comparison in the development-only parity oracle

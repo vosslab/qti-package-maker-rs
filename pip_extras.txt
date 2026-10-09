@@ -1,0 +1,4 @@
+# Optional development-only migration oracle. The active comparison commands use
+# a sibling checkout and snapshot its working tree; this declaration documents
+# the imports without making Python QPM a routine Rust dependency.
+qti-package-maker @ git+https://github.com/vosslab/qti-package-maker.git
