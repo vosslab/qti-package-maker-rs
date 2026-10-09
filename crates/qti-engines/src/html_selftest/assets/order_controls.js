@@ -1,6 +1,8 @@
 <script>
 (function() {
   const container = document.getElementById('question_html_{{CRC}}');
+  if (!container || container.qtiOrderInitialized) return;
+  container.qtiOrderInitialized = true;
   const list = container.querySelector('.qti-order-list');
   const initialRows = Array.from(list.children);
   const status = container.querySelector('[role=status]');

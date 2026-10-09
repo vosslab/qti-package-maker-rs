@@ -1,7 +1,7 @@
-//! Pinned Python oracle and current native CLI invocation.
+//! Current Python migration oracle and current native CLI invocation.
 
 use super::parity_writer_receipts::WriterReceipt;
-use super::{Comparison, ENGINES, PINNED_PYTHON_HEAD, ZIP_ENGINES};
+use super::{Comparison, ENGINES, ZIP_ENGINES};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -29,13 +29,13 @@ pub(super) fn run_python_writer(
     let result = command.output().map_err(display_error)?;
     if !result.status.success() {
         return Err(format!(
-            "pinned Python writer failed: {}",
+            "current Python writer failed: {}",
             String::from_utf8_lossy(&result.stderr).trim()
         ));
     }
     serde_json::from_slice(&result.stdout).map_err(|error| {
         format!(
-            "pinned Python writer returned invalid JSON: {error}; output: {}",
+            "current Python writer returned invalid JSON: {error}; output: {}",
             String::from_utf8_lossy(&result.stdout)
         )
     })
@@ -121,7 +121,6 @@ pub(super) fn compare_outputs(
     rust_output: &Path,
     html_to_image: bool,
     engines: &[&str],
-    canvas_multifib_repair: bool,
 ) -> Result<Comparison, String> {
     let mut command = python_command(repository, python_root, "compare")?;
     command.args([
@@ -134,9 +133,6 @@ pub(super) fn compare_outputs(
         command.args(["--html-to-image", "--zip-only"]);
     }
     command.args(["--engines", &engines.join(",")]);
-    if canvas_multifib_repair {
-        command.arg("--canvas-multifib-repair");
-    }
     let output = command.output().map_err(display_error)?;
     if !output.status.success() {
         return Err(format!(
@@ -169,23 +165,10 @@ pub(super) fn python_command(
         .arg(script)
         .arg(mode)
         .args(["--oracle-root", &python_root.to_string_lossy()])
+        .env("PYTHONPATH", repository)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     Ok(command)
-}
-
-pub(super) fn pinned_python_root(repository: &Path) -> Result<PathBuf, String> {
-    let path = repository
-        .join("output_tables/oracle_snapshot")
-        .join(PINNED_PYTHON_HEAD);
-    if path.join("qti_package_maker").is_dir() {
-        Ok(path)
-    } else {
-        Err(format!(
-            "pinned Python oracle is unavailable: {}; run cargo xtask oracle-crosscheck first",
-            path.display()
-        ))
-    }
 }
 
 pub(super) fn native_cli(repository: &Path) -> Result<PathBuf, String> {

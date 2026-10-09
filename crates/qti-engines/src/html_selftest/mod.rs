@@ -107,7 +107,7 @@ impl Writer for HtmlSelftestWriter {
 }
 
 fn item_control_assets(kind: ItemKind, crc: &str) -> String {
-    // The assets are literal output from the pinned Python generators with a sentinel CRC.
+    // The assets follow the current Python self-test interactions with a sentinel CRC.
     let substitute = |template: &str| template.replace("{{CRC}}", crc);
     match kind {
         ItemKind::Match => format!(
@@ -183,7 +183,7 @@ fn render_item(item: &ItemRenderView) -> Result<String, EngineError> {
     let crc = item.crc().to_string();
     let stem = &item.common().question_text;
     let mut html = format!(
-        "<section class=\"qti-selftest-item\" id=\"question_html_{crc}\" data-crc=\"{crc}\" data-kind=\"{}\"><div class=\"qti-statement\">{stem}</div>",
+        "<div class=\"qti-selftest-item\" id=\"question_html_{crc}\" data-crc=\"{crc}\" data-kind=\"{}\"><div id=\"statement_text_{crc}\" class=\"qti-statement\">{stem}</div>",
         kind_name(item.kind())
     );
     match item.body() {
@@ -207,7 +207,7 @@ fn render_item(item: &ItemRenderView) -> Result<String, EngineError> {
         }
         ItemBody::Fib { answers } => {
             html.push_str(&format!(
-                "<input class=\"qti-input qti-fib-input\" autocomplete=\"off\" aria-label=\"Your answer\" data-answers=\"{}\">",
+                "<input id=\"fib_input_{crc}\" class=\"qti-input qti-fib-input\" autocomplete=\"off\" placeholder=\"Enter your answer\" aria-label=\"Your answer\" data-answers=\"{}\">",
                 encode_answers(answers)
             ));
         }
@@ -221,7 +221,7 @@ fn render_item(item: &ItemRenderView) -> Result<String, EngineError> {
                     "<p>Answer must be within &plusmn;{tolerance}.</p>"
                 ));
             }
-            html.push_str(&format!("<input class=\"qti-input qti-num-input\" inputmode=\"decimal\" aria-label=\"Numeric answer\" data-answer=\"{answer}\" data-tolerance=\"{tolerance}\">"));
+            html.push_str(&format!("<input id=\"num_input_{crc}\" class=\"qti-input qti-num-input\" inputmode=\"decimal\" pattern=\"[0-9]*[.,]?[0-9]*\" placeholder=\"Enter a number\" aria-label=\"Numeric answer\" data-answer=\"{answer}\" data-tolerance=\"{tolerance}\">"));
             // Keep JS lookup simple and avoid serializing untrusted data into executable code.
             html = html.replacen(
                 "data-kind=\"num\"",
@@ -244,7 +244,7 @@ fn render_item(item: &ItemRenderView) -> Result<String, EngineError> {
         "<div id=\"result_{crc}\" class=\"qti-feedback-result\" aria-live=\"polite\"></div>"
     ));
     html.push_str(
-        "<div class=\"qti-sr-only\" role=\"status\" aria-live=\"polite\"></div></section>",
+        "<div class=\"qti-sr-only\" role=\"status\" aria-live=\"polite\" aria-atomic=\"true\"></div></div>",
     );
     Ok(html)
 }
@@ -270,7 +270,8 @@ fn choice_list(
     let input_type = if multiple { "checkbox" } else { "radio" };
     let mut html = format!("<ul id=\"choices_{crc}\">");
     for (index, choice) in choices.iter().enumerate() {
-        let id = format!("option_{crc}_{index}");
+        let option_number = if multiple { index + 1 } else { index };
+        let id = format!("option_{crc}_{option_number}");
         let letter = letter(index);
         html.push_str(&format!("<li><input type=\"{input_type}\" id=\"{id}\" name=\"answer_{crc}\" data-correct=\"{}\"><label for=\"{id}\"><strong>{letter}.</strong><span class=\"qti-choice-content\">{choice}</span></label></li>", correct(choice)));
     }
@@ -298,7 +299,7 @@ fn match_controls(crc: &str, prompts: &[String], choices: &[String]) -> String {
 
 fn order_controls(crc: &str, answers: &[String]) -> String {
     let mut html = "<p class=\"qti-control-instructions\">Drag and drop rows to arrange the answers, or use Move up and Move down. You can also use the arrow keys while a move button is focused.</p><ol class=\"qti-order-list\" aria-label=\"Your answer order\">".to_owned();
-    // Rotate rather than shuffle: every author answer stays present, and output selection still
+    // Reverse rather than shuffle: every author answer stays present, and output selection still
     // varies at the bank level.  A deterministic starting order supports reproducible tests.
     for (index, answer) in answers.iter().enumerate().rev() {
         let position = answers.len() - index;
@@ -309,32 +310,49 @@ fn order_controls(crc: &str, answers: &[String]) -> String {
 }
 
 fn inject_blanks(
-    mut html: String,
+    html: String,
     answers: &std::collections::BTreeMap<String, Vec<String>>,
     crc: &str,
 ) -> String {
-    for (occurrence, (name, values)) in answers.iter().enumerate() {
-        let marker = format!("[{name}]");
-        let input = format!(
-            "<input class=\"qti-input fib-blank\" id=\"fib_blank_{crc}_{occurrence}\" aria-label=\"{}\" autocomplete=\"off\" data-answers=\"{}\">",
-            escape_attribute(name),
-            encode_answers(values)
-        );
-        html = html.replace(&marker, &input);
+    let mut result = String::with_capacity(html.len());
+    let mut remaining = html.as_str();
+    let mut occurrence = 1;
+    while let Some(open) = remaining.find('[') {
+        result.push_str(&remaining[..open]);
+        let after_open = &remaining[open + 1..];
+        let Some(close) = after_open.find(']') else {
+            result.push_str(&remaining[open..]);
+            return result;
+        };
+        let name = &after_open[..close];
+        if let Some(values) = answers.get(name) {
+            result.push_str(&format!(
+                "<input class=\"qti-input fib-blank\" name=\"{}\" id=\"fib_blank_{crc}_{occurrence}\" aria-label=\"{}\" autocomplete=\"off\" placeholder=\"{}\" data-answers=\"{}\">",
+                escape_attribute(name),
+                escape_attribute(name),
+                escape_attribute(name),
+                encode_answers(values)
+            ));
+            occurrence += 1;
+        } else {
+            result.push_str(&remaining[open..open + close + 2]);
+        }
+        remaining = &after_open[close + 1..];
     }
-    html
+    result.push_str(remaining);
+    result
 }
 
 fn buttons(kind: ItemKind) -> &'static str {
     match kind {
         ItemKind::Match | ItemKind::Order => {
-            "<div class=\"qti-game-actions\"><button type=\"button\" class=\"qti-btn\" data-action=\"grade\">Check Answers</button><button type=\"button\" class=\"qti-btn qti-btn-reset\" data-action=\"reveal\">Reveal answers</button><button type=\"button\" class=\"qti-btn qti-btn-reset\" data-action=\"reset\">Reset</button></div>"
+            "<div class=\"qti-game-actions\"><button type=\"button\" class=\"qti-btn\" data-action=\"grade\">Check Answer</button><button type=\"button\" class=\"qti-btn qti-btn-reset\" data-action=\"reset\">Reset</button></div>"
         }
         ItemKind::Ma => {
-            "<button type=\"button\" class=\"qti-btn\" data-action=\"grade\">Check Answer</button><button type=\"button\" class=\"qti-btn qti-btn-reset\" data-action=\"reveal\">Reveal answer</button><button type=\"button\" class=\"qti-btn qti-btn-reset\" data-action=\"reset\">Clear selection</button>"
+            "<button type=\"button\" class=\"qti-btn\" data-action=\"grade\">Check Answer</button><button type=\"button\" class=\"qti-btn qti-btn-reset\" data-action=\"reset\">Clear Selection</button>"
         }
         _ => {
-            "<button type=\"button\" class=\"qti-btn\" data-action=\"grade\">Check Answer</button><button type=\"button\" class=\"qti-btn qti-btn-reset\" data-action=\"reveal\">Reveal answer</button>"
+            "<button type=\"button\" class=\"qti-btn\" data-action=\"grade\">Check Answer</button>"
         }
     }
 }
@@ -420,8 +438,74 @@ mod tests {
         for body in cases {
             let rendered = render_item(&item(body).render_view()).expect("render");
             assert!(rendered.contains("data-kind"));
-            assert!(rendered.contains("Check Answer") || rendered.contains("Check Answers"));
+            assert!(rendered.contains("Check Answer"));
         }
+    }
+
+    #[test]
+    fn preserves_python_question_and_input_identifiers() {
+        let fib = item(ItemBody::Fib {
+            answers: vec!["yes".into()],
+        });
+        let fib_crc = fib.crc().to_string();
+        let fib_html = render_item(&fib.render_view()).expect("render FIB");
+        assert!(fib_html.starts_with(&format!(
+            "<div class=\"qti-selftest-item\" id=\"question_html_{fib_crc}\""
+        )));
+        assert!(fib_html.contains(&format!("id=\"statement_text_{fib_crc}\"")));
+        assert!(fib_html.contains(&format!("id=\"fib_input_{fib_crc}\"")));
+        assert!(fib_html.contains(&format!("id=\"result_{fib_crc}\"")));
+
+        let number = item(ItemBody::Num {
+            answer: 2.0,
+            tolerance: 0.1,
+            tolerance_message: false,
+        });
+        let number_html = render_item(&number.render_view()).expect("render NUM");
+        assert!(number_html.contains(&format!("id=\"num_input_{}\"", number.crc())));
+
+        let multiple = item(ItemBody::Ma {
+            choices: vec!["A".into(), "B".into(), "C".into()],
+            answers: vec!["A".into()],
+            min_answers_required: 1,
+            allow_all_correct: false,
+        });
+        let multiple_html = render_item(&multiple.render_view()).expect("render MA");
+        assert!(multiple_html.contains(&format!("id=\"option_{}_1\"", multiple.crc())));
+        assert!(!multiple_html.contains("Reveal answer"));
+        assert!(multiple_html.contains("Clear Selection"));
+    }
+
+    #[test]
+    fn repeated_multi_fib_blanks_have_unique_occurrence_identifiers() {
+        let item = Item::new(
+            "Fill [gene], then repeat [gene], and finally [trait].".into(),
+            ItemBody::MultiFib {
+                answers: BTreeMap::from([
+                    ("gene".into(), vec!["A".into()]),
+                    ("trait".into(), vec!["dominant".into()]),
+                ]),
+            },
+        )
+        .expect("valid multi FIB");
+        let crc = item.crc().to_string();
+        let rendered = render_item(&item.render_view()).expect("render");
+        let document = Html::parse_fragment(&rendered);
+        let inputs = Selector::parse(".fib-blank").expect("input selector");
+        let ids = document
+            .select(&inputs)
+            .map(|input| input.value().attr("id").expect("input ID").to_owned())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            ids,
+            vec![
+                format!("fib_blank_{crc}_1"),
+                format!("fib_blank_{crc}_2"),
+                format!("fib_blank_{crc}_3"),
+            ]
+        );
+        assert!(rendered.contains("name=\"gene\""));
+        assert!(rendered.contains("name=\"trait\""));
     }
 
     #[test]

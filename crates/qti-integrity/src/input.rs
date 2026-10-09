@@ -60,7 +60,10 @@ pub fn read_zip_entries(bytes: &[u8]) -> Result<BTreeMap<String, Vec<u8>>, Viola
         let member = archive
             .by_index_raw(index)
             .map_err(|error| input_error(ZIP_INPUT, error))?;
-        let name = member.name();
+        let member_name = member
+            .name()
+            .map_err(|error| input_error(ZIP_INPUT, error))?;
+        let name = member_name.as_ref();
         validate_entry_name(name, member.is_dir())?;
         if member.is_symlink() {
             return Err(Violation::error(
@@ -82,7 +85,10 @@ pub fn read_zip_entries(bytes: &[u8]) -> Result<BTreeMap<String, Vec<u8>>, Viola
         let mut member = archive
             .by_index(index)
             .map_err(|error| input_error(ZIP_INPUT, error))?;
-        let name = member.name().to_owned();
+        let name = member
+            .name()
+            .map_err(|error| input_error(ZIP_INPUT, error))?
+            .into_owned();
         let declared_size = member.size();
         let is_directory = member.is_dir();
         let remaining = MAX_ENTRY_BYTES.min(MAX_PACKAGE_BYTES - actual_total);

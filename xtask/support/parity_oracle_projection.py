@@ -53,6 +53,8 @@ def selftest_projection(path: pathlib.Path) -> object:
 			return base64.b64decode(value, validate=True).decode("utf-8").split("\x1f")
 		except (ValueError, UnicodeDecodeError) as error:
 			raise ValueError(f"self-test answer is neither JSON nor base64: {value!r}") from error
+	from lxml import html as html_parser
+	root = html_parser.fromstring(path.read_text(encoding="utf-8"))
 	choices = []
 	for match in re.finditer(r"<input\b(?P<input>[^>]*)>\s*<label\b[^>]*>(?P<label>.*?)</label>", text, flags=re.I | re.S):
 		attributes = match.group("input")
@@ -98,11 +100,9 @@ def selftest_projection(path: pathlib.Path) -> object:
 	tolerance = re.search(r"\bconst\s+numTolerance_[A-Za-z0-9_]+\s*=\s*([^;]+);", text)
 	if answer and tolerance:
 		result["numeric"] = [float(answer.group(1)), float(tolerance.group(1))]
-	for section in re.finditer(r"<section\b(?P<attrs>[^>]*)>(?P<body>.*?)</section>", text, flags=re.I | re.S):
-		if attribute(section.group("attrs"), "data-kind") != "num":
-			continue
-		answer_value = attribute(section.group("attrs"), "data-answer")
-		tolerance_value = attribute(section.group("attrs"), "data-tolerance")
+	for item in root.xpath('//*[@data-kind="num"]'):
+		answer_value = item.get("data-answer")
+		tolerance_value = item.get("data-tolerance")
 		if answer_value is not None and tolerance_value is not None:
 			result["numeric"] = [float(answer_value), float(tolerance_value)]
 
@@ -129,9 +129,7 @@ def selftest_projection(path: pathlib.Path) -> object:
 			value: label.removeprefix(f"{chr(ord('A') + index)}. ")
 			for index, (value, label) in enumerate(match_choices)
 		}
-	from lxml import html as html_parser
 	match_pairs = []
-	root = html_parser.fromstring(path.read_text(encoding="utf-8"))
 	for slot in root.xpath('//button[contains(concat(" ", normalize-space(@class), " "), " qti-match-slot ")]'):
 		rows = slot.xpath('ancestor::tr[1]')
 		cells = rows[0].xpath('./td') if rows else []

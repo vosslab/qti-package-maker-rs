@@ -5,7 +5,7 @@ artifact is certified yet.
 
 ## Requirements
 
-- Rust 1.98.1 or later with Cargo.
+- Rust with Cargo, meeting `rust-version` in the workspace [Cargo.toml](../Cargo.toml).
 - macOS or Linux source-build environment. The current native development target is macOS arm64.
 - Python is not required to build or run either production CLI binary.
 - Node, npm, wasm-pack, and a Wasm Rust target are not native CLI prerequisites.
@@ -77,44 +77,51 @@ it does not establish native x86 hardware or completed release certification.
 
 ## Development-only oracle tools
 
-`cargo xtask` contains corpus, oracle, parity, and benchmark commands. They use the pinned Python
-reference through `source_me.sh` and are development or release-gate tooling, not a production
-runtime dependency. See [PARITY.md](PARITY.md) and
+`cargo xtask` contains corpus, oracle, parity, and benchmark commands. Explicit cross-language
+checks use the current Python checkout through `source_me.sh` during migration. They are optional
+development tooling, not a production runtime or ordinary Rust-test dependency. See
+[PARITY.md](PARITY.md), [SELFTEST_COMPATIBILITY.md](SELFTEST_COMPATIBILITY.md), and
 [../refactor_progress.md](../refactor_progress.md).
 
 ## Browser package setup
 
-Build the separate local browser/Node package with Node 24 and the Rust
+Build the separate local browser/Node package with a Node release supported by `engines.node` in
+[package.json](../packages/qti-wasm/package.json) and the Rust
 `wasm32-unknown-unknown` target. `npm ci` installs the package-local build and test tools,
 including wasm-pack. See [WASM_PACKAGE.md](WASM_PACKAGE.md) for the complete commands and
 browser installation step. These tools are development dependencies for the browser package.
 
 ## Manual release preparation
 
-Run the local release checks against the pinned Python reference checkout before preparing a
-source release. The native conversion checks additionally need the installed RDKit shim.
-The check script runs both deterministic fixtures and the complete harvested corpus;
-keep `output_tables/corpus` available for this validation.
+Run the local Rust release checks before preparing a source release. During migration, run the
+explicit Python comparison commands separately. The corpus comparison needs
+`output_tables/corpus` from the existing harvest workflow.
 
 ```bash
-CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo \
-RUST_RELEASE_PYTHON_QTI="/path/to/qti-package-maker" \
-bash devel/rust_release_check.sh
+CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo bash devel/rust_release_check.sh
 source source_me.sh && python3 devel/make_release.py --dry-run
 ```
 
-`RUST_RELEASE_PYTHON_QTI` must be a Git checkout that contains the pinned Python
-reference commit; the generated `output_tables/oracle_snapshot/` copy is immutable
-oracle data, not a Git source checkout.
+The separate migration checks use the current sibling Python checkout:
 
-Set `RUST_RELEASE_HTML_TO_IMAGE=1` and `QTI_RDKIT_SHIM` to include native conversion
-comparisons. This optional lane currently exits nonzero on the raw HTML differences
-documented in [PARITY.md](PARITY.md), including frozen Python defects. Review findings
-against source content, grading, media, and package integrity before deciding whether a
-product fix is needed. The classified corpus evidence does not make that command pass;
-new or changed findings still need investigation.
+```bash
+source source_me.sh && cargo xtask oracle-crosscheck
+source source_me.sh && cargo xtask parity --fixtures
+source source_me.sh && cargo xtask parity
+```
 
-Set `RUST_RELEASE_WASM=1` to run the browser package lane with Node 24. It checks portable
+The generated source snapshot records the revision and content hashes, including working-tree
+changes. It is comparison data, not a maintained Python fork. Ordinary release checks do not
+require Python QPM.
+
+Set `RUST_RELEASE_HTML_TO_IMAGE=1` and `QTI_RDKIT_SHIM` to include the native RDKit shim check.
+For migration comparisons of rendered content, explicitly run
+`cargo xtask parity --fixtures --html-to-image` and `cargo xtask parity --html-to-image`.
+Historical raw HTML differences are
+documented in [PARITY.md](PARITY.md), including defects in the old reference. Review new findings
+against source content, grading, media, and package integrity rather than copying reference defects.
+
+Set `RUST_RELEASE_WASM=1` to run the browser package lane with a supported Node release. It checks portable
 crates for `wasm32-unknown-unknown`, then runs `npm ci`, build, strict TypeScript checks,
 Node host/native-Wasm parity tests, and Chromium/Firefox/WebKit tests in `packages/qti-wasm`. Install the Playwright
 browsers first as described in [WASM_PACKAGE.md](WASM_PACKAGE.md). Missing prerequisites and
@@ -127,11 +134,12 @@ To run the complete Linux check locally under Podman, including Chromium and nat
 bash devel/run_linux_release_check.sh
 ```
 
-The helper uses an immutable multi-architecture Rust 1.98.1 Debian 13 image, clones committed HEAD
-and the local pinned Python Git commit into ignored output_tables/, copies the harvested corpus,
+The helper's container image and toolchain are defined in
+[run_linux_release_check.sh](../devel/run_linux_release_check.sh). It clones committed HEAD
+of both repositories into ignored output_tables/ (excluding uncommitted changes), copies the harvested corpus,
 installs Chromium, builds the Debian RDKit shim, and runs the same full local gate. It also installs
 the Python reference's comparison dependencies, including current lxml and Playwright; Debian's
-lxml 5.3 cannot import the pinned reference's annotations. These are development dependencies in
+lxml 5.3 cannot import the Python reference's annotations. These are development dependencies in
 the disposable container, not Rust application requirements. Each run records the installed Python
 package versions and both Chromium versions in `prerequisites.txt`, so comparison-environment
 changes can be diagnosed while continuing to use current dependencies. Browser and

@@ -8,10 +8,6 @@ import zipfile
 def score_program_selftest() -> dict[str, object]:
 	"""Exercise the bounded grading-program certificate without score enumeration."""
 	from xtask.support.parity_oracle import selftest_projection, text_path, xml_projection
-	from xtask.support import parity_qti21_multifib_repair
-	repair_receipt = parity_qti21_multifib_repair.selftest()
-	if repair_receipt["status"] != "passed":
-		raise ValueError("QTI2 MULTI_FIB bounded repair selftest did not pass")
 	labels = []
 	predicates = []
 	for response_index in range(1, 6):
@@ -116,8 +112,6 @@ def score_program_selftest() -> dict[str, object]:
 		blackboard_dom_selftest()
 		from xtask.support.parity_qti21 import selftest as qti21_selftest
 		qti21_selftest()
-		from xtask.support.parity_choice_label_repair import selftest as choice_label_selftest
-		choice_label_selftest()
 		from xtask.support.parity_human_tables import selftest as human_table_selftest
 		human_table_selftest()
 		accessible_expected = directory / "match-accessible-expected.html"

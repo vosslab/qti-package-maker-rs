@@ -4,6 +4,27 @@ Earlier entries: [CHANGELOG-2026-09a.md](CHANGELOG-2026-09a.md).
 
 ## 2026-10-09
 
+### Additions and New Features
+
+- Added independent selftest identity and browser grading contracts, including host-wrapped
+  grading and question-level completion across variant replacement. Current-Python execution
+  belongs to a separate migration check. The contract and drift investigation are recorded in
+  [SELFTEST_COMPATIBILITY.md](SELFTEST_COMPATIBILITY.md).
+
+### Behavior or Interface Changes
+
+- Generated selftests grade through `window.checkAnswer_<CRC>` so the website can observe
+  completion. Repeated initialization preserves wrapped hooks; functions resolve the currently
+  mounted question. Statement IDs and distinct repeated MULTIFIB blank IDs are restored.
+- Check buttons remain usable after correct answers. NUM Enter grades once, MULTIFIB Enter
+  does not grade, and FIB has no extra Enter-grading handler. MATCH supports repeated click/drop
+  guesses and keyboard letter moves. Clear/reset actions affect question controls and feedback.
+- Current Python source is a transitional migration reference with source-bound receipts.
+  Routine Rust release checks run independently of Python QPM. Important behaviors are protected
+  by independent Rust and browser tests so Python can eventually leave active workflows.
+
+### Fixes and Maintenance
+
 - Recorded the preference to minimize dependencies to reduce the supply chain attack surface
   in [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md).
 - Removed unused direct `sha2` from `qti-integrity` and `quick-xml` from `xtask`, and kept
@@ -14,6 +35,42 @@ Earlier entries: [CHANGELOG-2026-09a.md](CHANGELOG-2026-09a.md).
   `getopts`, `unicode-width`, `zopfli`, and `simd-adler32`. All 323 Rust tests pass, with four
   optional tests ignored; strict Clippy, the Wasm target check, formatting, and 1,819 Python
   hygiene checks pass. Browser and native rendering acceptance were not rerun for this cleanup.
+- Adapted ZIP filename handling to the already-locked ZIP 9 API. Decode failures remain typed
+  package-input violations. The fallback archive test asserts QPM's size rejection independently
+  of which central directory the dependency chooses.
+
+### Removals and Deprecations
+
+- Removed Rust-only Reveal controls that supplied and graded answers. No compatibility layer
+  preserves the earlier hook bypass or obsolete button behavior.
+- Removed the historical Python pin from active reference resolution and ordinary development
+  setup. Historical receipts retain their source identity; they are not current parity evidence.
+- Removed historical comparator repair modules and expected-defect branches. Current comparisons
+  report actual Python/Rust differences, including reference defects, without rewriting outputs.
+
+### Decisions and Failures
+
+- The initial Rust port bypassed its own public grading hooks. Frozen-source and static-answer
+  comparisons failed to detect both that regression and later useful Python control changes.
+  The correction protects the current consumer contract without copying obsolete interfaces or
+  making Python a permanent test dependency.
+
+### Developer Tests and Notes
+
+- Completed six fresh independent Plan, Test, Style, Docs, Legacy, and Comment audit passes.
+  Setup docs now reference manifest requirements instead of duplicating transient tool versions.
+  Release scripts record versions and rely on actual builds/tests instead of separate Rust,
+  Python, C++, or Node version gates. The Linux image follows the workspace compiler requirement.
+  Removed an incidental initial-order assertion from the
+  browser test. Two low-priority filename issues remain; no blocker/high/medium findings remain.
+  Scope, evidence, and dispositions are in
+  [the selftest audit](active_plans/audits/selftest_six_pass_audit_2026_10_09.md).
+- Verification passes: 325 Rust tests (four optional tests ignored), strict Clippy and formatting,
+  1,810 Python hygiene checks, nine Node tests, and 30 Chromium/Firefox/WebKit browser tests.
+  The separate current-Python browser lane passes all seven kinds in all three engines; 551
+  question CRCs agree. Broader migration findings remain visible. The installed local tarball,
+  old-output reproduction, source identities, and website handoff are recorded in
+  [SELFTEST_REGRESSION_VERIFICATION.md](active_plans/reports/SELFTEST_REGRESSION_VERIFICATION.md).
 
 ## 2026-10-08
 

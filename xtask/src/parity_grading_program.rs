@@ -19,6 +19,7 @@ pub(super) fn verify(repository: &Path) -> Result<String, String> {
     let output = Command::new("python3")
         .arg(script)
         .arg("selftest")
+        .env("PYTHONPATH", repository)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
@@ -44,11 +45,4 @@ pub(super) fn verify(repository: &Path) -> Result<String, String> {
         "parity grading-program proof: 5 responses x 5 labels in {} ms",
         receipt.elapsed_ms
     ))
-}
-
-/// Identifies the source-defect fixture with its separately bound repair proof.
-pub(super) fn is_canvas_multifib_repair_input(input: &Path) -> bool {
-    input.file_name().is_some_and(|name| {
-        name == "bbq-parity-projection-canvas_qti_v1_2--multi_fib-questions.txt"
-    })
 }

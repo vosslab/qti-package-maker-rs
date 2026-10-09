@@ -553,7 +553,11 @@ mod tests {
         );
         let mut archive =
             zip::ZipArchive::new(std::io::Cursor::new(primary(&outcome).bytes())).expect("ZIP");
-        assert!(archive.file_names().any(|name| name == "media/local.png"));
+        assert!(
+            archive
+                .file_names()
+                .any(|name| name.expect("valid archive entry name") == "media/local.png")
+        );
         let mut media_bytes = Vec::new();
         archive
             .by_name("media/local.png")

@@ -522,6 +522,31 @@ mod tests {
     }
 
     #[test]
+    fn variants_share_stem_identity_but_keep_independent_question_crcs() {
+        // Website completion uses both CRC components, never a stem or bank identifier.
+        let variant = |answer| {
+            Item::new(
+                "Compute the concentration shown in your variant".to_owned(),
+                ItemBody::Num {
+                    answer,
+                    tolerance: 0.125,
+                    tolerance_message: true,
+                },
+            )
+            .expect("valid numeric variant")
+        };
+        let first = variant(2.5);
+        let second = variant(5.0);
+        assert_eq!(first.crc().question_crc(), second.crc().question_crc());
+        assert_ne!(first.crc(), second.crc());
+
+        // Changing bank position or reconstructing an authored variant keeps its progress key.
+        assert_eq!(first.crc(), variant(2.5).with_item_number(99).crc());
+        let restored: Item = serde_json::from_str(&serde_json::to_string(&first).unwrap()).unwrap();
+        assert_eq!(first.crc(), restored.crc());
+    }
+
+    #[test]
     fn presentation_derivation_preserves_source_identity_through_serialization() {
         let source = Item::new(
             "<img src='stem.png'/>".to_owned(),

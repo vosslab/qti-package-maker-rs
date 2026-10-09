@@ -13,6 +13,7 @@ pub(super) fn parse_arguments(arguments: &[String], repository: &Path) -> Result
         max_inputs: None,
         html_to_image: false,
         fixtures: false,
+        python_qti: None,
     };
     let mut iterator = arguments.iter();
     while let Some(argument) = iterator.next() {
@@ -39,8 +40,15 @@ pub(super) fn parse_arguments(arguments: &[String], repository: &Path) -> Result
             }
             "--html-to-image" => options.html_to_image = true,
             "--fixtures" => options.fixtures = true,
+            "--python-qti" => {
+                options.python_qti = Some(PathBuf::from(
+                    iterator
+                        .next()
+                        .ok_or_else(|| "--python-qti requires a path".to_owned())?,
+                ))
+            }
             "--help" | "-h" => {
-                return Err("Usage: cargo xtask parity [--fixtures | --input BBQ... | --corpus DIR] [--max-inputs N] [--html-to-image]\n\n--fixtures creates deterministic ignored M13 inputs. Without an input source, the harvested corpus at output_tables/corpus/generated is used. Generated packages are ignored under tests/_temp/.".to_owned());
+                return Err("Usage: cargo xtask parity [--fixtures | --input BBQ... | --corpus DIR] [--python-qti PATH] [--max-inputs N] [--html-to-image]\n\n--fixtures creates deterministic ignored M13 inputs. Without an input source, the harvested corpus at output_tables/corpus/generated is used. Generated packages are ignored under tests/_temp/.".to_owned());
             }
             _ => return Err(format!("unknown parity argument: {argument}")),
         }

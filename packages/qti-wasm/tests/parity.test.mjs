@@ -175,6 +175,37 @@ test("all four readers and package integrity consume identical writer-produced i
   }
 });
 
+test("selftest progress identities distinguish variants and survive document and media changes", () => {
+  const stem = '<img src="diagram.png" /> Calculate the concentration';
+  const bank = `NUM\t${stem}\t2.5\t0.125\nNUM\t${stem}\t5\t0.125\n`;
+  const input = (image) => ({
+    kind: "file", name: "variants.txt", bytes: encoder.encode(bank),
+    companions: [{ name: "diagram.png", bytes: image }],
+  });
+  const operations = [
+    conversion(request("html_selftest", "", { input: input(pixel), shuffleSeed: 0 })),
+    conversion(request("html_selftest", "", { input: input(pixel), shuffleSeed: 1 })),
+    conversion(request("html_selftest", "", {
+      input: input(new Uint8Array([...pixel, 1])), shuffleSeed: 2,
+      document: { title: "Another document", date: "2026-10-09" },
+    })),
+  ];
+  const results = compare(operations, ["variant A", "variant B", "variant A with new presentation"]);
+  const html = results.map((result) => {
+    assert.equal(result.status, "success");
+    return decoder.decode(result.artifact.primary.bytes);
+  });
+  const crcs = html.map((page) => {
+    const match = page.match(/id="question_html_([0-9a-f]{4}_[0-9a-f]{4})"/);
+    assert.ok(match, "a complete question CRC is exposed to the host");
+    return match[1];
+  });
+  assert.equal(crcs[0].split("_")[0], crcs[1].split("_")[0], "these variants share their stem");
+  assert.notEqual(crcs[0], crcs[1], "completion keys distinguish the answer variants");
+  assert.equal(crcs[0], crcs[2], "selection, metadata, and media bytes do not replace source identity");
+  assert.notEqual(html[0], html[2], "the changed presentation was actually exported");
+});
+
 test("parity preserves media, grading, ordered diagnostics, limits, and state across repeated calls", () => {
   const operations = [];
   const labels = [];

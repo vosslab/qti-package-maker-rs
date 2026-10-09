@@ -280,10 +280,10 @@ def predicate(node: element_tree.Element, labels: dict[str, dict[str, dict[str, 
 		label_ref = label_refs.get(response)
 		if name != "varequal" or value or label_ref is None:
 			raise ValueError(f"Blackboard grading references unknown response {response}")
-		# Frozen MA emits one empty per-choice penalty condition.  It is a typed
+		# MA emits one empty per-choice penalty condition. It is a typed
 		# response-label reference, canonicalized to response and label ordinals.
 		response_position, label_position, choice = label_ref
-		return {"label_ref": {"response": response_position, "label": label_position, "case": node.attrib.get("case", ""), "value": choice, "_source_label_id": response}}
+		return {"label_ref": {"response": response_position, "label": label_position, "case": node.attrib.get("case", ""), "value": choice}}
 	if name == "varequal" and kinds[response] == "response_lid":
 		if value not in labels[response]:
 			raise ValueError(f"Blackboard unresolved response label {response}:{value}")
@@ -315,7 +315,7 @@ def feedbacks(item: element_tree.Element) -> dict[str, dict[str, object]]:
 	return result
 
 
-def score_program(item: element_tree.Element, labels: dict[str, dict[str, dict[str, object]]], positions: dict[str, int], kinds: dict[str, str], label_refs: dict[str, tuple[int, int, dict[str, object]]], feedback_targets: dict[str, dict[str, object]], *, allow_frozen_source_repairs: bool = False, repair_records: list[dict[str, object]] | None = None) -> tuple[dict[str, str], list[dict[str, object]]]:
+def score_program(item: element_tree.Element, labels: dict[str, dict[str, dict[str, object]]], positions: dict[str, int], kinds: dict[str, str], label_refs: dict[str, tuple[int, int, dict[str, object]]], feedback_targets: dict[str, dict[str, object]]) -> tuple[dict[str, str], list[dict[str, object]]]:
 	processing = one(direct(item, "resprocessing"), "resprocessing")
 	outcomes = one(direct(processing, "outcomes"), "outcomes")
 	decvar = one(direct(outcomes, "decvar"), "SCORE decvar")
@@ -335,11 +335,10 @@ def score_program(item: element_tree.Element, labels: dict[str, dict[str, dict[s
 				if set(action.attrib) != {"linkrefid", "feedbacktype"}:
 					raise ValueError(f"unsupported Blackboard displayfeedback attributes {sorted(action.attrib)}")
 				target = action.attrib["linkrefid"]
-				if target in feedback_targets:
-					reachable.add(target)
-					actions.append({"displayfeedback": {"feedbacktype": action.attrib["feedbacktype"], "target": feedback_targets[target]}})
-				else:
-					actions.append({"_missing_displayfeedback": {"feedbacktype": action.attrib["feedbacktype"], "linkrefid": target}})
+				if target not in feedback_targets:
+					raise ValueError("Blackboard displayfeedback references missing target")
+				reachable.add(target)
+				actions.append({"displayfeedback": {"feedbacktype": action.attrib["feedbacktype"], "target": feedback_targets[target]}})
 				continue
 			if name != "setvar":
 				raise ValueError(f"unsupported Blackboard grading action {name}")
@@ -357,30 +356,11 @@ def score_program(item: element_tree.Element, labels: dict[str, dict[str, dict[s
 			reachable.add(title)
 			title_value = {"feedback": feedback_targets[title]}
 		elif re.fullmatch(r"[0-9a-f]{32}|[0-9a-f]{4}_[0-9a-f]{4}_(fib_answer|num_correct)_[0-9]+", title):
-			# These frozen/native writer-generated branch titles have no feedback edge.
+			# These writer-generated branch titles have no feedback edge.
 			title_value = ""
 		else:
 			raise ValueError(f"Blackboard response condition title has no feedback target {title}")
 		predicate_value = predicate(condition_var, labels, positions, kinds, label_refs)
-		missing = [action for action in actions if "_missing_displayfeedback" in action]
-		if missing:
-			label_ref = predicate_value.get("label_ref")
-			nonmissing = [action for action in actions if "_missing_displayfeedback" not in action]
-			valid_frozen_defect = (
-				title == ""
-				and condition.attrib.get("continue", "Yes") == "Yes"
-				and label_ref is not None
-				and len(missing) == 1
-				and missing[0]["_missing_displayfeedback"] == {"feedbacktype": "Response", "linkrefid": label_ref["_source_label_id"]}
-				and nonmissing == [{"varname": "SCORE", "action": "Set", "value": "0"}]
-			)
-			if not allow_frozen_source_repairs or not valid_frozen_defect:
-				raise ValueError("Blackboard displayfeedback references missing target")
-			if repair_records is not None:
-				repair_records.append({"repair": "frozen_dangling_label_feedback", "branch": len(program), "label_reference": dict(label_ref)})
-			actions = nonmissing
-		if "label_ref" in predicate_value:
-			del predicate_value["label_ref"]["_source_label_id"]
 		program.append({
 			"title": title_value,
 			"continue": condition.attrib.get("continue", "Yes"),
@@ -394,14 +374,14 @@ def score_program(item: element_tree.Element, labels: dict[str, dict[str, dict[s
 	return declaration, program
 
 
-def item_projection(item: element_tree.Element, *, allow_frozen_source_repairs: bool = False, repair_records: list[dict[str, object]] | None = None) -> dict[str, object]:
+def item_projection(item: element_tree.Element) -> dict[str, object]:
 	item_metadata = metadata(item)
 	question_blocks = [flow for flow in descendants(item, "flow") if flow.attrib.get("class") == "QUESTION_BLOCK"]
 	question_flow = one(question_blocks, "QUESTION_BLOCK")
 	question = fragment(text(one(descendants(question_flow, "mat_formattedtext"), "question mat_formattedtext")))
 	responses, labels, positions, kinds, label_refs = interaction_projection(item)
 	feedback_targets = feedbacks(item)
-	declaration, program = score_program(item, labels, positions, kinds, label_refs, feedback_targets, allow_frozen_source_repairs=allow_frozen_source_repairs, repair_records=repair_records)
+	declaration, program = score_program(item, labels, positions, kinds, label_refs, feedback_targets)
 	source_carriers(item_metadata)
 	return {
 		"kind": item_metadata["bbmd_questiontype"],
@@ -412,14 +392,14 @@ def item_projection(item: element_tree.Element, *, allow_frozen_source_repairs: 
 	}
 
 
-def xml_projection(path: pathlib.Path, *, allow_frozen_source_repairs: bool = False, repair_records: list[dict[str, object]] | None = None) -> list[dict[str, object]]:
+def xml_projection(path: pathlib.Path) -> list[dict[str, object]]:
 	items = []
 	with zipfile.ZipFile(path) as archive:
 		for name in sorted(archive.namelist()):
 			if not name.endswith(".dat"):
 				continue
 			root = element_tree.fromstring(archive.read(name))
-			items.extend(item_projection(item, allow_frozen_source_repairs=allow_frozen_source_repairs, repair_records=repair_records) for item in descendants(root, "item"))
+			items.extend(item_projection(item) for item in descendants(root, "item"))
 	if not items:
 		raise ValueError("Blackboard ZIP has no item XML")
 	return items
@@ -450,21 +430,16 @@ def selftest() -> dict[str, object]:
 	source = """<questestinterop><item><itemmetadata><bbmd_questiontype>Multiple Choice</bbmd_questiontype><bbmd_qti_package_maker_ma_min_answers_required>0</bbmd_qti_package_maker_ma_min_answers_required><bbmd_qti_package_maker_ma_allow_all_correct>false</bbmd_qti_package_maker_ma_allow_all_correct><bbmd_qti_package_maker_num_tolerance>0.01</bbmd_qti_package_maker_num_tolerance><bbmd_qti_package_maker_num_tolerance_message>true</bbmd_qti_package_maker_num_tolerance_message></itemmetadata><presentation><flow class='QUESTION_BLOCK'><material><mat_formattedtext>&lt;script&gt;x()&lt;/script&gt;Question</mat_formattedtext></material></flow><response_lid ident='response' rcardinality='Single'><render_choice shuffle='Yes'><response_label ident='a'><material><mat_formattedtext>Alpha</mat_formattedtext></material></response_label><response_label ident='b'><material><mat_formattedtext>Beta</mat_formattedtext></material></response_label></render_choice></response_lid></presentation><resprocessing><outcomes><decvar varname='SCORE' vartype='Decimal' minvalue='0' maxvalue='100'/></outcomes><respcondition><conditionvar><varequal respident='response'>a</varequal></conditionvar><setvar variablename='SCORE' action='Set'>100</setvar><displayfeedback linkrefid='correct' feedbacktype='Response'/></respcondition><respcondition><conditionvar><varequal respident='a' case='No'/></conditionvar><setvar variablename='SCORE' action='Set'>0</setvar><displayfeedback linkrefid='correct' feedbacktype='Response'/></respcondition><respcondition><conditionvar><other/></conditionvar><setvar variablename='SCORE' action='Set'>0</setvar><displayfeedback linkrefid='incorrect' feedbacktype='Response'/></respcondition></resprocessing><itemfeedback ident='correct' view='All'/><itemfeedback ident='incorrect' view='All'/></item></questestinterop>"""
 	if fragment("<b>A</b>B") == fragment("A<b>B</b>"):
 		raise ValueError("Blackboard structured fragment lost text ownership")
-	legacy = element_tree.fromstring(source).find("item")
-	penalty = legacy.find("resprocessing").findall("respcondition")[1]
+	malformed = element_tree.fromstring(source).find("item")
+	penalty = malformed.find("resprocessing").findall("respcondition")[1]
 	link = penalty.find("displayfeedback")
 	link.set("linkrefid", "a")
 	try:
-		item_projection(legacy)
+		item_projection(malformed)
 	except ValueError:
 		pass
 	else:
-		raise ValueError("native dangling feedback was normalized as a frozen repair")
-	repairs: list[dict[str, object]] = []
-	repaired = item_projection(legacy, allow_frozen_source_repairs=True, repair_records=repairs)
-	penalty.remove(link)
-	assert repaired == item_projection(legacy)
-	assert len(repairs) == 1 and repairs[0]["repair"] == "frozen_dangling_label_feedback"
+		raise ValueError("dangling feedback reference was accepted")
 	with tempfile.TemporaryDirectory(prefix="bb-parity-") as temporary:
 		archive_path = pathlib.Path(temporary) / "item.zip"
 		with zipfile.ZipFile(archive_path, "w") as archive:

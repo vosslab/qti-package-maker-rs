@@ -1,17 +1,14 @@
 import { defineConfig } from "@playwright/test";
 
+// Transitional migration evidence.  The permanent browser suite deliberately
+// has no dependency on the sibling Python checkout.
 export default defineConfig({
   testDir: "./tests",
-  testMatch: ["browser.spec.ts", "selftest.spec.ts"],
+  testMatch: "selftest_python_parity.spec.ts",
   fullyParallel: false,
   workers: 1,
-  reporter: [["list"], ["json", { outputFile: "_verification/browser.json" }]],
-  use: { baseURL: "http://127.0.0.1:4173", headless: true },
-  webServer: {
-    command: "node scripts/serve.mjs",
-    url: "http://127.0.0.1:4173",
-    reuseExistingServer: false,
-  },
+  reporter: [["list"], ["json", { outputFile: "_verification/python-selftest-parity.json" }]],
+  use: { headless: true },
   projects: [
     { name: "chromium", use: { browserName: "chromium" } },
     { name: "firefox", use: { browserName: "firefox" } },

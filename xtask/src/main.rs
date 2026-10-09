@@ -1,5 +1,6 @@
 //! Development tooling entry point.
 mod crc_corpus;
+mod current_python;
 mod oracle_crosscheck;
 mod parity;
 mod table_bench;
@@ -11,7 +12,7 @@ fn main() {
     let result = match arguments.first().map(String::as_str) {
         None | Some("--help" | "-h") => {
             println!(
-                "Usage: cargo xtask <command>\n\nCommands:\n  crc-corpus    Compare item identities with Python\n  table-corpus  Harvest real generator tables and canvases\n  table-bench   Measure Python conversion stages\n  table-gallery  Build the native/Python table review gallery\n  oracle-crosscheck  Compare package integrity with Python\n  parity        Compare exports with the pinned Python oracle\n\nRun the converter with cargo run -p qti-cli --bin bbq-converter -- --help."
+                "Usage: cargo xtask <command>\n\nCommands:\n  crc-corpus    Compare item identities with current Python\n  table-corpus  Harvest real generator tables and canvases\n  table-bench   Measure current Python conversion stages\n  table-gallery  Build the native/Python table review gallery\n  oracle-crosscheck  Compare package integrity with current Python\n  parity        Compare exports with current Python\n\nRun the converter with cargo run -p qti-cli --bin bbq-converter -- --help."
             );
             Ok(())
         }

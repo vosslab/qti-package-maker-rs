@@ -11,7 +11,9 @@ it does not publish an npm package or deploy a site.
 
 ## Build and verify
 
-Use Rust 1.98.1 or later and Node 24 for the tested package workflow:
+Use a Rust toolchain meeting the workspace's `rust-version` in [Cargo.toml](../Cargo.toml)
+and a Node release supported by `engines.node` in
+[package.json](../packages/qti-wasm/package.json):
 
 ```bash
 rustup target add wasm32-unknown-unknown
@@ -164,7 +166,14 @@ ZIP integrity target.
 Wasm across every reader/writer, supported kinds, warnings, artifacts, and failures; it needs Cargo
 and the repository checkout. `npm run test:parity` is a convenience command for running just the
 parity tests. `npm run test:browser` runs Chromium,
-Firefox, and WebKit acceptance, including workers and downloads. `npm run measure` reports the
+Firefox, and WebKit acceptance, including workers, downloads, and grading the emitted selftests
+through their actual controls and website-facing hooks. These tests run without Python QPM.
+`npm run test:python-parity` separately compares selftest identities and grading with the current
+sibling Python checkout during migration. Missing source fails that explicit comparison with setup
+guidance. It is not part of ordinary package tests and can be retired when Rust is authoritative;
+see [SELFTEST_COMPATIBILITY.md](SELFTEST_COMPATIBILITY.md).
+
+`npm run measure` reports the
 Wasm, loader, and wrapper raw/compressed sizes with runtime version information. Repeated conversion timings
 are recorded separately with their workload and commands. Exact source-bound results and open gates live in
 [shared_engine_delivery.md](active_plans/reports/shared_engine_delivery.md).

@@ -1,4 +1,4 @@
-//! M13 differential Python-versus-Rust package comparison; the pinned Python source is oracle-only.
+//! M13 differential Python-versus-Rust package comparison against the current Python source.
 
 #[path = "parity_grading_program.rs"]
 mod parity_grading_program;
@@ -19,8 +19,8 @@ mod parity_report;
 mod parity_writer_receipts;
 use parity_inputs::{parse_arguments, resolve_inputs};
 use parity_process::{
-    compare_outputs, display_error, file_sha256, native_cli, pinned_python_root, python_command,
-    repository_root, run_native_writers, run_python_writer,
+    compare_outputs, display_error, file_sha256, native_cli, python_command, repository_root,
+    run_native_writers, run_python_writer,
 };
 use parity_receipts::{compare_media_receipts, compare_order_receipt};
 use parity_writer_receipts::{comparable_engines, compare_writer_outcomes, parity_lane};
@@ -28,7 +28,6 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-const PINNED_PYTHON_HEAD: &str = "55e5f368777f7809fe2e91b5d070caf6df0cb581";
 const ENGINES: &[&str] = &[
     "bbq_text_upload",
     "text2qti",
@@ -53,6 +52,7 @@ struct Options {
     max_inputs: Option<usize>,
     html_to_image: bool,
     fixtures: bool,
+    python_qti: Option<PathBuf>,
 }
 #[derive(Debug)]
 struct ParityInput {
@@ -98,7 +98,7 @@ pub fn run(arguments: &[String]) -> Result<(), String> {
     println!("{}", parity_grading_program::verify(&repository)?);
     let options = parse_arguments(arguments, &repository)?;
     let inputs = resolve_inputs(&options, &repository)?;
-    let python_root = pinned_python_root(&repository)?;
+    let python = crate::current_python::resolve(&repository, options.python_qti.as_deref())?;
     let cli = native_cli(&repository)?;
     println!(
         "parity native CLI: {} sha256={}",
@@ -114,6 +114,7 @@ pub fn run(arguments: &[String]) -> Result<(), String> {
         &inputs,
         &cli,
         &repository,
+        &python.provenance,
         options.fixtures,
         options.html_to_image,
     )?;
@@ -127,7 +128,7 @@ pub fn run(arguments: &[String]) -> Result<(), String> {
         fs::create_dir_all(&rust_output).map_err(display_error)?;
         let python_receipt = run_python_writer(
             &repository,
-            &python_root,
+            &python.root,
             &input.path,
             &python_output,
             options.html_to_image,
@@ -150,12 +151,11 @@ pub fn run(arguments: &[String]) -> Result<(), String> {
         if !comparable_engines.is_empty() {
             let comparison = compare_outputs(
                 &repository,
-                &python_root,
+                &python.root,
                 &python_output,
                 &rust_output,
                 options.html_to_image,
                 &comparable_engines,
-                parity_grading_program::is_canvas_multifib_repair_input(&input.path),
             )?;
             all_divergences.extend(comparison.divergences);
         }
@@ -174,20 +174,20 @@ pub fn run(arguments: &[String]) -> Result<(), String> {
             .ok_or_else(|| "fixture inputs have no parent directory".to_owned())?;
         all_divergences.extend(compare_order_receipt(
             &repository,
-            &python_root,
+            &python.root,
             &cli,
             &temporary,
         )?);
         all_divergences.extend(compare_media_receipts(
             &repository,
-            &python_root,
+            &python.root,
             &cli,
             fixture_directory,
             &temporary,
         )?);
         all_divergences.extend(parity_reader_receipts::native_reader_roundtrips(
             &repository,
-            &python_root,
+            &python.root,
             fixture_directory,
             &temporary,
         )?);
@@ -196,13 +196,15 @@ pub fn run(arguments: &[String]) -> Result<(), String> {
     if all_divergences.is_empty() {
         if options.html_to_image {
             println!(
-                "parity html-to-image: {} input bank(s); 3 frozen-CLI packaging ZIP formats agree structurally with pinned Python {PINNED_PYTHON_HEAD}",
-                inputs.len()
+                "parity html-to-image: {} input bank(s); 3 packaging ZIP formats agree structurally with current Python {}",
+                inputs.len(),
+                python.provenance.git_commit,
             );
         } else {
             println!(
-                "parity: {} input bank(s); 7 frozen-CLI formats and 3 fixed registered-only adapter formats agree with pinned Python {PINNED_PYTHON_HEAD}",
-                inputs.len()
+                "parity: {} input bank(s); 7 CLI formats and 3 registered-only adapter formats agree with current Python {}",
+                inputs.len(),
+                python.provenance.git_commit,
             );
         }
         return Ok(());

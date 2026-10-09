@@ -33,7 +33,8 @@ questions instead of becoming separate copies in each learning system.
 
 ## Quick start
 
-Install Rust 1.98.1 or later. From this repository, build the native commands:
+Install a Rust toolchain meeting `rust-version` in [Cargo.toml](Cargo.toml).
+From this repository, build the native commands:
 
 ```bash
 cargo build --locked --release -p qti-cli --bins

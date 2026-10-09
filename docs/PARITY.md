@@ -1,5 +1,26 @@
 # Parity record
 
+## Current migration policy
+
+Rust QPM is becoming the authoritative implementation. Current Python QPM is a transitional
+comparison source, selected explicitly for migration checks and recorded with revision and source
+hashes. Permanent Rust/native/Wasm tests establish behavior independently of Python. Retire the
+Python comparison tooling when independent coverage and resolved migration findings allow it.
+See [SELFTEST_COMPATIBILITY.md](SELFTEST_COMPATIBILITY.md) for the selftest contract and drift cause.
+
+The authority order is observed consumer behavior, documented format requirements, and established
+product behavior. Current Python helps discover regressions during migration; it does not override
+intentional fixes or become a perpetual test dependency. A fixed historical revision is evidence
+of a past comparison, not the default compatibility target.
+
+The selftest regression correction and current-source verification are recorded in
+[SELFTEST_REGRESSION_VERIFICATION.md](active_plans/reports/SELFTEST_REGRESSION_VERIFICATION.md).
+Current selftest grading and identities agree across all seven kinds. Broader migration commands
+retain visible findings for Python package defects and normalized-field differences; those commands
+are not reported as passing merely because the selftest contract passes.
+
+## Historical port and renderer evidence
+
 The 2026-10-01 Chromium replacement passes the refreshed corpus: run 23373 exports all
 721 expected ZIPs with zero integrity errors/warnings and zero public-content or grading
 differences from verified run 80228. All 181 input paths and hashes match the Python baseline.
@@ -12,22 +33,22 @@ Current renderer evidence is in `output_tables/native_table_bench/run-23373/` an
 `output_tables/gallery/run-1790861624/`. The measured Chromium first-screenshot delay is a
 performance limitation, not a content or grading difference.
 
-This record applies the authority order in the completed
+The historical runs below applied the authority order in the completed
 [archive/rust_port_plan.md](archive/rust_port_plan.md): observed
 LMS behavior, documented format requirements, Python runtime behavior at the
 pinned revision, then advisory signals. Plain exports pass the full differential corpus;
 converted exports have the classified semantic evidence described below. The raw HTML
 comparison still reports the documented differences.
 
-## M13 differential harness
+## M13 differential harness history
 
-`cargo xtask parity --fixtures` compares actual exports through two explicit oracle lanes:
+The original `cargo xtask parity --fixtures` compared exports through two explicit oracle lanes:
 the seven formats exposed by the frozen Python CLI and three registered-only writers invoked
 through its package interface. A current, self-built CLI agrees across 56 per-engine question-kind
 projections, including Canvas scoring behavior. Media and full-corpus cases remain under
 verification in that fixture receipt; the later corpus evidence is summarized below.
 
-### Current corpus evidence
+### Recorded corpus evidence
 
 The full plain-export run `tests/_temp/parity_6191` completes 1,709 input banks across all
 ten writer formats with zero findings. The subsequent image-only whitespace correction
@@ -72,14 +93,15 @@ integrity and preserve the choice-based blank interactions and intended accepted
 unresolved identifiers must fail
 the comparison projection. See the [binding ruling](active_plans/decisions/engine_trait_ruling.md).
 
-## M6 package-integrity oracle
+## M6 package-integrity contract and historical reference
 
 `qti-integrity::check_package(&[u8])` and `check_entries(&BTreeMap<String, Vec<u8>>)` inspect
 portable bytes without extracting ZIP members. Native callers use
 `qti-native::check_package_path(&Path)` to load a ZIP or extracted package tree before checking.
-Integrity remains independent of `qti-core` and the writer crates. The cross-language authority
-is Python `package_integrity.py` at
-`55e5f368777f7809fe2e91b5d070caf6df0cb581`.
+Integrity remains independent of `qti-core` and the writer crates. The original comparison used
+Python `package_integrity.py` at `55e5f368777f7809fe2e91b5d070caf6df0cb581`; the rationale below
+records that historical implementation. Active comparisons now use the current source under the
+migration policy above. Old reference behavior does not prevent a justified correctness fix.
 
 | Check or finding codes | Authority and provenance | Implemented evidence |
 | --- | --- | --- |

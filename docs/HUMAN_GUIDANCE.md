@@ -62,6 +62,21 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - 2026-10-09: I like to keep dependencies down to reduce the supply chain attack surface.
 
+- 2026-10-09: Preserve Python selftest behavior in Rust, including stable question CRCs and
+  independent completion for each variant. This repository owns generated HTML and grading hooks;
+  the website manager owns reroll selection and persisted progress.
+- 2026-10-09: Rust QPM should be up to date with current Python QPM during migration. Turn important
+  behaviors into independent Rust tests, then retire Python from active workflows. Rust QPM is
+  intended to become the sole maintained, authoritative implementation.
+- 2026-10-09: Keep configuration simple. Add options only for demonstrated needs; prefer fixed
+  shared behavior for internal choices and separate commands for genuinely different tasks.
+- 2026-10-09: I am the only one using this code; I do not want to preserve legacy behavior.
+- 2026-10-09: Prefer newer Cargo package versions; never pin old versions.
+- 2026-10-09: Do not put transient dependency/toolchain versions in permanent setup docs.
+  Refer to the package manifests; keep exact tested versions in dated verification evidence.
+- 2026-10-09: Avoid version-based gates without a demonstrated compatibility need. A different
+  tool version alone should not stop working software; use meaningful build and behavior checks.
+
 - I prefer to use the latest versions of things. Prefer current dependency releases and
   adapt to their APIs when practical, while retaining reproducible locked builds.
 

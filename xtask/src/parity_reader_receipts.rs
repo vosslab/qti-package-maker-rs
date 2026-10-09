@@ -35,13 +35,13 @@ struct BlackboardMetadataReceipt<'a> {
     malformed_numeric_tolerance_replacements: usize,
     authored: &'a Value,
     present: &'a Value,
-    pinned_absent: &'a Value,
+    python_absent: &'a Value,
     native_absent: &'a Value,
     malformed_projection: &'a Value,
     malformed_warnings: &'a Value,
 }
 
-/// Compares frozen writer-reader meaning with native writer-native-reader meaning.
+/// Compares current Python writer-reader meaning with native writer-native-reader meaning.
 pub(super) fn native_reader_roundtrips(
     repository: &Path,
     python_root: &Path,
@@ -65,12 +65,6 @@ pub(super) fn native_reader_roundtrips(
         } else {
             fixtures.join(format!("bbq-parity-{engine}-questions.txt"))
         };
-        if engine == "text2qti"
-            && sha256_file(&input)?
-                != "24bb48081c507d3f98db25e288989206a4d70ec6ac4c05b5ddb644d81b4ce093"
-        {
-            return Err("text2qti multiblock repair fixture SHA-256 changed".to_owned());
-        }
         let source_outcome = read_path(bbq_reader.as_ref(), &input)
             .map_err(|error| format!("native reader source load {engine}: {error}"))?;
         let bbq_source = source_outcome.bank;
@@ -82,21 +76,21 @@ pub(super) fn native_reader_roundtrips(
         } else {
             bbq_source
         };
-        let frozen_output = temporary.join(format!("frozen_reader_{engine}"));
-        let mut frozen_writer = super::python_command(repository, python_root, "write")?;
-        frozen_writer.args([
+        let python_output = temporary.join(format!("python_reader_{engine}"));
+        let mut python_writer = super::python_command(repository, python_root, "write")?;
+        python_writer.args([
             "--input",
             &input.to_string_lossy(),
             "--output",
-            &frozen_output.to_string_lossy(),
+            &python_output.to_string_lossy(),
             "--engines",
             engine,
         ]);
-        let frozen_result = frozen_writer.output().map_err(display_error)?;
-        if !frozen_result.status.success() {
+        let python_result = python_writer.output().map_err(display_error)?;
+        if !python_result.status.success() {
             return Err(format!(
-                "frozen reader writer {engine} failed: {}",
-                String::from_utf8_lossy(&frozen_result.stderr).trim()
+                "current Python reader writer {engine} failed: {}",
+                String::from_utf8_lossy(&python_result.stderr).trim()
             ));
         }
         let entry = qti_engines::ENGINES
@@ -135,63 +129,32 @@ pub(super) fn native_reader_roundtrips(
         let path = qti_native::persist_artifact(&artifact, &output)
             .map_err(|error| format!("native reader writer {engine}: {error}"))?;
         let reader = (entry.make_reader.expect("reader factory"))();
-        let frozen_path = frozen_output.join(format!("{engine}.{}", output_extension(engine)));
-        let mut frozen_reader = super::python_command(repository, python_root, "readback")?;
-        frozen_reader.args([
+        let python_path = python_output.join(format!("{engine}.{}", output_extension(engine)));
+        let mut python_reader = super::python_command(repository, python_root, "readback")?;
+        python_reader.args([
             "--input",
-            &frozen_path.to_string_lossy(),
+            &python_path.to_string_lossy(),
             "--engines",
             engine,
         ]);
-        let frozen_readback = frozen_reader.output().map_err(display_error)?;
-        if !frozen_readback.status.success() {
+        let python_readback_output = python_reader.output().map_err(display_error)?;
+        if !python_readback_output.status.success() {
             return Err(format!(
-                "pinned reader reload {engine} failed: {}",
-                String::from_utf8_lossy(&frozen_readback.stderr).trim()
+                "current Python reader reload {engine} failed: {}",
+                String::from_utf8_lossy(&python_readback_output.stderr).trim()
             ));
         }
-        let frozen_projection: Value =
-            serde_json::from_slice(&frozen_readback.stdout).map_err(|error| {
+        let python_projection: Value = serde_json::from_slice(&python_readback_output.stdout)
+            .map_err(|error| {
                 format!(
-                    "pinned reader {engine} returned invalid JSON: {error}; output: {}",
-                    String::from_utf8_lossy(&frozen_readback.stdout).trim()
+                    "current Python reader {engine} returned invalid JSON: {error}; output: {}",
+                    String::from_utf8_lossy(&python_readback_output.stdout).trim()
                 )
             })?;
         let restored = read_path(reader.as_ref(), &path)
             .map_err(|error| format!("native reader reload {engine}: {error}"))?
             .bank;
         let restored_projection = native_reader_projection(&restored);
-        if engine == "text2qti" {
-            let frozen_expected = text2qti_frozen_multiblock_receipt();
-            let authored_projection = native_reader_projection(&source);
-            let expected_native = text2qti_native_multiblock_receipt();
-            write_text2qti_repair_receipt(
-                temporary,
-                &input,
-                &frozen_projection,
-                &authored_projection,
-                &restored_projection,
-            )?;
-            if frozen_projection != frozen_expected {
-                differences.push(Divergence {
-                    engine: engine.to_owned(),
-                    item: "text2qti multiblock delimiter source receipt".to_owned(),
-                    field: "pinned writer-reader malformed MA sequence".to_owned(),
-                    python: format!("pinned writer-reader: {frozen_projection}"),
-                    rust: format!("required frozen receipt: {frozen_expected}"),
-                });
-            }
-            if restored_projection != expected_native || authored_projection != expected_native {
-                differences.push(Divergence {
-                    engine: engine.to_owned(),
-                    item: "text2qti multiblock delimiter repair".to_owned(),
-                    field: "native writer-reader ordered four-item sequence".to_owned(),
-                    python: format!("required four-item sequence: {expected_native}"),
-                    rust: format!("native writer-reader: {restored_projection}"),
-                });
-            }
-            continue;
-        }
         if engine == "blackboard_export_zip" {
             let authored_projection = native_reader_projection(&source);
             let authored_fixture_sha256 = sha256_json(&authored_projection)?;
@@ -205,8 +168,8 @@ pub(super) fn native_reader_roundtrips(
                 .map_err(|error| format!("Blackboard absent metadata reload: {error}"))?
                 .bank;
             let absent_projection = native_reader_projection(&absent);
-            let pinned_absent_projection =
-                pinned_readback(repository, python_root, &absent_path, engine)?;
+            let python_absent_projection =
+                python_readback(repository, python_root, &absent_path, engine)?;
             let malformed_path = temporary.join("blackboard_private_metadata_malformed.zip");
             let present_tolerance_values =
                 blackboard_metadata_occurrences(&path, BLACKBOARD_NUMERIC_TOLERANCE_VALUE)?;
@@ -273,7 +236,7 @@ pub(super) fn native_reader_roundtrips(
                         - malformed_tolerance_values,
                     authored: &authored_projection,
                     present: &restored_projection,
-                    pinned_absent: &pinned_absent_projection,
+                    python_absent: &python_absent_projection,
                     native_absent: &absent_projection,
                     malformed_projection: &malformed_projection,
                     malformed_warnings: &malformed_warnings,
@@ -290,15 +253,15 @@ pub(super) fn native_reader_roundtrips(
                     rust: format!("native present metadata: {restored_projection}"),
                 });
             }
-            if absent_projection != pinned_absent_projection
+            if absent_projection != python_absent_projection
                 || !blackboard_projection_has_ma_options(&absent_projection, 1, true)
                 || blackboard_projection_has_ma_options(&authored_projection, 1, true)
             {
                 differences.push(Divergence {
                     engine: engine.to_owned(),
                     item: "Blackboard private metadata absent receipt".to_owned(),
-                    field: "stripped native projection exactly equals the pinned projection, with MA (1, true) distinct from authored MA (0, false)".to_owned(),
-                    python: format!("pinned absent metadata: {pinned_absent_projection}"),
+                    field: "stripped native projection equals the current Python projection, with MA (1, true) distinct from authored MA (0, false)".to_owned(),
+                    python: format!("current Python absent metadata: {python_absent_projection}"),
                     rust: format!("authored: {authored_projection}; native absent metadata: {absent_projection}"),
                 });
             }
@@ -319,12 +282,12 @@ pub(super) fn native_reader_roundtrips(
             }
             continue;
         }
-        if frozen_projection != restored_projection {
+        if python_projection != restored_projection {
             differences.push(Divergence {
                 engine: engine.to_owned(),
                 item: "native reader round trip".to_owned(),
                 field: "ordered item semantics".to_owned(),
-                python: format!("pinned writer-reader: {frozen_projection}"),
+                python: format!("current Python writer-reader: {python_projection}"),
                 rust: format!("native writer-reader: {restored_projection}"),
             });
         }
@@ -427,7 +390,7 @@ fn rewrite_blackboard_metadata(
     let mut writer = zip::ZipWriter::new(output);
     for index in 0..archive.len() {
         let mut member = archive.by_index(index).map_err(display_error)?;
-        let name = member.name().to_owned();
+        let name = member.name().map_err(display_error)?.into_owned();
         let mut bytes = Vec::new();
         member.read_to_end(&mut bytes).map_err(display_error)?;
         if name.ends_with(".dat") {
@@ -450,7 +413,7 @@ fn rewrite_blackboard_metadata(
     Ok(())
 }
 
-fn pinned_readback(
+fn python_readback(
     repository: &Path,
     python_root: &Path,
     package: &Path,
@@ -461,7 +424,7 @@ fn pinned_readback(
     let output = reader.output().map_err(display_error)?;
     if !output.status.success() {
         return Err(format!(
-            "pinned reader reload {engine} failed: {}",
+            "current Python reader reload {engine} failed: {}",
             String::from_utf8_lossy(&output.stderr).trim()
         ));
     }
@@ -477,7 +440,7 @@ fn blackboard_private_metadata_counts(path: &Path) -> Result<BTreeMap<String, us
         .collect::<BTreeMap<_, _>>();
     for index in 0..archive.len() {
         let mut member = archive.by_index(index).map_err(display_error)?;
-        if !member.name().ends_with(".dat") {
+        if !member.name().map_err(display_error)?.ends_with(".dat") {
             continue;
         }
         let mut text = String::new();
@@ -499,7 +462,7 @@ fn blackboard_metadata_occurrences(path: &Path, needle: &str) -> Result<usize, S
     let mut occurrences = 0;
     for index in 0..archive.len() {
         let mut member = archive.by_index(index).map_err(display_error)?;
-        if !member.name().ends_with(".dat") {
+        if !member.name().map_err(display_error)?.ends_with(".dat") {
             continue;
         }
         let mut text = String::new();
@@ -570,7 +533,7 @@ fn write_blackboard_metadata_receipt(
 ) -> Result<(), String> {
     let receipt = json!({
         "contract": "blackboard_export_zip_private_metadata_roundtrip",
-        "pinned_python_commit": super::PINNED_PYTHON_HEAD,
+        "python_reference": "current source provenance is recorded by the containing parity run",
         "fixture_input_sha256": sha256_file(receipt.input)?,
         "authored_typed_fixture_projection_sha256": receipt.authored_fixture_sha256,
         "ordinary_bbq_source_ma_defaults": receipt.ordinary_bbq_ma_defaults,
@@ -585,7 +548,7 @@ fn write_blackboard_metadata_receipt(
         "scope": "application-private provenance metadata; this receipt does not claim LMS grading behavior",
         "authored": receipt.authored,
         "native_present_metadata": receipt.present,
-        "pinned_absent_metadata": receipt.pinned_absent,
+        "python_absent_metadata": receipt.python_absent,
         "native_absent_metadata": receipt.native_absent,
         "malformed_native_projection": receipt.malformed_projection,
         "malformed_native_warnings": receipt.malformed_warnings,
@@ -614,50 +577,6 @@ fn sha256_json(value: &Value) -> Result<String, String> {
     serde_json::to_vec(value)
         .map(|bytes| sha256_bytes(&bytes))
         .map_err(display_error)
-}
-
-fn write_text2qti_repair_receipt(
-    temporary: &Path,
-    input: &Path,
-    frozen_projection: &Value,
-    authored_projection: &Value,
-    restored_projection: &Value,
-) -> Result<(), String> {
-    let input_bytes = std::fs::read(input).map_err(display_error)?;
-    let receipt = json!({
-        "fixture": input.file_name().and_then(|name| name.to_str()).unwrap_or(""),
-        "input_sha256": sha256_bytes(&input_bytes),
-        "frozen_writer_reader": frozen_projection,
-        "native_authored_sequence": authored_projection,
-        "native_writer_reader": restored_projection,
-    });
-    let path = temporary.join("text2qti_multiblock_delimiter_repair.json");
-    let text = serde_json::to_string_pretty(&receipt).map_err(display_error)?;
-    std::fs::write(path, text).map_err(display_error)
-}
-
-fn text2qti_frozen_multiblock_receipt() -> Value {
-    json!([{
-        "kind": "MA",
-        "question": "Which base pairs with A? *A) T B) C 2. Choose all base pairs.",
-        "choices_list": [
-            "A",
-            "C",
-            "U 3. How many chromatids follow replication? = 4.0 +- 0.01 4. The hereditary material is ____. * DNA",
-        ],
-        "answers_list": ["A", "C"],
-        "min_answers_required": 1,
-        "allow_all_correct": true,
-    }])
-}
-
-fn text2qti_native_multiblock_receipt() -> Value {
-    json!([
-        {"kind":"MC","question":"Which base pairs with A?","choices_list":["T","C"],"answer_text":"T"},
-        {"kind":"MA","question":"Choose all base pairs.","choices_list":["A","C","U"],"answers_list":["A","C"],"min_answers_required":1,"allow_all_correct":true},
-        {"kind":"NUM","question":"How many chromatids follow replication?","answer_float":4.0,"tolerance_float":0.01,"tolerance_message":true},
-        {"kind":"FIB","question":"The hereditary material is ____.","answers_list":["DNA"]},
-    ])
 }
 
 fn native_reader_projection(bank: &ItemBank) -> Value {

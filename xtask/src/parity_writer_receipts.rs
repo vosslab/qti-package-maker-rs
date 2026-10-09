@@ -10,7 +10,7 @@ use super::Divergence;
 pub(super) fn parity_lane(engine: &str) -> &'static str {
     match engine {
         "text2qti" | "okla_chrst_bqgen" | "exam_yaml" => "registered-only adapter",
-        _ => "frozen Python CLI",
+        _ => "current Python CLI",
     }
 }
 

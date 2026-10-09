@@ -9,11 +9,10 @@ use base64::Engine;
 use qti_native::html_to_image::{ChromiumFragmentRenderer, FragmentRenderer};
 use serde::Serialize;
 
-const PINNED_ORACLE_REVISION: &str = "55e5f368777f7809fe2e91b5d070caf6df0cb581";
-
 /// Generate browser-safe live-source, Python-reference, and Chromium columns for the corpus.
 pub fn run(arguments: &[String]) -> Result<(), String> {
     let repository = repository_root()?;
+    let python = crate::current_python::resolve(&repository, None)?;
     let corpus = parse_corpus(&repository, arguments)?;
     let tables = corpus.join("tables");
     if !tables.is_dir() {
@@ -27,7 +26,7 @@ pub fn run(arguments: &[String]) -> Result<(), String> {
     fs::create_dir_all(output.join("python")).map_err(display_error)?;
 
     let sources = table_sources(&tables)?;
-    let python = run_python_references(&repository, &sources, &output)?;
+    let python = run_python_references(&repository, &python.root, &sources, &output)?;
     let mut entries = Vec::with_capacity(sources.len());
     let renderer = ChromiumFragmentRenderer::default();
     for source in &sources {
@@ -253,6 +252,7 @@ fn table_sources(directory: &Path) -> Result<Vec<PathBuf>, String> {
 
 fn run_python_references(
     repository: &Path,
+    python_root: &Path,
     sources: &[PathBuf],
     output: &Path,
 ) -> Result<Vec<PythonResult>, String> {
@@ -283,20 +283,10 @@ fn run_python_references(
     )
     .map_err(display_error)?;
     fs::write(&script_path, PYTHON_REFERENCE_SCRIPT).map_err(display_error)?;
-    let oracle = repository
-        .join("output_tables")
-        .join("oracle_snapshot")
-        .join(PINNED_ORACLE_REVISION);
-    if !oracle.join("qti_package_maker").is_dir() {
-        return Err(format!(
-            "pinned Python oracle is unavailable: {}; run cargo xtask oracle-crosscheck first",
-            oracle.display()
-        ));
-    }
     let command = format!(
         "source {} && PYTHONPATH={} python3 {} {} {}",
         shell_quote(&repository.join("source_me.sh")),
-        shell_quote(&oracle),
+        shell_quote(python_root),
         shell_quote(&script_path),
         shell_quote(&jobs_path),
         shell_quote(&report_path),
@@ -316,7 +306,7 @@ fn run_python_references(
 
 fn render_gallery(entries: &[GalleryEntry]) -> String {
     let mut page = String::from(
-        "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>QTI table raster gallery</title><style>body{font-family:system-ui,sans-serif;margin:1rem;background:#f5f6f7}h1{margin-bottom:0}.note{max-width:90rem}.entry{background:white;border:1px solid #b8bdc4;border-radius:.35rem;margin:1rem 0;padding:1rem}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}.pane{min-width:0}.pane h2{font-size:1rem}.source{width:100%;min-height:220px;border:1px solid #88919b;background:white}.image{max-width:100%;height:auto;border:1px solid #88919b;background:white}.error{white-space:pre-wrap;color:#9d1c1c;background:#fff1f1;border:1px solid #d8a3a3;padding:.5rem}</style><h1>QTI Chromium table gallery</h1><p class=\"note\">Each source preview runs in a sandbox without scripts. The Python column is produced by the pinned package renderer with its actual wrapper and canvas options. Judge readability and source content. Python images are diagnostic references, not visual acceptance targets. Rendering errors remain visible.</p>",
+        "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>QTI table raster gallery</title><style>body{font-family:system-ui,sans-serif;margin:1rem;background:#f5f6f7}h1{margin-bottom:0}.note{max-width:90rem}.entry{background:white;border:1px solid #b8bdc4;border-radius:.35rem;margin:1rem 0;padding:1rem}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}.pane{min-width:0}.pane h2{font-size:1rem}.source{width:100%;min-height:220px;border:1px solid #88919b;background:white}.image{max-width:100%;height:auto;border:1px solid #88919b;background:white}.error{white-space:pre-wrap;color:#9d1c1c;background:#fff1f1;border:1px solid #d8a3a3;padding:.5rem}</style><h1>QTI Chromium table gallery</h1><p class=\"note\">Each source preview runs in a sandbox without scripts. The Python column is produced by the current-source renderer with its actual wrapper and canvas options. Judge readability and source content. Python images are diagnostic migration references, not visual acceptance targets. Rendering errors remain visible.</p>",
     );
     for entry in entries {
         page.push_str("<section class=\"entry\"><h2>");

@@ -122,5 +122,6 @@ download or another application handoff. See [ENGINE_AUTHORING.md](ENGINE_AUTHOR
 ## Development tools
 
 `cargo xtask --help` lists development corpus, integrity, parity, and benchmark tools. Some of
-those commands require the pinned Python oracle through `source_me.sh`; the native production CLI
-does not. See [PARITY.md](PARITY.md) for the cross-language evidence boundary.
+those commands explicitly compare against current Python during migration through `source_me.sh`;
+the native production CLI and ordinary Rust tests do not require Python QPM. See
+[PARITY.md](PARITY.md) for the cross-language evidence boundary and retirement policy.

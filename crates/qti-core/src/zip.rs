@@ -163,7 +163,10 @@ mod tests {
         );
         let mut archive = zip::ZipArchive::new(Cursor::new(bytes)).expect("archive opens");
         assert_eq!(
-            archive.file_names().collect::<Vec<_>>(),
+            archive
+                .file_names()
+                .collect::<Result<Vec<_>, _>>()
+                .expect("valid archive entry names"),
             [
                 "alpha.txt",
                 "nested/file with spaces.txt",

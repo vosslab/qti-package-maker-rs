@@ -55,6 +55,25 @@ authoritative code or contract document, rather than a person.
 **Owner.** <the authoritative code or contract doc>
 ```
 
+### Selftest consumer compatibility
+
+**Decision.** Generated selftests preserve CRC-based DOM identifiers and route grading through
+the public per-question function. Initialization preserves host wrappers and supports remounting.
+Current Python comparisons are an explicit migration lane; independent Rust and browser tests
+own the lasting behavior contract.
+
+**Why.** The website observes public grading hooks to record individual question completion.
+Frozen-source comparisons and answer-data projections missed behavior that broke that contract.
+Keeping Python installed forever would defeat the intended transition to Rust authority.
+
+**Consequence.** Test emitted HTML through actual controls and host wrappers. Preserve useful
+consumer behavior, not obsolete interfaces or accidental details. Add no compatibility layer for
+earlier Rust mistakes. Keep historical
+comparison provenance, but use current source for migration checks. Retire Python tooling when
+independent coverage and resolved migration findings make it unnecessary.
+
+**Owner.** [SELFTEST_COMPATIBILITY.md](SELFTEST_COMPATIBILITY.md).
+
 ### PLE Native JSON authority and export
 
 **Decision.** QPM maps its seven validated item kinds to PLE Native JSON without changing answer

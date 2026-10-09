@@ -6,11 +6,12 @@ use std::path::Path;
 use serde::Serialize;
 use serde_json::json;
 
-use super::{Divergence, PINNED_PYTHON_HEAD, ParityInput, display_error, file_sha256};
+use super::{Divergence, ParityInput, display_error, file_sha256};
+use crate::current_python::PythonProvenance;
 
 #[derive(Serialize)]
 pub(super) struct RunContext {
-    pinned_python_commit: &'static str,
+    current_python: PythonProvenance,
     native_cli_path: String,
     native_cli_initial_sha256: String,
     oracle_path: String,
@@ -34,13 +35,14 @@ impl RunContext {
         inputs: &[ParityInput],
         cli: &Path,
         repository: &Path,
+        current_python: &PythonProvenance,
         fixtures: bool,
         html_to_image: bool,
     ) -> Result<Self, String> {
         let oracle = repository.join("xtask/support/parity_oracle.py");
         let support = repository.join("xtask/support");
         Ok(Self {
-            pinned_python_commit: PINNED_PYTHON_HEAD,
+            current_python: current_python.clone(),
             native_cli_path: cli.display().to_string(),
             native_cli_initial_sha256: file_sha256(cli)?,
             oracle_path: oracle.display().to_string(),
@@ -196,7 +198,14 @@ mod attribution_tests {
     #[test]
     fn binds_bank_findings_without_misattributing_global_checks() {
         let context = RunContext {
-            pinned_python_commit: PINNED_PYTHON_HEAD,
+            current_python: PythonProvenance {
+                source_path: String::new(),
+                snapshot_path: String::new(),
+                git_commit: String::new(),
+                working_tree_sha256: String::new(),
+                source_tree_sha256: String::new(),
+                imported_package_path: String::new(),
+            },
             native_cli_path: String::new(),
             native_cli_initial_sha256: String::new(),
             oracle_path: String::new(),

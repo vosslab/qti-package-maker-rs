@@ -16,6 +16,6 @@
     "types": ["node"],
     "skipLibCheck": false
   },
-  "include": ["src/**/*.ts", "examples/**/*.ts", "tests/**/*.ts", "playwright.config.ts"],
+  "include": ["src/**/*.ts", "examples/**/*.ts", "tests/**/*.ts", "playwright*.config.ts"],
   "exclude": ["examples/browser/worker.ts"]
 }

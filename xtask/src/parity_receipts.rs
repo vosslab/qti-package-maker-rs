@@ -1,4 +1,4 @@
-//! Frozen ORDER and media receipt comparisons.
+//! Current-Python ORDER and media receipt comparisons.
 
 use super::parity_process::{display_error, python_command};
 use super::parity_writer_receipts::WriterReceipt;
@@ -8,7 +8,7 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-/// Checks the frozen ORDER-only behavior without pretending that all writers support ORDER.
+/// Compares current Python and Rust ORDER-only writer behavior.
 pub(super) fn compare_order_receipt(
     repository: &Path,
     python_root: &Path,
@@ -94,9 +94,7 @@ pub(super) fn compare_order_receipt(
     }
     Ok(differences)
 }
-/// Compares the two retained frozen-media failure receipts without treating either as a test input
-/// that writers can silently skip.  The space spelling is a frozen self-test source defect; data
-/// URIs are deliberately rejected by the three package writers on both sides.
+/// Compares current Python and Rust media-writer outcomes for each fixture.
 pub(super) fn compare_media_receipts(
     repository: &Path,
     python_root: &Path,
@@ -104,19 +102,12 @@ pub(super) fn compare_media_receipts(
     fixtures: &Path,
     temporary: &Path,
 ) -> Result<Vec<Divergence>, String> {
-    let known_failures: [(&str, &[&str]); 2] = [
-        ("bbq-parity-media-spaces-questions.txt", &["html_selftest"]),
-        (
-            "bbq-parity-media-nonpackageable-questions.txt",
-            &[
-                "blackboard_export_zip",
-                "canvas_qti_v1_2",
-                "blackboard_qti_v2_1",
-            ],
-        ),
+    let fixture_names = [
+        "bbq-parity-media-spaces-questions.txt",
+        "bbq-parity-media-nonpackageable-questions.txt",
     ];
     let mut differences = Vec::new();
-    for (name, expected_failures) in known_failures {
+    for name in fixture_names {
         let input = fixtures.join(name);
         let python_directory = temporary.join(format!("media_python_{}", name));
         let rust_directory = temporary.join(format!("media_rust_{}", name));
@@ -157,62 +148,13 @@ pub(super) fn compare_media_receipts(
                 .map_err(display_error)?;
             let python_failed = python.errors.contains_key(*engine);
             let rust_failed = !output.status.success() || !destination.is_file();
-            if name == "bbq-parity-media-spaces-questions.txt" && *engine == "html_selftest" {
-                if !python_failed || rust_failed {
-                    differences.push(Divergence {
-                        engine: (*engine).to_owned(),
-                        item: name.to_owned(),
-                        field: "frozen space-path defect receipt and Rust repair".to_owned(),
-                        python: if python_failed {
-                            "frozen FileNotFoundError"
-                        } else {
-                            "writer unexpectedly succeeded"
-                        }
-                        .to_owned(),
-                        rust: if rust_failed {
-                            "repair failed to produce a self-test"
-                        } else {
-                            "self-test output present"
-                        }
-                        .to_owned(),
-                    });
-                } else {
-                    let rendered = fs::read_to_string(&destination).map_err(display_error)?;
-                    if !rendered.contains("data:image/png;base64,") {
-                        differences.push(Divergence {
-                            engine: (*engine).to_owned(),
-                            item: name.to_owned(),
-                            field: "space-path repair embedded-media proof".to_owned(),
-                            python: "frozen source failure".to_owned(),
-                            rust: "self-test lacks embedded PNG data URI".to_owned(),
-                        });
-                    }
-                }
-                continue;
-            }
             if python_failed != rust_failed {
                 differences.push(Divergence {
                     engine: (*engine).to_owned(),
                     item: name.to_owned(),
                     field: "media writer outcome receipt".to_owned(),
-                    python: if python_failed {
-                        "expected failure"
-                    } else {
-                        "output"
-                    }
-                    .to_owned(),
+                    python: if python_failed { "failure" } else { "output" }.to_owned(),
                     rust: if rust_failed { "failure" } else { "output" }.to_owned(),
-                });
-            }
-        }
-        for engine in expected_failures {
-            if !python.errors.contains_key(*engine) {
-                differences.push(Divergence {
-                    engine: (*engine).to_owned(),
-                    item: name.to_owned(),
-                    field: "retained frozen source-failure receipt".to_owned(),
-                    python: "writer unexpectedly succeeded".to_owned(),
-                    rust: "expected frozen failure receipt".to_owned(),
                 });
             }
         }

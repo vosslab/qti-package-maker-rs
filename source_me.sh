@@ -24,11 +24,6 @@ QTI_DEVEL_REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export PYTHONPATH="$QTI_DEVEL_REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}"
 unset QTI_DEVEL_REPO_ROOT
 
-# Development-only Python parity oracle; shipping Rust code never imports Python.
-QTI_ORACLE_ROOT="${QTI_ORACLE_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../qti-package-maker" && pwd)}"
-export PYTHONPATH="$QTI_ORACLE_ROOT${PYTHONPATH:+:$PYTHONPATH}"
-unset QTI_ORACLE_ROOT
-
 # Corpus subprocesses run in an isolated directory with source helpers on their import path.
 if [[ -n "${QTI_CORPUS_IMPORT_PATH:-}" ]]; then
 	export PYTHONPATH="$QTI_CORPUS_IMPORT_PATH${PYTHONPATH:+:$PYTHONPATH}"

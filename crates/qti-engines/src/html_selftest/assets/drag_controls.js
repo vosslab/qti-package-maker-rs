@@ -1,6 +1,8 @@
 <script>
 (function() {
   const container = document.getElementById('question_html_{{CRC}}');
+  if (!container || container.qtiDragInitialized) return;
+  container.qtiDragInitialized = true;
   container.qtiBindDrag = ({sources, targets, reorder, drop}) => {
     let active = null;
     function clearTargets() {
@@ -25,14 +27,14 @@
       }
       active = source;
       event.dataTransfer.setData('text/plain', source.dataset.value);
-      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.effectAllowed = reorder ? 'move' : 'copy';
       source.classList.add('qti-dragging');
     });
     container.addEventListener('dragover', event => {
       const target = event.target.closest(targets);
       if (!active || !target || target === active) return;
       event.preventDefault();
-      event.dataTransfer.dropEffect = 'move';
+      event.dataTransfer.dropEffect = reorder ? 'move' : 'copy';
       clearTargets();
       target.classList.add('qti-drop-target');
       if (reorder) target.classList.add(after(event, target) ? 'qti-drop-after' : 'qti-drop-before');

@@ -19,6 +19,7 @@
     "test": "node --test tests/host.test.mjs tests/parity.test.mjs",
     "test:parity": "node --test tests/parity.test.mjs",
     "test:browser": "playwright test",
+    "test:python-parity": "playwright test --config=playwright.python-parity.config.ts",
     "measure": "node scripts/measure.mjs",
     "example:node": "node dist/examples/node.js",
     "example:browser": "node scripts/serve.mjs"

@@ -46,14 +46,14 @@ def converter() -> Path:
 
 
 def oracle_provenance() -> tuple[str, str]:
-	"""Return the immutable snapshot root and commit selected by source_me.sh."""
+	"""Return the current-source snapshot root and commit selected for this run."""
 	import qti_package_maker
 
 	oracle_root = Path(qti_package_maker.__file__).resolve().parent.parent
-	marker = oracle_root / "PINNED_ORACLE_PROVENANCE.txt"
+	marker = oracle_root / "CURRENT_PYTHON_PROVENANCE.json"
 	if not marker.is_file():
-		raise ValueError(f"benchmark Python oracle lacks provenance marker: {marker}")
-	commit = marker.read_text(encoding="utf-8").splitlines()[0]
+		raise ValueError(f"benchmark current Python source lacks provenance marker: {marker}")
+	commit = json.loads(marker.read_text(encoding="utf-8"))["git_commit"]
 	return str(oracle_root), commit
 
 

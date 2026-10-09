@@ -129,9 +129,11 @@ safe in-memory package entries. Its child modules own XML parsing, manifest and 
 media references, Blackboard export rules, identifiers, and image dimensions.
 
 `xtask/src/parity.rs` coordinates differential comparisons; input selection, process execution,
-receipt handling, and adjacent comparison work live in focused parity modules. The pinned Python
+receipt handling, and adjacent comparison work live in focused parity modules. The transitional Python
 oracle adapter in `xtask/support/parity_oracle.py` retains command parsing and delegates writer,
-QTI 1.2, and projection behavior to support modules.
+QTI 1.2, and projection behavior to support modules. Active migration checks resolve current source
+and record its identity; historical receipts retain their original provenance. Independent tests
+own the lasting Rust behavior contract. See [SELFTEST_COMPATIBILITY.md](SELFTEST_COMPATIBILITY.md).
 
 Unit tests live with their owning Rust modules. Process contracts live in
 [crates/qti-cli/tests/cli_contract.rs](../crates/qti-cli/tests/cli_contract.rs), browser acceptance

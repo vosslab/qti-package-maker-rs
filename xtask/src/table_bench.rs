@@ -12,9 +12,7 @@ use qti_native::html_to_image::{
 };
 use serde_json::{Value, json};
 
-const PINNED_PYTHON_HEAD: &str = "55e5f368777f7809fe2e91b5d070caf6df0cb581";
-
-/// Run the temporary Python timing oracle and publish its factual Markdown report.
+/// Run the temporary current-Python timing oracle and publish its factual Markdown report.
 ///
 /// The Rust shipping crates never invoke Python.  This `xtask` command is a development-only
 /// parity and performance oracle; it needs the sibling Python checkout selected by `source_me.sh`.
@@ -25,7 +23,7 @@ pub fn run(arguments: &[String]) -> Result<(), String> {
         return run_native(&repository, &options.corpus);
     }
     let corpus = options.corpus;
-    let oracle_snapshot = pinned_oracle_snapshot(&repository)?;
+    let python = crate::current_python::resolve(&repository, options.python_qti.as_deref())?;
     let manifest = corpus.join("manifest.json");
     if !manifest.is_file() {
         return Err(format!(
@@ -48,7 +46,7 @@ pub fn run(arguments: &[String]) -> Result<(), String> {
     let status = Command::new("bash")
         .args(["-lc", &command])
         .current_dir(&repository)
-        .env("QTI_ORACLE_ROOT", &oracle_snapshot)
+        .env("QTI_ORACLE_ROOT", &python.root)
         .status()
         .map_err(display_error)?;
     if !status.success() {
@@ -67,58 +65,40 @@ pub fn run(arguments: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-/// Locate the immutable Python oracle snapshot made by the shared `git archive` task utility.
-///
-/// The live sibling Python checkout is intentionally allowed to advance while this Rust port is
-/// developed.  Benchmark provenance must therefore come from the same pinned snapshot used by
-/// the cross-language corpus and integrity tasks, rather than its mutable working-tree HEAD.
-fn pinned_oracle_snapshot(repository: &Path) -> Result<PathBuf, String> {
-    let snapshot = repository
-        .join("output_tables")
-        .join("oracle_snapshot")
-        .join(PINNED_PYTHON_HEAD);
-    let marker = snapshot.join("PINNED_ORACLE_PROVENANCE.txt");
-    let provenance = fs::read_to_string(&marker).map_err(|_| {
-        format!(
-            "pinned Python oracle snapshot is unavailable: {}; run cargo xtask crc-corpus to materialize it",
-            marker.display()
-        )
-    })?;
-    if provenance.lines().next() != Some(PINNED_PYTHON_HEAD)
-        || !snapshot
-            .join("qti_package_maker")
-            .join("assessment_items")
-            .join("item_types.py")
-            .is_file()
-    {
-        return Err(format!(
-            "pinned Python oracle snapshot provenance does not match {PINNED_PYTHON_HEAD}: {}",
-            marker.display()
-        ));
-    }
-    Ok(snapshot)
-}
-
 struct Options {
     corpus: PathBuf,
     native: bool,
+    python_qti: Option<PathBuf>,
 }
 
 fn parse_options(repository: &Path, arguments: &[String]) -> Result<Options, String> {
     let mut iterator = arguments.iter();
     let mut corpus = repository.join("output_tables").join("corpus");
     let mut native = false;
+    let mut python_qti = None;
     while let Some(argument) = iterator.next() {
         match argument.as_str() {
             "--corpus" => corpus = PathBuf::from(iterator.next().ok_or("--corpus needs a path")?),
             "--native" => native = true,
+            "--python-qti" => {
+                python_qti = Some(PathBuf::from(
+                    iterator.next().ok_or("--python-qti needs a path")?,
+                ))
+            }
             "--help" | "-h" => {
-                return Err("Usage: cargo xtask table-bench [--native] [--corpus PATH]".to_owned());
+                return Err(
+                    "Usage: cargo xtask table-bench [--native] [--corpus PATH] [--python-qti PATH]"
+                        .to_owned(),
+                );
             }
             _ => return Err(format!("unknown table-bench argument: {argument}")),
         }
     }
-    Ok(Options { corpus, native })
+    Ok(Options {
+        corpus,
+        native,
+        python_qti,
+    })
 }
 
 /// Time the real release CLI in per-input output directories.
@@ -406,6 +386,7 @@ fn inspect_png_members(work: &Path) -> Result<(u64, u64), String> {
             let archive = zip::ZipArchive::new(file).map_err(display_error)?;
             let count = archive
                 .file_names()
+                .filter_map(Result::ok)
                 .filter(|name| name.to_ascii_lowercase().ends_with(".png"))
                 .count() as u64;
             png_members += count;

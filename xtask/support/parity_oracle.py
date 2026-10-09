@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Pinned-Python half of the M13 differential parity harness.
+"""Current-Python migration half of the M13 differential parity harness.
 
 It is deliberately development tooling.  The Rust binary never imports this
-module, and this script only imports the archived oracle selected by its caller.
+module, and this script only imports the run-scoped current source selected by its caller.
 """
 
 import argparse
@@ -21,10 +21,7 @@ from xtask.support.parity_oracle_writer import (
 	readback_fingerprint as readback_fingerprint,
 	readback_outcome as readback_outcome,
 )
-from xtask.support.parity_oracle_qti12 import (
-	xml_projection as xml_projection,
-	canvas_multifib_repair_projection as canvas_multifib_repair_projection,
-)
+from xtask.support.parity_oracle_qti12 import xml_projection as xml_projection
 from xtask.support.parity_oracle_projection import (
 	yaml_projection as yaml_projection,
 	aiken_projection as aiken_projection,
@@ -38,7 +35,7 @@ __all__ = ["text_path"]
 
 
 def parse_args() -> argparse.Namespace:
-	parser = argparse.ArgumentParser(description="Pinned Python M13 parity support.")
+	parser = argparse.ArgumentParser(description="Current Python M13 migration parity support.")
 	parser.add_argument("mode", choices=("write", "compare", "order-receipt", "readback", "selftest"))
 	parser.add_argument("--oracle-root", type=pathlib.Path)
 	parser.add_argument("--input", type=pathlib.Path)
@@ -48,7 +45,6 @@ def parse_args() -> argparse.Namespace:
 	parser.add_argument("--html-to-image", action="store_true")
 	parser.add_argument("--zip-only", action="store_true")
 	parser.add_argument("--engines", help="comma-separated fixed engine subset")
-	parser.add_argument("--canvas-multifib-repair", action="store_true")
 	args = parser.parse_args()
 	if args.mode != "selftest" and args.oracle_root is None:
 		parser.error("--oracle-root is required outside selftest mode")
@@ -67,18 +63,17 @@ def install_oracle(root: pathlib.Path) -> None:
 	sys.path.insert(0, str(root))
 
 
-def compare_original(engine: str, python_path: pathlib.Path, rust_path: pathlib.Path, html_to_image: bool) -> tuple[object, object]:
+def compare_one(engine: str, python_path: pathlib.Path, rust_path: pathlib.Path, html_to_image: bool) -> tuple[object, object]:
 	if html_to_image and engine == "blackboard_export_zip":
 		return html_to_image_structure_from_zip(python_path), html_to_image_structure_from_zip(rust_path)
 	if engine == "blackboard_export_zip":
 		from xtask.support import parity_blackboard
 		return (
-			{"semantic": parity_blackboard.xml_projection(python_path, allow_frozen_source_repairs=True), "readback": readback_outcome(python_path, engine)},
+			{"semantic": parity_blackboard.xml_projection(python_path), "readback": readback_outcome(python_path, engine)},
 			{"semantic": parity_blackboard.xml_projection(rust_path), "readback": readback_outcome(rust_path, engine)},
 		)
 	if engine == "text2qti":
-		from xtask.support import parity_text2qti
-		return parity_text2qti.frozen_readback(python_path, readback_fingerprint), readback_fingerprint(rust_path, engine)
+		return readback_fingerprint(python_path, engine), readback_fingerprint(rust_path, engine)
 	if engine == "okla_chrst_bqgen":
 		from xtask.support import parity_okla
 		return parity_okla.compare(python_path, rust_path, readback_fingerprint, write_via_registered_adapter)
@@ -86,8 +81,7 @@ def compare_original(engine: str, python_path: pathlib.Path, rust_path: pathlib.
 		return readback_fingerprint(python_path, engine), readback_fingerprint(rust_path, engine)
 	if engine == "blackboard_qti_v2_1":
 		from xtask.support import parity_qti21
-		from xtask.support import parity_qti21_multifib_repair
-		python_value, _ = parity_qti21_multifib_repair.frozen_projection(python_path)
+		python_value = parity_qti21.xml_projection(python_path)
 		rust_value = parity_qti21.xml_projection(rust_path)
 		if html_to_image:
 			for items in (python_value, rust_value):
@@ -98,10 +92,9 @@ def compare_original(engine: str, python_path: pathlib.Path, rust_path: pathlib.
 					)]
 		return python_value, rust_value
 	if engine == "canvas_qti_v1_2":
-		from xtask.support.parity_canvas_multifib_repair import frozen_projection
 		if html_to_image:
-			return frozen_projection(python_path, lambda path: xml_projection(path, True)), xml_projection(rust_path, True)
-		return frozen_projection(python_path, xml_projection), xml_projection(rust_path)
+			return xml_projection(python_path, True), xml_projection(rust_path, True)
+		return xml_projection(python_path), xml_projection(rust_path)
 	if engine == "exam_yaml":
 		return yaml_projection(python_path), yaml_projection(rust_path)
 	if engine == "moodle_aiken":
@@ -112,25 +105,6 @@ def compare_original(engine: str, python_path: pathlib.Path, rust_path: pathlib.
 		from xtask.support import parity_selftest_selection
 		return parity_selftest_selection.compare(python_path, rust_path, selftest_projection)
 	raise ValueError(f"unhandled parity engine {engine}")
-
-
-def compare_one(engine: str, python_path: pathlib.Path, rust_path: pathlib.Path, html_to_image: bool) -> tuple[object, object]:
-	try:
-		values = compare_original(engine, python_path, rust_path, html_to_image)
-	except ValueError as failure:
-		if html_to_image:
-			raise
-		from xtask.support.parity_choice_label_repair import compare
-		repaired = compare(engine, python_path, rust_path, compare_original)
-		if repaired is None:
-			raise failure
-		return repaired
-	if values[0] != values[1] and not html_to_image:
-		from xtask.support.parity_choice_label_repair import compare
-		repaired = compare(engine, python_path, rust_path, compare_original)
-		if repaired is not None:
-			return repaired
-	return values
 
 
 def compare_outputs(args: argparse.Namespace) -> None:
@@ -146,18 +120,7 @@ def compare_outputs(args: argparse.Namespace) -> None:
 			})
 			continue
 		try:
-			if args.canvas_multifib_repair and engine == "canvas_qti_v1_2":
-				expected = ["dog", "mammal"]
-				rust_value = canvas_multifib_repair_projection(rust_path)
-				if rust_value != expected:
-					divergences.append({
-						"engine": engine, "item": "MULTI_FIB validity repair",
-						"field": "authored blank-answer mapping",
-						"python": json.dumps(expected),
-						"rust": json.dumps(rust_value),
-					})
-				continue
-			# Archived readers can print malformed embedded-markup diagnostics while
+			# Python readers can print malformed embedded-markup diagnostics while
 			# continuing to return a usable item bank.  This protocol reserves stdout
 			# for its final JSON receipt, so retain those diagnostics on stderr.
 			with contextlib.redirect_stdout(sys.stderr):
@@ -181,14 +144,15 @@ def compare_outputs(args: argparse.Namespace) -> None:
 					})
 		except Exception as error:
 			divergences.append({
-				"engine": engine, "item": "package", "field": "comparator error",
-				"python": "comparison completed", "rust": f"{type(error).__name__}: {error}",
+				"engine": engine, "item": "package",
+				"field": f"comparator error: {type(error).__name__}: {error}",
+				"python": "not compared", "rust": "not compared",
 			})
 	print(json.dumps({"divergences": divergences}, sort_keys=True))
 
 
 def readback_outputs(args: argparse.Namespace) -> None:
-	"""Emit the pinned reader's complete normalized item fields for one package."""
+	"""Emit the current reader's complete normalized item fields for one package."""
 	engines = selected_engines(args)
 	if len(engines) != 1:
 		raise ValueError("readback requires exactly one engine")

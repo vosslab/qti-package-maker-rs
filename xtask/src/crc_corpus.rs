@@ -2,14 +2,11 @@
 
 use std::collections::BTreeSet;
 use std::fs;
-use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
 
 use qti_core::{Item, ItemBody, get_crc16_from_string};
 use serde::Deserialize;
-
-const PINNED_PYTHON_HEAD: &str = "55e5f368777f7809fe2e91b5d070caf6df0cb581";
 
 #[derive(Debug, Deserialize)]
 struct OracleOutput {
@@ -48,15 +45,16 @@ struct PythonItem {
     fields: serde_json::Value,
 }
 
-/// Compare Rust item construction with the pinned Python implementation over available corpora.
+/// Compare Rust item construction with the current Python implementation over available corpora.
 ///
 /// The command accepts optional `--biology-problems PATH` and `--python-qti PATH` overrides.
 /// Corpus discovery uses existing BBQ files only: it never regenerates questions or mutates either
-/// neighboring checkout.  It returns an error at the first parse or parity disagreement.
+/// neighboring checkout. Identity errors stop the sweep; field differences are reported after
+/// checking every identity so a display-normalization difference cannot conceal CRC regressions.
 pub fn run(arguments: &[String]) -> Result<(), String> {
     let repository = repository_root()?;
     let options = Options::parse(arguments, &repository)?;
-    let python_snapshot = prepare_python_snapshot(&repository, &options.python_qti)?;
+    let python = crate::current_python::resolve(&repository, Some(&options.python_qti))?;
     let files = collect_corpus_files(&options.biology_problems, &repository)?;
     if files.is_empty() {
         return Err(format!(
@@ -65,7 +63,7 @@ pub fn run(arguments: &[String]) -> Result<(), String> {
             repository.display()
         ));
     }
-    let oracle = run_python_oracle(&repository, &python_snapshot, &files)?;
+    let oracle = run_python_oracle(&repository, &python.root, &files)?;
     if let Some(error) = oracle.errors.first() {
         return Err(format!(
             "Python corpus parse error at {}:{}: {} ({} parsed records before failure)",
@@ -87,8 +85,22 @@ pub fn run(arguments: &[String]) -> Result<(), String> {
     {
         return Err(format!("CRC corpus lacked required item shape: {missing}"));
     }
+    let mut first_field_difference = None;
+    let mut field_differences = 0;
     for record in &oracle.records {
-        compare_record(record)?;
+        if let Some(difference) = compare_record(record)? {
+            field_differences += 1;
+            first_field_difference.get_or_insert(difference);
+        }
+    }
+    if let Some(difference) = first_field_difference {
+        return Err(format!(
+            "all {} item identities agree across {} files and {} synthetic cases; \
+             {field_differences} normalized-field differences remain; first: {difference}",
+            oracle.records.len(),
+            files.len(),
+            oracle.synthetic_records,
+        ));
     }
     println!(
         "crc corpus: {} files, {} Python items, {} synthetic shape cases, all identities agree",
@@ -153,99 +165,6 @@ fn repository_root() -> Result<PathBuf, String> {
     String::from_utf8(output.stdout)
         .map_err(display_error)
         .map(|path| PathBuf::from(path.trim()))
-}
-
-/// Materialize the pinned Python oracle through `git archive` without changing its source checkout.
-///
-/// The checkout only needs to contain the pinned commit; its working-tree `HEAD` may legitimately
-/// be newer while the Rust port is being developed.  The immutable snapshot and its marker make
-/// the provenance checked at the execution boundary rather than trusting that mutable checkout.
-fn prepare_python_snapshot(repository: &Path, source: &Path) -> Result<PathBuf, String> {
-    let output = Command::new("git")
-        .args([
-            "-C",
-            &source.to_string_lossy(),
-            "rev-parse",
-            &format!("{PINNED_PYTHON_HEAD}^{{commit}}"),
-        ])
-        .output()
-        .map_err(display_error)?;
-    let head = String::from_utf8(output.stdout).map_err(display_error)?;
-    if !output.status.success() || head.trim() != PINNED_PYTHON_HEAD {
-        return Err(format!(
-            "Python checkout cannot provide pinned CRC oracle commit {PINNED_PYTHON_HEAD}; found {}",
-            head.trim()
-        ));
-    }
-    let snapshot = repository
-        .join("output_tables")
-        .join("oracle_snapshot")
-        .join(PINNED_PYTHON_HEAD);
-    let marker = snapshot.join("PINNED_ORACLE_PROVENANCE.txt");
-    if snapshot.exists() {
-        let recorded = fs::read_to_string(&marker).map_err(|_| {
-            format!(
-                "pinned CRC oracle snapshot exists without provenance marker: {}; remove it manually after inspection",
-                snapshot.display()
-            )
-        })?;
-        if recorded.lines().next() == Some(PINNED_PYTHON_HEAD)
-            && snapshot
-                .join("qti_package_maker")
-                .join("assessment_items")
-                .join("item_types.py")
-                .is_file()
-        {
-            return Ok(snapshot);
-        }
-        return Err(format!(
-            "pinned CRC oracle snapshot provenance does not match {PINNED_PYTHON_HEAD}: {}",
-            marker.display()
-        ));
-    }
-    let staging = snapshot.with_extension(format!("staging-{}", std::process::id()));
-    fs::create_dir_all(&staging).map_err(display_error)?;
-    let archive = Command::new("git")
-        .args([
-            "-C",
-            &source.to_string_lossy(),
-            "archive",
-            "--format=tar",
-            PINNED_PYTHON_HEAD,
-        ])
-        .output()
-        .map_err(display_error)?;
-    if !archive.status.success() {
-        return Err(format!(
-            "could not archive pinned CRC oracle {PINNED_PYTHON_HEAD}: {}",
-            String::from_utf8_lossy(&archive.stderr).trim()
-        ));
-    }
-    let mut unpack = Command::new("tar")
-        .args(["-x", "-C"])
-        .arg(&staging)
-        .stdin(Stdio::piped())
-        .spawn()
-        .map_err(display_error)?;
-    unpack
-        .stdin
-        .take()
-        .ok_or_else(|| "tar archive extractor has no stdin".to_owned())?
-        .write_all(&archive.stdout)
-        .map_err(display_error)?;
-    if !unpack.wait().map_err(display_error)?.success() {
-        return Err(format!(
-            "could not extract pinned CRC oracle into {}",
-            staging.display()
-        ));
-    }
-    fs::write(
-        staging.join("PINNED_ORACLE_PROVENANCE.txt"),
-        format!("{PINNED_PYTHON_HEAD}\nsource={}\n", source.display()),
-    )
-    .map_err(display_error)?;
-    fs::rename(&staging, &snapshot).map_err(display_error)?;
-    Ok(snapshot)
 }
 
 fn collect_corpus_files(biology: &Path, repository: &Path) -> Result<Vec<PathBuf>, String> {
@@ -317,8 +236,9 @@ fn run_python_oracle(
         .join("support")
         .join("crc_oracle.py");
     let command = format!(
-        "source {} >/dev/null && python3 {} \"$@\"",
+        "source {} >/dev/null && PYTHONPATH={}:$PYTHONPATH python3 {} \"$@\"",
         shell_quote(&repository.join("source_me.sh")),
+        shell_quote(python_snapshot),
         shell_quote(&helper),
     );
     let output = Command::new("bash")
@@ -338,7 +258,7 @@ fn run_python_oracle(
         .map_err(|error| format!("Python CRC oracle returned invalid JSON: {error}"))
 }
 
-fn compare_record(record: &OracleRecord) -> Result<(), String> {
+fn compare_record(record: &OracleRecord) -> Result<Option<String>, String> {
     let item =
         Item::new(record.input.question.clone(), record.input.body.clone()).map_err(|error| {
             disagreement(
@@ -385,14 +305,14 @@ fn compare_record(record: &OracleRecord) -> Result<(), String> {
     }
     let rust_fields = rust_fields(&item);
     if rust_fields != record.python.fields {
-        return Err(disagreement(
+        return Ok(Some(disagreement(
             record,
             "normalized item fields",
             &rust_fields.to_string(),
             &record.python.fields.to_string(),
-        ));
+        )));
     }
-    Ok(())
+    Ok(None)
 }
 
 fn rust_fields(item: &Item) -> serde_json::Value {
