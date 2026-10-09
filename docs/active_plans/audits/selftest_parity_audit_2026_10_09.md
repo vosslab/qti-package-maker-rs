@@ -56,6 +56,25 @@ not close the permanent coverage gap, and does not justify adding tests without 
 
 ## Verification and limits
 
+### Test retention follow-up
+
+Applied the permanent-test checklist after the audit. Identity, grading/public hooks, Reset,
+compact layout, theme selection, and authored-content containment checks stay: they protect
+demonstrated student-facing regressions with stable outcomes. Their failure means repairing the
+regressed behavior, not matching prior HTML bytes or a particular CSS mechanism. Removed the
+remaining assertion that required a focusable group with `overflow-x: auto`.
+
+The seed sweep, screenshot measurements, package hash comparison, and retired M19 corpus/oracle
+and immutable-output checks are one-time implementation proof. No permanent seed test is added.
+The M19 tools and reports were removed rather than renamed into permanent infrastructure.
+Future exploratory checks belong in ignored `tests/_temp/` and are removed at closeout.
+After this follow-up, `cargo check --locked -p xtask --all-targets` and 82 Markdown link checks
+passed. Shell syntax and a disposable-checkout cleanup probe passed: all seven root/nested
+distribution paths were removed while source files survived. The browser suite was not rerun
+after removing the scrolling-mechanism assertions; local package dependencies had been cleaned.
+
+### Evidence boundaries
+
 The prior handoff records 333 Rust tests, 12 Node tests, 21 focused browser checks, and 1,855
 hygiene checks. These remain historical evidence, not fresh full-suite audit runs.
 The coordinator confirmed the delivered tarball still has the recorded SHA-256 in

@@ -469,10 +469,6 @@ test("scientific content stays intact and scrolls within narrow controls", async
         expect(await diagram.locator("tr").evaluate(row => getComputedStyle(row).display)).toBe("table-row");
         expect(await diagram.locator("td").evaluate(cell => getComputedStyle(cell).padding)).toBe("1px");
         expect(await diagram.locator("td").evaluate(cell => getComputedStyle(cell).color)).toBe("rgb(0, 102, 0)");
-        const scroll = page.locator('[role="group"][tabindex="0"]');
-        await scroll.focus();
-        await expect(scroll).toBeFocused();
-        expect(await scroll.evaluate(group => getComputedStyle(group).overflowX)).toBe("auto");
       }
       const slot = page.locator(".qti-match-slot").first();
       if (await slot.count()) {

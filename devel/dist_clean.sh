@@ -32,6 +32,8 @@ delete_find_matches() {
 }
 
 delete_paths dist dist-single dist_browser_test dist_wasm generated _site build out
+# QPM's WASM package builds below the repository root.
+delete_paths packages/qti-wasm/dist packages/qti-wasm/generated
 delete_paths _bundle.js meta.json stats.html node_modules .cache .eslintcache
 delete_paths .prettiercache .nyc_output .build .swiftpm DerivedData test-results
 delete_paths playwright-report blob-report coverage cover_db .turbo .next .svelte-kit

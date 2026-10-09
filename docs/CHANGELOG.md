@@ -31,6 +31,12 @@ Earlier entries: [CHANGELOG-2026-10a.md](CHANGELOG-2026-10a.md) and
 
 ### Fixes and Maintenance
 
+- Removed the one-time M19 parser-oracle and output-certification tools and their milestone
+  reports. Removed a selftest assertion that prescribed a scrolling implementation; retained
+  meaningful grading, identity, Reset, theme, and containment regression checks. Seed sweeps,
+  screenshot measurements, and package hash comparisons remain one-time implementation proof.
+- Fixed `devel/dist_clean.sh` to remove the WASM package's nested `dist/` and `generated/`
+  outputs as well as root-level distributions.
 - Audited the selftest parity repairs with six independent reviewers. Removed brittle CSS
   assertions, corrected the embedded-container overflow check, and cleaned up redundant CSS
   and misleading comments. No grading, identity, or interaction behavior changed. The rebuilt
