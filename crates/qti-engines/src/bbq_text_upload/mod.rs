@@ -2,34 +2,23 @@
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::fs;
-use std::path::Path;
 
 use qti_core::media::{MediaPolicy, apply_media_policy};
-use qti_core::{Item, ItemBank, ItemBody, ItemKind, MediaBaseDir};
+use qti_core::{AssetSource, Item, ItemBank, ItemBody, ItemKind, MemoryAssets, NamedFile};
 
 use crate::{
-    EngineError, EngineOptions, ReadLocation, ReadOutcome, ReadWarning, Reader, RenderHooks,
-    WriteOutcome, Writer, render_bank,
+    EngineError, ReadInput, ReadLocation, ReadOutcome, ReadWarning, Reader, RenderHooks,
+    WriteArtifact, WriteContext, WriteOutcome, Writer, render_bank,
 };
 
 pub(crate) const NAME: &str = "bbq_text_upload";
-const KINDS: &[ItemKind] = &[
-    ItemKind::Mc,
-    ItemKind::Ma,
-    ItemKind::Match,
-    ItemKind::Num,
-    ItemKind::Fib,
-    ItemKind::MultiFib,
-    ItemKind::Order,
-];
 
 /// Creates the writer for the fixed registry entry.
-pub fn boxed_writer(_: EngineOptions) -> Box<dyn Writer> {
+pub fn boxed_writer() -> Box<dyn Writer> {
     Box::new(BbqWriter)
 }
 /// Creates the reader for the fixed registry entry.
-pub fn boxed_reader(_: EngineOptions) -> Box<dyn Reader> {
+pub fn boxed_reader() -> Box<dyn Reader> {
     Box::new(BbqReader)
 }
 
@@ -39,22 +28,21 @@ impl Writer for BbqWriter {
         NAME
     }
     fn media_policy(&self) -> MediaPolicy {
-        MediaPolicy::ReferenceWarn
+        crate::engine(NAME).expect("registered engine").media_policy
     }
     fn supported_kinds(&self) -> &'static [ItemKind] {
-        KINDS
+        crate::engine(NAME)
+            .expect("registered engine")
+            .supported_kinds
     }
-    fn save_package(
+    fn write_package(
         &self,
         bank: &ItemBank,
-        output: Option<&Path>,
+        _source: &dyn AssetSource,
+        context: &WriteContext,
     ) -> Result<WriteOutcome, EngineError> {
-        let output = output
-            .unwrap_or_else(|| Path::new("bbq-upload.txt"))
-            .to_path_buf();
-        // Collection validates each referenced image before output. ReferenceWarn deliberately
-        // preserves its source spelling in BBQ, since this format transports no image payload.
-        let assets = bank.collect_assets()?;
+        // Reference-only output classifies authored sources without loading local payloads.
+        let assets = bank.inspect_assets()?;
         let warnings = RefCell::new(Vec::new());
         let pre_render = |item: &Item| {
             let decision = apply_media_policy(
@@ -73,20 +61,19 @@ impl Writer for BbqWriter {
         };
         let lines = render_bank(
             bank,
-            KINDS,
+            self.supported_kinds(),
             render_item,
             RenderHooks {
                 pre_render: Some(&pre_render),
                 post_render: None,
             },
         )?;
-        fs::write(&output, lines.concat()).map_err(|source| EngineError::Io {
-            engine: NAME,
-            path: output.clone(),
-            source,
-        })?;
+        let primary = NamedFile::new(context.output_name(), lines.concat().into_bytes())?;
         Ok(WriteOutcome {
-            path: Some(output),
+            artifact: Some(WriteArtifact::File {
+                primary,
+                companions: Vec::new(),
+            }),
             warnings: warnings.into_inner(),
         })
     }
@@ -97,17 +84,13 @@ impl Reader for BbqReader {
     fn name(&self) -> &'static str {
         NAME
     }
-    fn read_items(&self, input: &Path, allow_mixed: bool) -> Result<ReadOutcome, EngineError> {
-        let text = fs::read_to_string(input).map_err(|source| EngineError::Io {
-            engine: NAME,
-            path: input.to_path_buf(),
-            source,
-        })?;
-        let parent = input
-            .parent()
-            .unwrap_or_else(|| Path::new("."))
-            .to_path_buf();
-        let mut bank = ItemBank::with_media_base_dir(allow_mixed, MediaBaseDir::external(parent));
+    fn read_items(
+        &self,
+        input: ReadInput<'_>,
+        allow_mixed: bool,
+    ) -> Result<ReadOutcome, EngineError> {
+        let text = input.text(NAME)?;
+        let mut bank = ItemBank::new(allow_mixed);
         let mut warnings = Vec::new();
         for (index, line) in text.lines().enumerate() {
             let line_number = index + 1;
@@ -132,7 +115,11 @@ impl Reader for BbqReader {
                 }),
             }
         }
-        Ok(ReadOutcome { bank, warnings })
+        Ok(ReadOutcome {
+            bank,
+            assets: MemoryAssets::new(),
+            warnings,
+        })
     }
 }
 
@@ -397,9 +384,32 @@ fn strip_choice_prefix(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    fn context(name: &str) -> crate::WriteContext {
+        crate::WriteContext::new(
+            name.to_owned(),
+            crate::DocumentMetadata {
+                title: "Exam".to_owned(),
+                date: "2026-09-30".to_owned(),
+            },
+            0,
+        )
+        .expect("valid context")
+    }
+
+    fn primary(outcome: &crate::WriteOutcome) -> &qti_core::NamedFile {
+        match outcome.artifact.as_ref().expect("file artifact") {
+            crate::WriteArtifact::File { primary, .. } => primary,
+            crate::WriteArtifact::Directory { .. } => panic!("expected file artifact"),
+        }
+    }
+
+    fn document(outcome: &crate::WriteOutcome) -> &str {
+        std::str::from_utf8(primary(outcome).bytes()).expect("UTF-8 document")
+    }
+
     use super::{boxed_reader, boxed_writer};
     use super::{parse_line, render_item};
-    use crate::EngineOptions;
+    use qti_core::MemoryAssets;
     use qti_core::{Item, ItemBank, ItemBody, ItemFingerprint};
     use std::collections::BTreeMap;
     #[test]
@@ -537,18 +547,20 @@ mod tests {
     }
 
     #[test]
-    fn reader_retains_external_media_base_and_ordered_line_warnings() {
-        let directory = tempfile::tempdir().expect("input directory");
-        let input = directory.path().join("questions.txt");
-        std::fs::write(
-            &input,
-            "\nINVALID\tbad\nMC\tQuestion\ta\tCorrect\tb\tIncorrect\nFIB\tOther\tanswer\n",
-        )
-        .expect("input");
-        let outcome = boxed_reader(EngineOptions::default())
-            .read_items(&input, false)
+    fn reader_returns_empty_assets_and_ordered_line_warnings() {
+        let input = "questions.txt";
+        let input_text =
+            "\nINVALID\tbad\nMC\tQuestion\ta\tCorrect\tb\tIncorrect\nFIB\tOther\tanswer\n";
+        let outcome = boxed_reader()
+            .read_items(
+                crate::ReadInput::File {
+                    name: input,
+                    bytes: input_text.as_bytes(),
+                },
+                false,
+            )
             .expect("read");
-        assert_eq!(outcome.bank.media_base_dir(), Some(directory.path()));
+        assert!(outcome.assets.entries().is_empty());
         assert_eq!(outcome.bank.len(), 1);
         assert_eq!(
             outcome
@@ -566,7 +578,6 @@ mod tests {
 
     #[test]
     fn writer_returns_reference_warning_in_item_and_source_order() {
-        let directory = tempfile::tempdir().expect("output directory");
         let mut bank = ItemBank::new(false);
         bank.add_item(
             Item::new(
@@ -576,11 +587,11 @@ mod tests {
             .expect("item"),
         )
         .expect("bank item");
-        let output = directory.path().join("questions.txt");
-        let outcome = boxed_writer(EngineOptions::default())
-            .save_package(&bank, Some(&output))
+        let output = "questions.txt";
+        let outcome = boxed_writer()
+            .write_package(&bank, &MemoryAssets::new(), &context(output))
             .expect("write BBQ");
-        assert_eq!(outcome.path.as_deref(), Some(output.as_path()));
+        assert_eq!(primary(&outcome).name(), output);
         assert_eq!(
             outcome
                 .warnings
@@ -596,13 +607,16 @@ mod tests {
 
     #[test]
     fn empty_bank_creates_an_empty_bbq_upload_file() {
-        let directory = tempfile::tempdir().expect("output directory");
-        let output = directory.path().join("questions.txt");
-        let outcome = boxed_writer(EngineOptions::default())
-            .save_package(&ItemBank::new(false), Some(&output))
+        let output = "questions.txt";
+        let outcome = boxed_writer()
+            .write_package(
+                &ItemBank::new(false),
+                &MemoryAssets::new(),
+                &context(output),
+            )
             .expect("write empty BBQ");
-        assert_eq!(outcome.path.as_deref(), Some(output.as_path()));
+        assert_eq!(primary(&outcome).name(), output);
         assert!(outcome.warnings.is_empty());
-        assert_eq!(std::fs::read_to_string(output).expect("empty upload"), "");
+        assert_eq!(document(&outcome), "");
     }
 }

@@ -8,6 +8,7 @@
 +- crates/                          Workspace library and application crates
 +- devel/                           Maintainer checks and release helpers
 +- docs/                            Durable documentation and active plans
++- packages/qti-wasm/               Local TypeScript/Wasm host package
 +- tests/                           Repository-policy tests and small fixtures
 +- xtask/                           Development-only Cargo subcommands
 +- Cargo.toml                       Workspace members and shared metadata
@@ -31,7 +32,8 @@ own `Cargo.toml`. [Cargo.lock](../Cargo.lock) records the exact dependency graph
 crates/
 +- qti-core/                        Validated domain model and package primitives
 |  +- src/item.rs                   Seven assessment item shapes
-|  +- src/bank.rs                   Ordered banks and media-base ownership
+|  +- src/bank.rs                   Ordered items and validation facade
+|  +- src/bank/                     Media collection, bank merge, and bank tests
 |  +- src/media/                    Media policy, resolution, naming, rewrite, packaging
 |  +- src/manifest.rs               QTI manifest generation
 |  +- src/zip.rs                    Deterministic ZIP assembly
@@ -39,16 +41,35 @@ crates/
 +- qti-engines/                     Registered import and export formats
 |  +- src/traits.rs                 Reader, writer, hook, and outcome contracts
 |  +- src/registry.rs               Registered engine metadata and factories
-|  +- src/html_to_image/            Selection, static canvas parsing, conversion, cache
+|  +- src/conversion.rs             Shared read/write/convert and AssetOverlay
 |  +- src/blackboard_export_zip/    Blackboard export reader and writer
+|  |  +- write.rs                   Blackboard export writer facade
+|  |  `- write/                     ZIP assembly, item XML, and HTML normalization
+|  +- src/blackboard_qti_v2_1/      Writer facade, item XML, fragments, and tests
+|  +- src/text2qti/                Parser, reader, writer, media, and tests
 |  +- src/ple_native_json/          PLE source model, mapping, scan, export, writer
 |  +- src/<format>/                 One module for each other format engine
-|  `- tests/browser_proof.rs        Standalone self-test browser evidence
+|  `- src/lib.rs                    Portable engine facade
 +- qti-integrity/                   Independent completed-package checker
-|  +- src/input.rs                  Bounded ZIP and directory input handling
-|  +- src/checker.rs                XML, manifest, media, and format checks
+|  +- src/input.rs                  Bounded byte ZIP and entry-map validation
+|  +- src/input/zip_directory.rs    ZIP directory preflight before decoding
+|  +- src/checker.rs                XML, manifest, media, and format-check dispatcher
+|  +- src/checker/                  Blackboard, grading, identifiers, manifest, media, XML, image checks
 |  `- src/checker_tests.rs          Focused checker regressions
 +- qti-raster/fonts/                Bundled font assets and licenses (renderer removed)
++- qti-native/                      Native host services
+|  +- src/assets.rs                 Canonical-root lazy DirectoryAssets
+|  +- src/input.rs                  Bounded filesystem loading and package checks
+|  +- src/persistence.rs            File/companion persistence dispatcher
+|  +- src/ple_output.rs             PLE staging and publication facade
+|  +- src/ple_output/               Ownership verification and native regressions
+|  +- src/metadata.rs               Once-resolved native document context
+|  +- src/html_to_image/            Selection, canvas parsing, rendering, cache
++- qti-wasm/                        Typed Wasm adapter
+|  +- src/transport.rs              Rust-authoritative tsify request/result types
+|  +- src/adapter.rs                Pure owned transport validation/dispatch
+|  +- src/boundary.rs               JavaScript preflight and wasm-bindgen exports
+|  `- src/diagnostics.rs            Structured error and warning transport
 +- qti-molecule/                    Optional RDKit canvas renderer
 |  +- src/source.rs                 Validated CanvasSource model
 |  +- src/renderer.rs               Safe runtime shim loader
@@ -68,15 +89,32 @@ human-readable HTML, Moodle Aiken, Okla CHRST BQGen, text2qti, and PLE Native JS
 ## Development and verification
 
 ```text
+packages/qti-wasm/
++- src/index.ts                    Explicit Wasm initialization and generated exports
++- examples/                       Node, browser, and worker host examples
++- scripts/                        Build, local serving, and measurements
++- tests/                          Node parity and maintained browser acceptance
++- package.json                    Private package commands and exports
++- package-lock.json               Tested npm dependency resolution
++- tsconfig*.json                  Strict main/worker TypeScript configurations
+`- playwright.config.ts            Chromium, Firefox, and WebKit acceptance
+
 xtask/
 +- src/main.rs                      Development-command dispatcher
 +- src/crc_corpus.rs                CRC agreement corpus command
 +- src/oracle_crosscheck.rs         Integrity-oracle comparison command
-+- src/parity.rs                    Differential export-parity command
++- src/parity.rs                    Differential export-parity orchestration
++- src/parity_inputs.rs             Parity input selection and validation
++- src/parity_process.rs            Process invocation and output comparison
++- src/parity_receipts.rs           Media and order receipt comparison
 +- src/table_corpus.rs              Table and canvas corpus harvesting
 +- src/table_bench.rs               Native conversion benchmark command
 +- src/table_gallery.rs             Native and Python review gallery command
 `- support/                         Python helpers used only by xtask commands
+   +- parity_oracle.py              Oracle CLI adapter and dispatch
+   +- parity_oracle_writer.py        Registered Python writer calls and receipts
+   +- parity_oracle_qti12.py         QTI 1.2 XML projection and repairs
+   `- parity_oracle_projection.py    YAML, Aiken, self-test, and HTML projections
 
 devel/
 +- rust_release_check.sh            Local Rust release-gate runner
@@ -106,12 +144,15 @@ are regenerated by `cargo xtask table-corpus`, `cargo xtask table-bench`, and
 
 Rust build products are written to `target/` by Cargo. Python helper caches can appear below
 `xtask/` and `tests/_temp/`; they are also ignored.
+The Wasm package regenerates `generated/` and `dist/`; generated declarations and runtime bytes
+are build artifacts, while Rust transport types and the small TypeScript wrapper are authored source.
 
 ## Documentation map
 
 - [README.md](../README.md) introduces the workspace and its certification state.
 - [INSTALL.md](INSTALL.md) explains source builds and the optional RDKit shim.
 - [USAGE.md](USAGE.md) documents native command-line interfaces and output contracts.
+- [WASM_PACKAGE.md](WASM_PACKAGE.md) documents byte ownership, package loading, and host examples.
 - [RUST_STYLE.md](RUST_STYLE.md) defines Rust and Cargo conventions.
 - [HTML_TO_IMAGE.md](HTML_TO_IMAGE.md) defines Chromium rendering and the static-canvas contract.
 - [PARITY.md](PARITY.md) records completed parity evidence and open scope.

@@ -6,7 +6,7 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64::Engine;
-use qti_engines::html_to_image::{ChromiumFragmentRenderer, FragmentRenderer};
+use qti_native::html_to_image::{ChromiumFragmentRenderer, FragmentRenderer};
 use serde::Serialize;
 
 const PINNED_ORACLE_REVISION: &str = "55e5f368777f7809fe2e91b5d070caf6df0cb581";
@@ -155,7 +155,7 @@ impl From<&GalleryEntry> for GalleryReceipt {
 /// The shared selector validates the constrained script grammar without evaluating authored
 /// JavaScript. A native RDKit image becomes a `data:` image inside the table render.
 fn prepare_native_table(html: &str) -> Result<String, String> {
-    use qti_engines::html_to_image::{FieldConversionPlan, FragmentReplacement, PreparedFragment};
+    use qti_native::html_to_image::{FieldConversionPlan, FragmentReplacement, PreparedFragment};
 
     let plan = FieldConversionPlan::prepare(html).map_err(|error| error.to_string())?;
     let replacements = plan

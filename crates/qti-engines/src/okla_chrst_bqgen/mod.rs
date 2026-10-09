@@ -6,28 +6,27 @@
 //! three header families and deliberately ignores unknown blocks, as the Python reader does.
 
 use std::cell::RefCell;
-use std::fs;
-use std::path::Path;
 
 use qti_core::media::{MediaPolicy, apply_media_policy, replace_item_images};
-use qti_core::{Item, ItemBank, ItemBody, ItemKind, ItemRenderView, MediaBaseDir};
+use qti_core::{
+    AssetSource, Item, ItemBank, ItemBody, ItemKind, ItemRenderView, MemoryAssets, NamedFile,
+};
 use regex::Regex;
 
 use crate::{
-    EngineError, EngineOptions, ReadLocation, ReadOutcome, ReadWarning, Reader, RenderHooks,
-    WriteOutcome, Writer, render_bank,
+    EngineError, ReadInput, ReadLocation, ReadOutcome, ReadWarning, Reader, RenderHooks,
+    WriteArtifact, WriteContext, WriteOutcome, Writer, render_bank,
 };
 
 pub(crate) const NAME: &str = "okla_chrst_bqgen";
-const KINDS: &[ItemKind] = &[ItemKind::Mc, ItemKind::Ma, ItemKind::Match, ItemKind::Fib];
 
 /// Creates the BQGen writer used by the static engine registry.
-pub fn boxed_writer(_: EngineOptions) -> Box<dyn Writer> {
+pub fn boxed_writer() -> Box<dyn Writer> {
     Box::new(BqgenWriter)
 }
 
 /// Creates the BQGen reader used by the static engine registry.
-pub fn boxed_reader(_: EngineOptions) -> Box<dyn Reader> {
+pub fn boxed_reader() -> Box<dyn Reader> {
     Box::new(BqgenReader)
 }
 
@@ -39,26 +38,34 @@ impl Writer for BqgenWriter {
     }
 
     fn media_policy(&self) -> MediaPolicy {
-        MediaPolicy::PlaceholderWarn
+        crate::engine(NAME).expect("registered engine").media_policy
     }
 
     fn supported_kinds(&self) -> &'static [ItemKind] {
-        KINDS
+        crate::engine(NAME)
+            .expect("registered engine")
+            .supported_kinds
     }
 
-    fn save_package(
+    fn write_package(
         &self,
         bank: &ItemBank,
-        output: Option<&Path>,
+        _source: &dyn AssetSource,
+        context: &WriteContext,
     ) -> Result<WriteOutcome, EngineError> {
-        let output = output
-            .unwrap_or_else(|| Path::new("okla.txt"))
-            .to_path_buf();
-        let assets = bank.collect_assets()?;
+        // Inspect only items this document can emit; placeholders need no payload reads.
+        let mut visible = qti_core::ItemBank::new(true);
+        for item in bank
+            .iter_ordered()
+            .filter(|item| self.supported_kinds().contains(&item.kind()))
+        {
+            visible.add_item(item.clone())?;
+        }
+        let assets = visible.inspect_assets()?;
         let warnings = RefCell::new(Vec::new());
         let pre_render = |item: &Item| {
             let dependencies = assets.dependencies_for(item.crc()).unwrap_or_default();
-            // ASVS 2.2.1: resolve and classify every image before any output is created.
+            // Classify authored references without loading payloads this format cannot transport.
             // The format has no image channel, so the source item's presentation copy receives
             // readable text while the validated source item and its CRC remain untouched.
             let decision = apply_media_policy(
@@ -90,7 +97,7 @@ impl Writer for BqgenWriter {
         };
         let rendered = render_bank(
             bank,
-            KINDS,
+            self.supported_kinds(),
             render_item,
             RenderHooks {
                 pre_render: Some(&pre_render),
@@ -99,17 +106,16 @@ impl Writer for BqgenWriter {
         )?;
         if rendered.is_empty() {
             return Ok(WriteOutcome {
-                path: None,
+                artifact: None,
                 warnings: warnings.into_inner(),
             });
         }
-        fs::write(&output, rendered.concat()).map_err(|source| EngineError::Io {
-            engine: NAME,
-            path: output.clone(),
-            source,
-        })?;
+        let primary = NamedFile::new(context.output_name(), rendered.concat().into_bytes())?;
         Ok(WriteOutcome {
-            path: Some(output),
+            artifact: Some(WriteArtifact::File {
+                primary,
+                companions: Vec::new(),
+            }),
             warnings: warnings.into_inner(),
         })
     }
@@ -122,16 +128,15 @@ impl Reader for BqgenReader {
         NAME
     }
 
-    fn read_items(&self, input: &Path, allow_mixed: bool) -> Result<ReadOutcome, EngineError> {
-        let text = fs::read_to_string(input).map_err(|source| EngineError::Io {
-            engine: NAME,
-            path: input.to_path_buf(),
-            source,
-        })?;
-        let parent = input.parent().unwrap_or_else(|| Path::new("."));
-        let mut bank = ItemBank::with_media_base_dir(allow_mixed, MediaBaseDir::external(parent));
+    fn read_items(
+        &self,
+        input: ReadInput<'_>,
+        allow_mixed: bool,
+    ) -> Result<ReadOutcome, EngineError> {
+        let text = input.text(NAME)?;
+        let mut bank = ItemBank::new(allow_mixed);
         let mut warnings = Vec::new();
-        for (number, block) in split_blocks(&text).into_iter().enumerate() {
+        for (number, block) in split_blocks(text).into_iter().enumerate() {
             let Some(item) = parse_block(&block) else {
                 // The Python reader intentionally drops unknown or malformed blocks.  Retain a
                 // located warning in Rust's richer ReadOutcome without changing valid records.
@@ -148,7 +153,11 @@ impl Reader for BqgenReader {
                 });
             }
         }
-        Ok(ReadOutcome { bank, warnings })
+        Ok(ReadOutcome {
+            bank,
+            assets: MemoryAssets::new(),
+            warnings,
+        })
     }
 }
 
@@ -356,10 +365,33 @@ fn prefixed_stem(header: &str, prefix: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{KINDS, NAME, boxed_reader, boxed_writer, parse_block, render_item};
-    use crate::EngineOptions;
+    fn context(name: &str) -> crate::WriteContext {
+        crate::WriteContext::new(
+            name.to_owned(),
+            crate::DocumentMetadata {
+                title: "Exam".to_owned(),
+                date: "2026-09-30".to_owned(),
+            },
+            0,
+        )
+        .expect("valid context")
+    }
+
+    fn primary(outcome: &crate::WriteOutcome) -> &qti_core::NamedFile {
+        match outcome.artifact.as_ref().expect("file artifact") {
+            crate::WriteArtifact::File { primary, .. } => primary,
+            crate::WriteArtifact::Directory { .. } => panic!("expected file artifact"),
+        }
+    }
+
+    fn document(outcome: &crate::WriteOutcome) -> &str {
+        std::str::from_utf8(primary(outcome).bytes()).expect("UTF-8 document")
+    }
+
+    use super::{NAME, boxed_reader, boxed_writer, parse_block, render_item};
+    use qti_core::MemoryAssets;
     use qti_core::media::{MediaAction, MediaPolicy, apply_media_policy};
-    use qti_core::{Item, ItemBank, ItemBody, ItemFingerprint, MediaBaseDir};
+    use qti_core::{Item, ItemBank, ItemBody, ItemFingerprint};
 
     fn supported_items() -> Vec<Item> {
         vec![
@@ -400,19 +432,23 @@ mod tests {
 
     #[test]
     fn supported_shapes_round_trip_by_fingerprint() {
-        let directory = tempfile::tempdir().expect("temporary directory");
-        let mut bank =
-            ItemBank::with_media_base_dir(true, MediaBaseDir::external(directory.path()));
+        let mut bank = ItemBank::new(true);
         for item in supported_items() {
             bank.add_item(item).expect("bank item");
         }
-        let output = directory.path().join("items.txt");
-        let write_outcome = boxed_writer(EngineOptions::default())
-            .save_package(&bank, Some(&output))
+        let output = "items.txt";
+        let write_outcome = boxed_writer()
+            .write_package(&bank, &MemoryAssets::new(), &context(output))
             .expect("write BQGen");
         assert!(write_outcome.warnings.is_empty());
-        let outcome = boxed_reader(EngineOptions::default())
-            .read_items(write_outcome.path.as_deref().expect("output path"), true)
+        let outcome = boxed_reader()
+            .read_items(
+                crate::ReadInput::File {
+                    name: primary(&write_outcome).name(),
+                    bytes: primary(&write_outcome).bytes(),
+                },
+                true,
+            )
             .expect("read BQGen");
         assert!(outcome.warnings.is_empty());
         assert_eq!(outcome.bank.len(), bank.len());
@@ -452,8 +488,18 @@ mod tests {
             .expect("ORDER"),
         )
         .expect("ORDER bank item");
-        assert!(!KINDS.contains(&qti_core::ItemKind::Num));
-        assert!(!KINDS.contains(&qti_core::ItemKind::Order));
+        assert!(
+            !crate::engine(NAME)
+                .expect("registry")
+                .supported_kinds
+                .contains(&qti_core::ItemKind::Num)
+        );
+        assert!(
+            !crate::engine(NAME)
+                .expect("registry")
+                .supported_kinds
+                .contains(&qti_core::ItemKind::Order)
+        );
         let texts = bank
             .iter_ordered()
             .filter_map(|item| render_item(&item.render_view()).expect("render"))
@@ -463,8 +509,7 @@ mod tests {
 
     #[test]
     fn unsupported_only_bank_creates_no_requested_output() {
-        let directory = tempfile::tempdir().expect("temporary directory");
-        let output = directory.path().join("must-not-exist.txt");
+        let output = "must-not-exist.txt";
         let mut bank = ItemBank::new(true);
         bank.add_item(
             Item::new(
@@ -478,25 +523,25 @@ mod tests {
             .expect("NUM item"),
         )
         .expect("NUM bank item");
-        let outcome = boxed_writer(EngineOptions::default())
-            .save_package(&bank, Some(&output))
+        let outcome = boxed_writer()
+            .write_package(&bank, &MemoryAssets::new(), &context(output))
             .expect("skip-only bank");
-        assert_eq!(outcome.path, None);
+        assert!(outcome.artifact.is_none());
         assert!(outcome.warnings.is_empty());
-        assert!(!output.exists());
     }
 
     #[test]
     fn reader_preserves_python_unknown_block_recovery_with_location() {
-        let directory = tempfile::tempdir().expect("temporary directory");
-        let input = directory.path().join("input.txt");
-        std::fs::write(
-            &input,
-            "essay 1. Unknown format\nprose\n\n1. Known\n*a) yes\nb) no\n",
-        )
-        .expect("input");
-        let outcome = boxed_reader(EngineOptions::default())
-            .read_items(&input, false)
+        let input = "input.txt";
+        let input_text = "essay 1. Unknown format\nprose\n\n1. Known\n*a) yes\nb) no\n";
+        let outcome = boxed_reader()
+            .read_items(
+                crate::ReadInput::File {
+                    name: input,
+                    bytes: input_text.as_bytes(),
+                },
+                false,
+            )
             .expect("reader returns valid records");
         assert_eq!(outcome.bank.len(), 1);
         assert_eq!(outcome.warnings.len(), 1);
@@ -524,10 +569,7 @@ mod tests {
 
     #[test]
     fn placeholder_warn_substitutes_local_remote_and_data_images() {
-        let directory = tempfile::tempdir().expect("temporary directory");
-        std::fs::write(directory.path().join("figure.png"), b"png").expect("local image");
-        let mut bank =
-            ItemBank::with_media_base_dir(true, MediaBaseDir::external(directory.path()));
+        let mut bank = ItemBank::new(true);
         let local = Item::new(
             "<img src=\"figure.png\"/>".into(),
             ItemBody::Mc {
@@ -576,7 +618,7 @@ mod tests {
             .expect("NUM item"),
         )
         .expect("NUM bank item");
-        let assets = bank.collect_assets().expect("assets");
+        let assets = bank.inspect_assets().expect("assets");
         for item in bank.iter_ordered() {
             let decision = apply_media_policy(
                 MediaPolicy::PlaceholderWarn,
@@ -588,12 +630,11 @@ mod tests {
             assert_eq!(decision.warnings.len(), 1);
             assert_eq!(decision.warnings[0].action, MediaAction::Substituted);
         }
-        let output = directory.path().join("references.txt");
-        let write_outcome = boxed_writer(EngineOptions::default())
-            .save_package(&bank, Some(&output))
+        let output = "references.txt";
+        let write_outcome = boxed_writer()
+            .write_package(&bank, &MemoryAssets::new(), &context(output))
             .expect("writer");
-        let text =
-            std::fs::read_to_string(write_outcome.path.expect("output path")).expect("output");
+        let text = document(&write_outcome);
         assert_eq!(text.matches("[image: figure.png]").count(), 3);
         assert!(text.contains("[image: embedded image]"));
         assert!(!text.contains("<img"));
@@ -624,9 +665,8 @@ mod tests {
 
     #[test]
     fn writer_has_declared_name_and_policy() {
-        let writer = boxed_writer(EngineOptions::default());
+        let writer = boxed_writer();
         assert_eq!(writer.name(), NAME);
         assert_eq!(writer.media_policy(), MediaPolicy::PlaceholderWarn);
-        assert_eq!(writer.supported_kinds(), KINDS);
     }
 }

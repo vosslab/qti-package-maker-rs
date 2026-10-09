@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use qti_core::{Item, ItemBody};
 
-use super::{map_item, unique_answers};
+use super::map_item;
 use crate::ple_native_json::source::{MatchMode, Response, Tolerance};
 
 fn mapped(body: ItemBody, prompt: &str) -> crate::ple_native_json::source::SourceDocument {
@@ -81,12 +81,6 @@ fn fib_uses_normalized_mode_and_fixed_length() {
     assert_eq!(answers, ["DNA", "deoxyribonucleic acid"]);
     assert_eq!(match_mode, MatchMode::Normalized);
     assert_eq!(max_length, 16_384);
-
-    // qti-core rejects duplicate authored answers. This tests the defensive conversion behavior.
-    assert_eq!(
-        unique_answers(&["DNA".into(), "DNA".into(), "dNa".into()]),
-        ["DNA", "dNa"]
-    );
 }
 
 #[test]

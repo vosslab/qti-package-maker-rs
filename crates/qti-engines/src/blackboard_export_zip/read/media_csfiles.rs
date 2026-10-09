@@ -1,9 +1,8 @@
 //! Blackboard csfiles and hotspot-media recovery.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::Path;
 
-use qti_core::{ItemBank, MediaBaseDir};
+use qti_core::MemoryAssets;
 
 use crate::EngineError;
 
@@ -13,7 +12,7 @@ const BB_FILE: &str = "file";
 const TOKEN_PREFIX: &str = "@X@EmbeddedFile.requestUrlStub@X@bbcswebdav/xid-";
 
 pub(super) struct RecoveredMedia {
-    pub(super) base: Option<MediaBaseDir>,
+    pub(super) assets: MemoryAssets,
     pub(super) source_names: BTreeMap<String, String>,
 }
 
@@ -28,7 +27,9 @@ pub(super) fn recover_media(
     let mut token_names = BTreeMap::new();
     let link_ids = cs_link_ids(files, manifest)?;
     for pool in pools {
-        let data = files.get(pool).expect("pool checked by caller");
+        let data = files
+            .get(pool)
+            .ok_or_else(|| invalid("package", format!("manifest pool file '{pool}' is missing")))?;
         let input = String::from_utf8_lossy(data);
         for xid in xid_tokens(&input) {
             if !link_ids.contains(&xid) {
@@ -52,24 +53,25 @@ pub(super) fn recover_media(
     }
     if token_names.is_empty() {
         return Ok(RecoveredMedia {
-            base: None,
+            assets: MemoryAssets::new(),
             source_names: BTreeMap::new(),
         });
     }
-    let base = MediaBaseDir::temporary().map_err(EngineError::from)?;
+    let mut assets = MemoryAssets::new();
     let mut used = BTreeSet::new();
     let mut names = BTreeMap::new();
     for (xid, (desired, path)) in token_names {
         let name = unique_name(&desired, &mut used);
         let bytes = files.get(&path).expect("csfile exists");
-        let mut holder = ItemBank::with_media_base_dir(true, base.clone());
-        holder.add_image(&name, bytes).map_err(EngineError::from)?;
+        assets
+            .insert(name.clone(), bytes.clone())
+            .map_err(qti_core::BankError::from)?;
         if !xid.starts_with("hotspot:") {
             names.insert(format!("{TOKEN_PREFIX}{xid}"), name);
         }
     }
     Ok(RecoveredMedia {
-        base: Some(base),
+        assets,
         source_names: names,
     })
 }
@@ -148,24 +150,18 @@ fn lom_name(sidecar: &[u8]) -> Option<String> {
 }
 
 fn unique_name(desired: &str, used: &mut BTreeSet<String>) -> String {
-    let desired = Path::new(desired)
-        .file_name()
-        .and_then(|name| name.to_str())
+    let desired = desired
+        .rsplit('/')
+        .next()
         .filter(|name| !name.is_empty())
         .unwrap_or("image.png");
     if used.insert(desired.to_owned()) {
         return desired.to_owned();
     }
-    let path = Path::new(desired);
-    let stem = path
-        .file_stem()
-        .and_then(|value| value.to_str())
-        .unwrap_or("image");
-    let ext = path
-        .extension()
-        .and_then(|value| value.to_str())
-        .map(|value| format!(".{value}"))
-        .unwrap_or_default();
+    let (stem, ext) = match desired.rsplit_once('.') {
+        Some((stem, ext)) if !stem.is_empty() => (stem, format!(".{ext}")),
+        _ => (desired, String::new()),
+    };
     for suffix in 2.. {
         let candidate = format!("{stem}_{suffix}{ext}");
         if used.insert(candidate.clone()) {

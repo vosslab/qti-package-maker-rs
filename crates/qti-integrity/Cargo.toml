@@ -10,5 +10,4 @@ repository.workspace = true
 quick-xml.workspace = true
 zip.workspace = true
 regex.workspace = true
-sha2.workspace = true
 percent-encoding.workspace = true

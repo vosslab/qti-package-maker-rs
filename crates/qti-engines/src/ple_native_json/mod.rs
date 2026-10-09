@@ -3,10 +3,9 @@
 mod export;
 mod mapping;
 mod media;
-mod output;
 mod scan;
 mod source;
 mod writer;
 
-pub use export::{AssociatedFile, NativeExport, NativeQuestion, export_bank};
+pub use export::{NativeExport, NativeQuestion, export_bank};
 pub use writer::boxed_writer;

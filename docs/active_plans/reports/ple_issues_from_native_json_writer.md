@@ -41,7 +41,7 @@ The student response control displays this value as an authored-looking limit an
 (`../peptidyle-learning-engine/src/components/question_response_controls/short_text.tsx:39-55`).
 QPM's current item model stores FIB accepted answers and MULTI_FIB blank answers but carries no
 authored response length (`crates/qti-core/src/item.rs:44-49`). The handoff writer mapping has only
-`answers` for these item kinds (`NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md:59-60`). QPM can correctly
+`answers` for these item kinds ([NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md](../../archive/NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md):59-60). QPM can correctly
 express grading without a question-specific input length; PLE conflates its platform cap with an
 authored UI constraint. PLE should make the platform ceiling distinct from an instructor-authored
 limit, or permit the limit to be absent when none is authored.

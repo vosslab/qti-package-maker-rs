@@ -3,12 +3,14 @@
 //! Item HTML remains authored HTML.  This module derives asset records only at
 //! the conversion boundary, so writer-specific rewrites cannot mutate a bank.
 
+mod assets;
 mod naming;
 mod package;
 mod policy;
 mod resolve;
 mod rewrite;
 
+pub use assets::{AssetSource, MemoryAssets};
 pub use naming::assign_output_names;
 pub use package::packageable_assets;
 pub use policy::{
@@ -17,8 +19,8 @@ pub use policy::{
 };
 pub use resolve::{
     AssetKind, ItemMediaAsset, MediaAsset, MediaError, classify_src, compute_content_hash,
-    guess_mime_type, item_html_fields, resolve_asset, resolve_item_media_refs, resolve_local_path,
-    scan_html_for_assets,
+    describe_asset, guess_mime_type, inspect_item_assets, item_html_fields, resolve_asset,
+    resolve_item_media_refs, scan_html_for_assets,
 };
 pub use rewrite::{
     FieldValue, replace_item_images, rewrite_field_value, rewrite_html_srcs, rewrite_item_media,

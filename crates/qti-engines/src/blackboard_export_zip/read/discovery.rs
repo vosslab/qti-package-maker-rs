@@ -1,31 +1,45 @@
 //! Blackboard pool discovery, XML recovery, and csfiles media extraction.
 
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs;
-use std::io::{Cursor, Read};
-use std::path::{Path, PathBuf};
+use std::io::Cursor;
 
-use qti_core::ItemBank;
+use qti_core::{EntryMap, ItemBank};
 use quick_xml::events::Event;
 use quick_xml::name::ResolveResult;
 use quick_xml::{NsReader, XmlVersion};
-use zip::ZipArchive;
 
-use crate::{EngineError, ReadLocation, ReadOutcome, ReadWarning};
+use crate::{EngineError, ReadInput, ReadLocation, ReadOutcome, ReadWarning};
 
 use super::super::NAME;
 
 const BB_FILE: &str = "file";
 const POOL_TYPE: &str = "assessment/x-bb-qti-pool";
-// Match the integrity checker bounds so reading a package never becomes a
-// less-safe alternate path around the release verifier.
-const MAX_ARCHIVE_ENTRIES: usize = 10_000;
-const MAX_ENTRY_BYTES: u64 = 32 * 1024 * 1024;
-const MAX_PACKAGE_BYTES: u64 = 256 * 1024 * 1024;
-
-/// Parses an exported package from a ZIP or an already-unpacked directory.
-pub(crate) fn read_package(input: &Path, allow_mixed: bool) -> Result<ReadOutcome, EngineError> {
-    let files = read_input(input)?;
+/// Parses ZIP bytes or already-decoded package entries supplied by the host.
+pub(crate) fn read_package(
+    input: ReadInput<'_>,
+    allow_mixed: bool,
+) -> Result<ReadOutcome, EngineError> {
+    let files = match input {
+        ReadInput::File { bytes, .. } => {
+            Cow::Owned(qti_integrity::read_zip_entries(bytes).map_err(|error| {
+                invalid(
+                    "ZIP",
+                    format!("{}: {} ({})", error.path, error.message, error.code),
+                )
+            })?)
+        }
+        ReadInput::Archive { entries, .. } => {
+            qti_integrity::validate_entries(entries).map_err(|error| {
+                invalid(
+                    "archive entries",
+                    format!("{}: {} ({})", error.path, error.message, error.code),
+                )
+            })?;
+            Cow::Borrowed(entries)
+        }
+    };
+    let files = normalize_root(files)?;
     let manifest = files
         .get("imsmanifest.xml")
         .ok_or_else(|| invalid("package", "missing imsmanifest.xml"))?;
@@ -38,10 +52,7 @@ pub(crate) fn read_package(input: &Path, allow_mixed: bool) -> Result<ReadOutcom
         ));
     }
     let media = super::media_csfiles::recover_media(&files, &manifest, &pool_files)?;
-    let mut bank = match media.base {
-        Some(base) => ItemBank::with_media_base_dir(allow_mixed, base),
-        None => ItemBank::new(allow_mixed),
-    };
+    let mut bank = ItemBank::new(allow_mixed);
     let mut warnings = Vec::new();
     for resource in pool_files {
         let bytes = files.get(&resource).ok_or_else(|| {
@@ -80,7 +91,11 @@ pub(crate) fn read_package(input: &Path, allow_mixed: bool) -> Result<ReadOutcom
             }
         }
     }
-    Ok(ReadOutcome { bank, warnings })
+    Ok(ReadOutcome {
+        bank,
+        assets: media.assets,
+        warnings,
+    })
 }
 
 pub(super) fn invalid(format: &'static str, message: impl Into<String>) -> EngineError {
@@ -91,187 +106,7 @@ pub(super) fn invalid(format: &'static str, message: impl Into<String>) -> Engin
     }
 }
 
-fn read_input(input: &Path) -> Result<BTreeMap<String, Vec<u8>>, EngineError> {
-    if input.is_dir() {
-        return read_directory(input);
-    }
-    let file = fs::File::open(input).map_err(|source| EngineError::Io {
-        engine: NAME,
-        path: input.to_owned(),
-        source,
-    })?;
-    let mut archive = ZipArchive::new(file).map_err(|error| invalid("ZIP", error.to_string()))?;
-    if archive.len() > MAX_ARCHIVE_ENTRIES {
-        return Err(invalid("ZIP", "archive exceeds the entry-count limit"));
-    }
-    let mut files = BTreeMap::new();
-    let mut total = 0_u64;
-    for index in 0..archive.len() {
-        let mut entry = archive
-            .by_index(index)
-            .map_err(|error| invalid("ZIP", error.to_string()))?;
-        if entry.is_dir() {
-            continue;
-        }
-        if entry.size() > MAX_ENTRY_BYTES || total.saturating_add(entry.size()) > MAX_PACKAGE_BYTES
-        {
-            return Err(invalid(
-                "ZIP",
-                "archive exceeds the uncompressed-size limit",
-            ));
-        }
-        total += entry.size();
-        let enclosed = entry
-            .enclosed_name()
-            .ok_or_else(|| invalid("ZIP", format!("unsafe archive entry '{}'", entry.name())))?;
-        let name = enclosed.to_string_lossy().replace('\\', "/");
-        if name.is_empty() || files.contains_key(&name) {
-            return Err(invalid(
-                "ZIP",
-                format!("duplicate or empty archive entry '{name}'"),
-            ));
-        }
-        let mut bytes = Vec::new();
-        entry
-            .read_to_end(&mut bytes)
-            .map_err(|error| invalid("ZIP", error.to_string()))?;
-        files.insert(name, bytes);
-    }
-    normalize_root(files)
-}
-
-fn read_directory(input: &Path) -> Result<BTreeMap<String, Vec<u8>>, EngineError> {
-    let root = find_manifest_root(input)?;
-    let mut files = BTreeMap::new();
-    let mut total = 0_u64;
-    collect_files(&root, &root, &mut files, &mut total)?;
-    Ok(files)
-}
-
-fn find_manifest_root(input: &Path) -> Result<PathBuf, EngineError> {
-    if input.join("imsmanifest.xml").is_file() {
-        return Ok(input.to_owned());
-    }
-    let mut candidates = Vec::new();
-    for entry in fs::read_dir(input).map_err(|source| EngineError::Io {
-        engine: NAME,
-        path: input.to_owned(),
-        source,
-    })? {
-        let entry = entry.map_err(|source| EngineError::Io {
-            engine: NAME,
-            path: input.to_owned(),
-            source,
-        })?;
-        let path = entry.path();
-        if entry
-            .file_type()
-            .map_err(|source| EngineError::Io {
-                engine: NAME,
-                path: path.clone(),
-                source,
-            })?
-            .is_dir()
-            && path.join("imsmanifest.xml").is_file()
-        {
-            candidates.push(path);
-        }
-    }
-    match candidates.len() {
-        1 => Ok(candidates.remove(0)),
-        0 => Err(invalid("package", "missing imsmanifest.xml")),
-        _ => Err(invalid("package", "multiple nested manifest roots")),
-    }
-}
-
-fn collect_files(
-    root: &Path,
-    current: &Path,
-    files: &mut BTreeMap<String, Vec<u8>>,
-    total: &mut u64,
-) -> Result<(), EngineError> {
-    for entry in fs::read_dir(current).map_err(|source| EngineError::Io {
-        engine: NAME,
-        path: current.to_owned(),
-        source,
-    })? {
-        let entry = entry.map_err(|source| EngineError::Io {
-            engine: NAME,
-            path: current.to_owned(),
-            source,
-        })?;
-        let path = entry.path();
-        let kind = entry.file_type().map_err(|source| EngineError::Io {
-            engine: NAME,
-            path: path.clone(),
-            source,
-        })?;
-        if kind.is_symlink() {
-            return Err(invalid(
-                "package directory",
-                format!("symbolic link is not permitted: {}", path.display()),
-            ));
-        }
-        if kind.is_dir() {
-            collect_files(root, &path, files, total)?;
-            continue;
-        }
-        if !kind.is_file() {
-            return Err(invalid(
-                "package directory",
-                format!("non-regular file: {}", path.display()),
-            ));
-        }
-        let relative = path
-            .strip_prefix(root)
-            .expect("walk stays below root")
-            .to_string_lossy()
-            .replace('\\', "/");
-        if files.len() >= MAX_ARCHIVE_ENTRIES {
-            return Err(invalid(
-                "package directory",
-                "directory exceeds the entry-count limit",
-            ));
-        }
-        let metadata = entry.metadata().map_err(|source| EngineError::Io {
-            engine: NAME,
-            path: path.clone(),
-            source,
-        })?;
-        if metadata.len() > MAX_ENTRY_BYTES
-            || total.saturating_add(metadata.len()) > MAX_PACKAGE_BYTES
-        {
-            return Err(invalid(
-                "package directory",
-                "directory exceeds the uncompressed-size limit",
-            ));
-        }
-        let bytes = fs::read(&path).map_err(|source| EngineError::Io {
-            engine: NAME,
-            path: path.clone(),
-            source,
-        })?;
-        let size = u64::try_from(bytes.len()).expect("usize fits in u64");
-        if size > MAX_ENTRY_BYTES || total.saturating_add(size) > MAX_PACKAGE_BYTES {
-            return Err(invalid(
-                "package directory",
-                "directory exceeds the uncompressed-size limit",
-            ));
-        }
-        *total += size;
-        if files.insert(relative.clone(), bytes).is_some() {
-            return Err(invalid(
-                "package directory",
-                format!("duplicate package path '{relative}'"),
-            ));
-        }
-    }
-    Ok(())
-}
-
-fn normalize_root(
-    mut files: BTreeMap<String, Vec<u8>>,
-) -> Result<BTreeMap<String, Vec<u8>>, EngineError> {
+fn normalize_root(files: Cow<'_, EntryMap>) -> Result<Cow<'_, EntryMap>, EngineError> {
     if files.contains_key("imsmanifest.xml") {
         return Ok(files);
     }
@@ -285,15 +120,15 @@ fn normalize_root(
             "missing or ambiguous imsmanifest.xml root",
         ));
     }
-    let prefix = prefixes.into_iter().next().expect("one prefix");
-    let marker = format!("{prefix}/");
-    let mut normalized = BTreeMap::new();
-    for (name, bytes) in std::mem::take(&mut files) {
-        if let Some(name) = name.strip_prefix(&marker) {
-            normalized.insert(name.to_owned(), bytes);
-        }
-    }
-    Ok(normalized)
+    let marker = format!("{}/", prefixes.into_iter().next().expect("one prefix"));
+    let normalized = files
+        .iter()
+        .filter_map(|(name, bytes)| {
+            name.strip_prefix(&marker)
+                .map(|name| (name.to_owned(), bytes.clone()))
+        })
+        .collect();
+    Ok(Cow::Owned(normalized))
 }
 
 #[derive(Debug, Clone)]
@@ -453,14 +288,5 @@ fn pool_files(manifest: &Node) -> Result<Vec<String>, EngineError> {
 }
 
 pub(super) fn checked_path(path: &str) -> Result<(), String> {
-    if path.is_empty()
-        || path.starts_with('/')
-        || path.contains('\\')
-        || path
-            .split('/')
-            .any(|part| part.is_empty() || matches!(part, "." | ".."))
-    {
-        return Err(format!("unsafe package path '{path}'"));
-    }
-    Ok(())
+    qti_core::validate_entry_name(path).map_err(|_| format!("unsafe package path '{path}'"))
 }

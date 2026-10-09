@@ -1,0 +1,33 @@
+{
+  "name": "@vosslab/qti-wasm",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "LGPL-3.0-or-later",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./qti_wasm_bg.wasm": "./dist/generated/qti_wasm_bg.wasm"
+  },
+  "files": ["dist/src", "dist/generated", "dist/LICENSE.LGPL-3.0"],
+  "engines": {"node": ">=24"},
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.worker.json",
+    "test": "node --test tests/host.test.mjs tests/parity.test.mjs",
+    "test:parity": "node --test tests/parity.test.mjs",
+    "test:browser": "playwright test",
+    "measure": "node scripts/measure.mjs",
+    "example:node": "node dist/examples/node.js",
+    "example:browser": "node scripts/serve.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "*",
+    "@types/node": "*",
+    "fflate": "*",
+    "typescript": "*",
+    "wasm-pack": "*"
+  }
+}

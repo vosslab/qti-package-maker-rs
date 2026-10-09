@@ -1,5 +1,18 @@
 # Design decisions
 
+### Library dependency features
+
+**Decision.** Enable Scraper's HTML parse diagnostics without its standalone CLI, and ZIP's
+`deflate-flate2-zlib-rs` backend without the additional Zopfli encoder.
+
+**Why.** Conversion uses Scraper as a library and ZIP's default ordinary Deflate compression
+level. The extra CLI and compression features add unused dependencies.
+
+**Consequence.** Preserve existing HTML diagnostics, archive input support, and output compression.
+Declare direct dependencies only in the crates and build kinds that use them.
+
+**Owner.** [Cargo.toml](../Cargo.toml) and the workspace member manifests.
+
 ### Graphify normalization and overwrite protection
 
 **Decision.** Keep the reclustering correction upstream in Graphify. The tested
@@ -91,8 +104,9 @@ and MULTI_FIB accepted-answer literals. An answer containing image-like text the
 missing-file error or is rewritten, changing accepted grading input. The PLE output has distinct
 display fields, so scanning them directly preserves answer meaning.
 
-**Consequence.** Shared media path confinement, naming, and policy stay authoritative in
-`qti-core`, while PLE export packages only images referenced by represented display HTML. Do not
+**Consequence.** Shared media naming and policy stay authoritative in `qti-core`; native path
+confinement belongs to `qti-native`. PLE export packages only images referenced by represented
+display HTML. Do not
 create a surrogate bank or alter the source item to work around this boundary.
 
 **Owner.** [ple_native_json/media.rs](../crates/qti-engines/src/ple_native_json/media.rs) and
@@ -116,7 +130,7 @@ directories unchanged. The manifest belongs only to directory transport, not the
 per-question file list. PLE reads the JSON and associated files; it does not consume the marker.
 
 **Owner.** [ple_native_json/media.rs](../crates/qti-engines/src/ple_native_json/media.rs) and
-[ple_native_json/output.rs](../crates/qti-engines/src/ple_native_json/output.rs).
+[qti-native/src/ple_output.rs](../crates/qti-native/src/ple_output.rs).
 
 ### PLE staged output integrity
 
@@ -130,8 +144,74 @@ failure; its filesystem-aware version passes after staged-tree verification.
 **Consequence.** An aliased or changed staged file is rejected before it can replace an existing
 directory. The ownership manifest proves both the expected file set and bytes at publication.
 
-**Owner.** [ple_native_json/output.rs](../crates/qti-engines/src/ple_native_json/output.rs) and
+**Owner.** [qti-native/src/ple_output.rs](../crates/qti-native/src/ple_output.rs) and
 [ple_native_json_writer_plan.md](active_plans/active/ple_native_json_writer_plan.md) (D8).
+
+### One Rust conversion engine for CLI and Wasm
+
+**Decision.** Build the same Rust parsing, validation, media, and writer implementation for the
+native CLI and `wasm32-unknown-unknown`. Generate TypeScript bindings from Rust with `tsify`; expose
+an explicit typed API for initialization, format enumeration, conversion, and package checking.
+
+**Why.** A single conversion implementation keeps native and browser behavior aligned and avoids a
+second JavaScript conversion path.
+
+**Consequence.** Keep portable bank, media, ZIP, converter, registry, and integrity behavior in the
+existing core, engine, and integrity crates. Put filesystem, persistence, rendering, environment,
+and time services in `qti-native`; keep `qti-wasm` as the typed host adapter with owned
+`Uint8Array` inputs and outputs. D1-D9 establish byte inputs, logical output names, explicit
+context, media-source ownership, lazy reads, safe archive handling, and shared orchestration.
+Native and Wasm adapters use the same four readers and eleven writers.
+
+**Owner.** [shared_engine_contracts.md](archive/shared_engine_contracts.md).
+
+### Explicit context and registry metadata
+
+**Decision.** The registry owns supported kinds, default and content-derived output names, and
+native-render eligibility. Writers use the supplied logical output name literally. Callers resolve
+date and shuffle seed once. Preserve the existing fixed ZIP package titles (D10).
+
+**Why.** One format inventory and explicit invocation values prevent target-dependent conversion
+behavior and accidental metadata changes during the native/Wasm split.
+
+**Consequence.** Exam YAML uses context title/date; ZIP titles keep their established values.
+Explicit browser date/title/seed make repeated calls reproducible. The browser adapter defaults
+to UTC today, title `Exam`, seed zero, and the registry default output name.
+
+**Owner.** [registry.rs](../crates/qti-engines/src/registry.rs),
+[traits.rs](../crates/qti-engines/src/traits.rs), and
+[adapter.rs](../crates/qti-wasm/src/adapter.rs).
+
+### Shared asset overlay ownership
+
+**Decision.** `qti-engines::AssetOverlay` serves recovered or rendered memory bytes first and
+consults the caller's provider only when that source is absent (D11).
+
+**Why.** Native rendering and portable conversion need the same composition behavior and one
+authoritative owner.
+
+**Consequence.** Recovered bytes win over supplied duplicates. Provider failures propagate;
+composition introduces no broad error fallback. Native callers import this shared type.
+
+**Owner.** [conversion.rs](../crates/qti-engines/src/conversion.rs).
+
+### Logical names and native confinement
+
+**Decision.** Portable file and memory asset names are relative POSIX names with no trailing
+slash, traversal, empty components, backslash, colon, or control characters. Directory markers
+have a separate ZIP contract. Conflicting memory bytes at one exact key fail. Native media reads
+are confined to the canonical input root, including authored absolute paths and symlinks.
+
+**Why.** Byte transports need unambiguous names; a native root makes file authorization explicit
+without adding host paths to portable models.
+
+**Consequence.** Reference/placeholder writers inspect metadata without payload reads. Payload
+writers request only emitted media. Banks whose media sits outside the input directory must
+move under a common root and update their references. Spaces and UTF-8 names remain supported.
+
+**Owner.** [assets.rs](../crates/qti-core/src/media/assets.rs),
+[zip.rs](../crates/qti-core/src/zip.rs), and
+[assets.rs](../crates/qti-native/src/assets.rs).
 
 ### Hierarchical Rust modules
 
@@ -146,18 +226,69 @@ media, validation, archive, and integrity contracts keep one authoritative imple
 
 **Owner.** [rust_port_plan.md](archive/rust_port_plan.md).
 
-### Shared temporary media ownership
+### Provider-owned media bytes
 
-**Decision.** Banks share an owned temporary media directory with `Arc<TempDir>` when merged
-or cloned; equal-path merges retain an owning handle if either side has one.
+**Decision.** Item banks own validated items; asset providers and reader outcomes own media
+bytes. Blackboard recovery returns `MemoryAssets`; banks carry no media directory or keepalive.
 
-**Why.** A merged bank must resolve images after its source banks drop. Python's non-owning
-merge can retain a path after its owner removes the directory.
+**Why.** Portable models must remain valid independently of filesystem and temporary-directory
+lifetime. Media provenance and payload access belong to an explicit provider.
 
-**Consequence.** The last owned handle removes temporary files. Caller-supplied paths remain
-untouched. Different base paths still fail explicitly.
+**Consequence.** Bank cloning and merging operate on item data. The caller retains its provider
+for the conversion; recovered reader bytes remain owned by the read outcome. This replaces the
+earlier `Arc<TempDir>` bank ownership design.
 
-**Owner.** [bank.rs](../crates/qti-core/src/bank.rs).
+**Owner.** [bank.rs](../crates/qti-core/src/bank.rs),
+[assets.rs](../crates/qti-core/src/media/assets.rs), and
+[traits.rs](../crates/qti-engines/src/traits.rs).
+
+### ZIP fallback allocation bounds
+
+**Decision.** Before constructing zip-rs, scan all plausible EOCD and associated ZIP64 candidates
+and enforce original member-count and extensible-record bounds (D14). Index candidates once
+to avoid repeated prefix scans (D19).
+Keep selected-directory raw-name, duplicate, and entry validation.
+
+**Why.** The decoder can fall back from a malformed final directory to an earlier directory.
+Preflighting only the final record permits oversized metadata allocation before a later error.
+
+**Consequence.** Both regular ZIP32/ZIP64 packages and prefix bytes remain supported. An unusual
+input embedding a plausible overlimit archive directory can be conservatively rejected because
+the decoder may select it through fallback. Candidate indexes grow with input candidates; decoder
+metadata stays bounded before allocation. ZIP32/ZIP64 regressions cover the bypass, and dense
+ZIP64 candidate regressions protect the indexed scan from returning to quadratic prefix work.
+
+**Owner.** [zip_directory.rs](../crates/qti-integrity/src/input/zip_directory.rs).
+
+### Shared immutable resolved payloads
+
+**Decision.** Store resolved `MediaAsset` and `NamedFile` bytes as `Arc<[u8]>` (D23). Use
+`shared_bytes()` and `from_shared` for dependency and per-question file fan-out. Keep the provider
+Cow contract and `EntryMap` byte vectors unchanged. Explicit output-boundary methods return copies.
+
+**Why.** Vector-bearing media records introduced one full image allocation per cloned dependency;
+a 160-item, 1 MiB-image probe reproduced 161 image-sized allocations. Immutable shared ownership
+retains one resolved payload while each dependency keeps its own metadata.
+
+**Consequence.** Rust media/file clones share their byte allocation; PLE associated files preserve
+exact payloads. `read_bytes()` and `into_parts()` still provide independent vectors when required,
+and generated JavaScript input/output arrays retain their owned-copy contract.
+
+**Owner.** [resolve.rs](../crates/qti-core/src/media/resolve.rs),
+[zip.rs](../crates/qti-core/src/zip.rs), and
+[media.rs](../crates/qti-engines/src/ple_native_json/media.rs).
+
+### Native missing-source classification
+
+**Decision.** Map native `NotFound` media reads to `MediaError::MissingAsset` with authored source
+spelling; preserve `AssetRead` for provider failures (D24).
+
+**Why.** The shared provider contract distinguishes an absent source from a failed read.
+
+**Consequence.** Missing sources retain consistent portable diagnostics; permission and other
+provider errors propagate without broad fallback.
+
+**Owner.** [assets.rs](../crates/qti-native/src/assets.rs).
 
 ### Merge position parity
 

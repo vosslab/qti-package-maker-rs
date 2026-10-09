@@ -1,23 +1,22 @@
 //! Display-only media collection for loose PLE Native JSON questions.
 
 use std::collections::{BTreeMap, HashSet};
-use std::path::{Path, PathBuf};
 
 use qti_core::media::{
-    AssetKind, MediaAsset, MediaPolicy, MediaWarning, apply_media_policy, assign_output_names,
-    resolve_asset, resolve_local_path, rewrite_html_srcs, scan_html_for_assets,
+    AssetKind, AssetSource, MediaAsset, MediaWarning, apply_media_policy, assign_output_names,
+    resolve_asset, rewrite_html_srcs, scan_html_for_assets,
 };
-use qti_core::{AssetCollectionAction, BankError, ItemBank, ItemCrc};
+use qti_core::{AssetCollectionAction, BankError, ItemCrc, NamedFile};
 use scraper::{Html, Selector};
 
-use super::export::{AssociatedFile, MappedQuestion, NativeExport, NativeQuestion, serialize};
+use super::export::{MappedQuestion, NativeExport, NativeQuestion, serialize};
 use super::source::{Response, SourceDocument};
 use crate::EngineError;
 
 const ENGINE: &str = "ple_native_json";
 
 pub(super) fn finish_export(
-    bank: &ItemBank,
+    assets: &dyn AssetSource,
     mapped: Vec<MappedQuestion>,
 ) -> Result<NativeExport, EngineError> {
     let mut assets_by_src = BTreeMap::new();
@@ -27,13 +26,7 @@ pub(super) fn finish_export(
         let mut seen = HashSet::new();
         for_display_field(&question.document, |html| {
             let found = scan_html_for_assets(html).map_err(|source| {
-                collect_error(
-                    question.crc,
-                    None,
-                    None,
-                    AssetCollectionAction::ScanHtml,
-                    source,
-                )
+                collect_error(question.crc, None, AssetCollectionAction::ScanHtml, source)
             })?;
             for src in found {
                 if seen.insert(src.clone()) {
@@ -44,12 +37,10 @@ pub(super) fn finish_export(
         })?;
         for src in &sources {
             if !assets_by_src.contains_key(src) {
-                let resolved_path = local_path(bank.media_base_dir(), src);
-                let asset = resolve_asset(src, bank.media_base_dir()).map_err(|source| {
+                let asset = resolve_asset(src, assets).map_err(|source| {
                     collect_error(
                         question.crc,
                         Some(src.clone()),
-                        resolved_path,
                         AssetCollectionAction::ResolveAsset,
                         source,
                     )
@@ -66,7 +57,6 @@ pub(super) fn finish_export(
         .iter()
         .map(|asset| (asset.src.as_str(), asset))
         .collect::<BTreeMap<_, _>>();
-    let mut bytes_by_path = BTreeMap::<PathBuf, Vec<u8>>::new();
     let mut questions = Vec::with_capacity(mapped.len());
     let mut warnings = Vec::<MediaWarning>::new();
 
@@ -80,7 +70,9 @@ pub(super) fn finish_export(
             .map(|asset| (*asset).clone())
             .collect::<Vec<_>>();
         let decision = apply_media_policy(
-            MediaPolicy::Package,
+            crate::engine(ENGINE)
+                .expect("registered PLE engine")
+                .media_policy,
             &policy_assets,
             ENGINE,
             &question.crc.to_string(),
@@ -102,31 +94,18 @@ pub(super) fn finish_export(
                 .output_name
                 .as_ref()
                 .expect("local asset has assigned name");
-            let target = PathBuf::from("media").join(name);
-            targets.insert(asset.src.as_str(), format!("media/{name}"));
-            let path = asset
-                .file_path
-                .as_ref()
-                .expect("resolved local asset has path");
-            let bytes = if let Some(bytes) = bytes_by_path.get(path) {
-                bytes.clone()
-            } else {
-                let bytes = asset.read_bytes().map_err(|source| {
-                    collect_error(
-                        question.crc,
-                        Some(asset.src.clone()),
-                        Some(path.clone()),
-                        AssetCollectionAction::ResolveAsset,
-                        source,
-                    )
-                })?;
-                bytes_by_path.insert(path.clone(), bytes.clone());
-                bytes
-            };
-            files.push(AssociatedFile {
-                path: target,
-                bytes,
-            });
+            let target = format!("media/{name}");
+            targets.insert(asset.src.as_str(), target.clone());
+            let bytes = asset.shared_bytes().map_err(|source| {
+                collect_error(
+                    question.crc,
+                    Some(asset.src.clone()),
+                    AssetCollectionAction::ResolveAsset,
+                    source,
+                )
+            })?;
+            // ASVS 5.3.2: validate generated relative names before exposing output bytes.
+            files.push(NamedFile::from_shared(target, bytes)?);
         }
         if !targets.is_empty() {
             for_display_field_mut(&mut question.document, |html| {
@@ -137,13 +116,7 @@ pub(super) fn finish_export(
                         .unwrap_or_else(|| src.to_owned())
                 })
                 .map_err(|source| {
-                    collect_error(
-                        question.crc,
-                        None,
-                        None,
-                        AssetCollectionAction::ScanHtml,
-                        source,
-                    )
+                    collect_error(question.crc, None, AssetCollectionAction::ScanHtml, source)
                 })?;
                 Ok(())
             })?;
@@ -164,7 +137,7 @@ pub(super) fn finish_export(
 
 fn verify_display_image_files(
     document: &SourceDocument,
-    files: &[AssociatedFile],
+    files: &[NamedFile],
     item_number: usize,
 ) -> Result<(), EngineError> {
     let images = Selector::parse("img[src]").expect("static image selector is valid");
@@ -178,10 +151,7 @@ fn verify_display_image_files(
             if src.is_empty() || qti_core::media::classify_src(src) != AssetKind::Local {
                 continue;
             }
-            let matches = files
-                .iter()
-                .filter(|file| file.path == Path::new(src))
-                .count();
+            let matches = files.iter().filter(|file| file.name() == src).count();
             if matches != 1 {
                 return Err(EngineError::InvalidFormat {
                     engine: ENGINE,
@@ -196,25 +166,15 @@ fn verify_display_image_files(
     })
 }
 
-fn local_path(base_dir: Option<&Path>, src: &str) -> Option<PathBuf> {
-    if qti_core::media::classify_src(src) == AssetKind::Local {
-        base_dir.and_then(|base| resolve_local_path(base, src).ok())
-    } else {
-        None
-    }
-}
-
 fn collect_error(
     item_crc: ItemCrc,
     src: Option<String>,
-    resolved_path: Option<PathBuf>,
     action: AssetCollectionAction,
     source: qti_core::media::MediaError,
 ) -> EngineError {
     BankError::CollectAsset {
         item_crc,
         src,
-        resolved_path,
         action,
         source,
     }

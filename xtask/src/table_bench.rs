@@ -5,10 +5,11 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Instant;
 
-use qti_engines::html_to_image::{
+use qti_engines::{AssetOverlay, ENGINES, ReadInput};
+use qti_native::DirectoryAssets;
+use qti_native::html_to_image::{
     ChromiumFragmentRenderer, ConversionMetrics, RenderCache, convert_bank_with_metrics,
 };
-use qti_engines::{ENGINES, EngineOptions};
 use serde_json::{Value, json};
 
 const PINNED_PYTHON_HEAD: &str = "55e5f368777f7809fe2e91b5d070caf6df0cb581";
@@ -305,7 +306,7 @@ fn native_library_metrics(inputs: &[Value]) -> Result<Value, String> {
         .iter()
         .find(|entry| entry.name == "bbq_text_upload")
         .expect("static BBQ reader");
-    let reader = entry.make_reader.expect("static BBQ reader factory")(EngineOptions::default());
+    let reader = entry.make_reader.expect("static BBQ reader factory")();
     let renderer = ChromiumFragmentRenderer::default();
     let mut metrics = ConversionMetrics::default();
     let mut load_seconds = 0.0;
@@ -318,17 +319,51 @@ fn native_library_metrics(inputs: &[Value]) -> Result<Value, String> {
                 .ok_or("corpus bbq_files contains non-string")?,
         );
         let started = Instant::now();
-        let bank = match reader.read_items(input, false) {
-            Ok(outcome) => outcome.bank,
+        let load = || {
+            let bytes = qti_native::read_source(input).map_err(display_error)?;
+            let name = input
+                .file_name()
+                .and_then(|name| name.to_str())
+                .ok_or("corpus input filename is not UTF-8")?;
+            let outcome = reader
+                .read_items(
+                    ReadInput::File {
+                        name,
+                        bytes: &bytes,
+                    },
+                    false,
+                )
+                .map_err(display_error)?;
+            let directory = DirectoryAssets::new(input.parent().unwrap_or(Path::new(".")))
+                .map_err(display_error)?;
+            Ok::<_, String>((outcome, directory))
+        };
+        let (outcome, directory) = match load() {
+            Ok(loaded) => loaded,
             Err(error) => {
                 failures.push(json!({"input": input, "stage": "load", "error": error.to_string()}));
                 continue;
             }
         };
+        let assets = AssetOverlay {
+            memory: &outcome.assets,
+            fallback: &directory,
+        };
         load_seconds += started.elapsed().as_secs_f64();
         let started = Instant::now();
-        match convert_bank_with_metrics(&bank, &renderer, &RenderCache::new()) {
-            Ok((_converted, input_metrics)) => metrics += input_metrics,
+        let supported_kinds = ENGINES
+            .iter()
+            .filter(|entry| entry.native_rendering)
+            .flat_map(|entry| entry.supported_kinds.iter().copied())
+            .collect::<Vec<_>>();
+        match convert_bank_with_metrics(
+            &outcome.bank,
+            &supported_kinds,
+            &assets,
+            &renderer,
+            &RenderCache::new(),
+        ) {
+            Ok((_converted, _assets, input_metrics)) => metrics += input_metrics,
             Err(failure) => {
                 metrics += *failure.metrics;
                 failures.push(json!({
@@ -350,7 +385,7 @@ fn native_library_metrics(inputs: &[Value]) -> Result<Value, String> {
             "layout": null,
             "paint": null,
             "encode": null,
-            "materialization_write": metrics.materialization.as_secs_f64(),
+            "materialization": metrics.materialization.as_secs_f64(),
             "bookkeeping": metrics.conversion_bookkeeping.as_secs_f64()
         }
     }))
@@ -428,8 +463,8 @@ fn native_report(receipt: &Value) -> String {
     report.push('\n');
     report.push_str("Both modes request --html-to-image. The table above records actual invocation failures and output counts; detailed failures are retained in receipt.json. A short output can be expected when an input contains only an unsupported item type, such as ORDER for Canvas, but must be assessed alongside the recorded failures.\n");
     report.push_str("\n## Stage attribution\n\nThe release-binary lane records only end-to-end wall time and artifacts. The separate library pass below exposes the approved conversion and raster counters without altering CLI behavior.\n");
-    report.push_str("\n## Library conversion metrics\n\nA separate library pass uses the same manifest inputs and one fresh run-scoped cache per input, matching the CLI conversion scope. `conversion_wall_seconds` is elapsed sequential wall time for that pass. Chromium does not expose separate layout, paint, or PNG encoding timings here; those fields are null. Materialization and bookkeeping are cumulative work under Rayon, not elapsed wall time.\n\n");
-    report.push_str("| Run | Requests | Attempts | Cache hit/wait/miss | Conversion wall | Write work | Bookkeeping work |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n");
+    report.push_str("\n## Library conversion metrics\n\nA separate library pass uses the same manifest inputs and one fresh run-scoped cache per input, matching the CLI conversion scope. `conversion_wall_seconds` is elapsed sequential wall time for that pass. Chromium does not expose separate layout, paint, or PNG encoding timings here; those fields are null. Materialization stages generated and retained asset bytes in memory; historical `materialization_write` timings measured the former filesystem stage. Materialization and bookkeeping are cumulative work under Rayon, not elapsed wall time.\n\n");
+    report.push_str("| Run | Requests | Attempts | Cache hit/wait/miss | Conversion wall | Materialization work | Bookkeeping work |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n");
     for (name, run) in receipt["runs"].as_object().expect("constructed runs") {
         let metrics = &run["library_conversion_metrics"];
         let work = &metrics["cumulative_work_seconds"];
@@ -441,7 +476,7 @@ fn native_report(receipt: &Value) -> String {
             metrics["cache"]["waits"],
             metrics["cache"]["misses"],
             number(metrics, "conversion_wall_seconds"),
-            number(work, "materialization_write"),
+            number(work, "materialization"),
             number(work, "bookkeeping"),
         ));
     }

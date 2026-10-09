@@ -5,6 +5,8 @@ use std::io::{Read, Write};
 use std::path::Path;
 
 use qti_core::{Item, ItemBank, ItemBody};
+use qti_engines::{AssetOverlay, DocumentMetadata, ReadInput, ReadOutcome, Reader, WriteContext};
+use qti_native::DirectoryAssets;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
@@ -50,8 +52,7 @@ pub(super) fn native_reader_roundtrips(
         .iter()
         .find(|entry| entry.name == "bbq_text_upload")
         .expect("fixed registry has BBQ reader");
-    let bbq_reader =
-        (bbq_entry.make_reader.expect("BBQ reader"))(qti_engines::EngineOptions::default());
+    let bbq_reader = (bbq_entry.make_reader.expect("BBQ reader"))();
     let mut differences = Vec::new();
     for engine in [
         "bbq_text_upload",
@@ -70,10 +71,9 @@ pub(super) fn native_reader_roundtrips(
         {
             return Err("text2qti multiblock repair fixture SHA-256 changed".to_owned());
         }
-        let bbq_source = bbq_reader
-            .read_items(&input, true)
-            .map_err(|error| format!("native reader source load {engine}: {error}"))?
-            .bank;
+        let source_outcome = read_path(bbq_reader.as_ref(), &input)
+            .map_err(|error| format!("native reader source load {engine}: {error}"))?;
+        let bbq_source = source_outcome.bank;
         let ordinary_bbq_ma_defaults = (engine == "blackboard_export_zip")
             .then(|| blackboard_ma_defaults(&bbq_source))
             .transpose()?;
@@ -103,20 +103,38 @@ pub(super) fn native_reader_roundtrips(
             .iter()
             .find(|entry| entry.name == engine)
             .expect("fixed reader engine is in registry");
-        let writer = (entry.make_writer.expect("reader engine writer"))(
-            qti_engines::EngineOptions::default(),
-        );
+        let writer = (entry.make_writer.expect("reader engine writer"))();
         let output = temporary.join(format!(
             "native_reader_{engine}.{}",
             output_extension(engine)
         ));
-        let path = writer
-            .save_package(&source, Some(&output))
-            .map_err(|error| format!("native reader writer {engine}: {error}"))?
-            .path
+        let context = WriteContext::new(
+            output
+                .file_name()
+                .and_then(|name| name.to_str())
+                .ok_or("native reader output filename is not UTF-8")?,
+            DocumentMetadata {
+                title: "Exam".to_owned(),
+                date: "2026-09-30".to_owned(),
+            },
+            0,
+        )
+        .map_err(display_error)?;
+        let directory = DirectoryAssets::new(input.parent().unwrap_or(Path::new(".")))
+            .map_err(display_error)?;
+        let assets = AssetOverlay {
+            memory: &source_outcome.assets,
+            fallback: &directory,
+        };
+        let written = writer
+            .write_package(&source, &assets, &context)
+            .map_err(|error| format!("native reader writer {engine}: {error}"))?;
+        let artifact = written
+            .artifact
             .ok_or_else(|| format!("native reader writer {engine} produced no output"))?;
-        let reader =
-            (entry.make_reader.expect("reader factory"))(qti_engines::EngineOptions::default());
+        let path = qti_native::persist_artifact(&artifact, &output)
+            .map_err(|error| format!("native reader writer {engine}: {error}"))?;
+        let reader = (entry.make_reader.expect("reader factory"))();
         let frozen_path = frozen_output.join(format!("{engine}.{}", output_extension(engine)));
         let mut frozen_reader = super::python_command(repository, python_root, "readback")?;
         frozen_reader.args([
@@ -139,8 +157,7 @@ pub(super) fn native_reader_roundtrips(
                     String::from_utf8_lossy(&frozen_readback.stdout).trim()
                 )
             })?;
-        let restored = reader
-            .read_items(&path, true)
+        let restored = read_path(reader.as_ref(), &path)
             .map_err(|error| format!("native reader reload {engine}: {error}"))?
             .bank;
         let restored_projection = native_reader_projection(&restored);
@@ -184,8 +201,7 @@ pub(super) fn native_reader_roundtrips(
             rewrite_blackboard_metadata(&path, &absent_path, remove_private_metadata)?;
             let absent_counts = blackboard_private_metadata_counts(&absent_path)?;
             require_private_metadata_counts(&absent_counts, 0, "stripped Blackboard ZIP")?;
-            let absent = reader
-                .read_items(&absent_path, true)
+            let absent = read_path(reader.as_ref(), &absent_path)
                 .map_err(|error| format!("Blackboard absent metadata reload: {error}"))?
                 .bank;
             let absent_projection = native_reader_projection(&absent);
@@ -215,8 +231,7 @@ pub(super) fn native_reader_roundtrips(
                     "malformed Blackboard ZIP expected one NUM tolerance replacement and no original value, found replacements={malformed_replacements}, originals={malformed_tolerance_values}"
                 ));
             }
-            let malformed = reader
-                .read_items(&malformed_path, true)
+            let malformed = read_path(reader.as_ref(), &malformed_path)
                 .map_err(|error| format!("Blackboard malformed metadata reload: {error}"))?;
             let malformed_projection = native_reader_projection(&malformed.bank);
             let malformed_warnings = Value::Array(
@@ -315,6 +330,23 @@ pub(super) fn native_reader_roundtrips(
         }
     }
     Ok(differences)
+}
+
+fn read_path(reader: &dyn Reader, path: &Path) -> Result<ReadOutcome, String> {
+    let bytes = qti_native::read_source(path).map_err(display_error)?;
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or("native reader input filename is not UTF-8")?;
+    reader
+        .read_items(
+            ReadInput::File {
+                name,
+                bytes: &bytes,
+            },
+            true,
+        )
+        .map_err(display_error)
 }
 
 fn blackboard_private_metadata_bank() -> Result<ItemBank, String> {

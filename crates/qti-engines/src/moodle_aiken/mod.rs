@@ -6,20 +6,22 @@
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::fs;
-use std::path::Path;
 
 use qti_core::media::{MediaPolicy, MediaWarning, apply_media_policy, replace_item_images};
-use qti_core::{ItemBody, ItemKind, ItemRenderView, number_to_letter, remove_prefix_from_list};
+use qti_core::{
+    AssetSource, ItemBody, ItemKind, ItemRenderView, NamedFile, number_to_letter,
+    remove_prefix_from_list,
+};
 
-use crate::{EngineError, EngineOptions, RenderHooks, WriteOutcome, Writer, render_bank};
+use crate::{
+    EngineError, RenderHooks, WriteArtifact, WriteContext, WriteOutcome, Writer, render_bank,
+};
 
 /// Stable engine name used by the registry and diagnostics.
 pub(crate) const NAME: &str = "moodle_aiken";
-const KINDS: &[ItemKind] = &[ItemKind::Mc];
 
 /// Creates the fixed Moodle Aiken writer for the compile-time registry.
-pub fn boxed_writer(_: EngineOptions) -> Box<dyn Writer> {
+pub fn boxed_writer() -> Box<dyn Writer> {
     Box::new(MoodleAikenWriter)
 }
 
@@ -31,22 +33,30 @@ impl Writer for MoodleAikenWriter {
     }
 
     fn media_policy(&self) -> MediaPolicy {
-        MediaPolicy::PlaceholderWarn
+        crate::engine(NAME).expect("registered engine").media_policy
     }
 
     fn supported_kinds(&self) -> &'static [ItemKind] {
-        KINDS
+        crate::engine(NAME)
+            .expect("registered engine")
+            .supported_kinds
     }
 
-    fn save_package(
+    fn write_package(
         &self,
         bank: &qti_core::ItemBank,
-        output: Option<&Path>,
+        _source: &dyn AssetSource,
+        context: &WriteContext,
     ) -> Result<WriteOutcome, EngineError> {
-        let output = output
-            .unwrap_or_else(|| Path::new("moodle-aiken.txt"))
-            .to_path_buf();
-        let assets = bank.collect_assets()?;
+        // Inspect only items this document can emit; placeholders need no payload reads.
+        let mut visible = qti_core::ItemBank::new(true);
+        for item in bank
+            .iter_ordered()
+            .filter(|item| self.supported_kinds().contains(&item.kind()))
+        {
+            visible.add_item(item.clone())?;
+        }
+        let assets = visible.inspect_assets()?;
         let pending_warnings = RefCell::new(BTreeMap::<String, Vec<MediaWarning>>::new());
         let warnings = RefCell::new(Vec::new());
         let pre_render = |item: &qti_core::Item| {
@@ -81,7 +91,7 @@ impl Writer for MoodleAikenWriter {
         };
         let items = render_bank(
             bank,
-            KINDS,
+            self.supported_kinds(),
             render_item,
             RenderHooks {
                 pre_render: Some(&pre_render),
@@ -90,18 +100,17 @@ impl Writer for MoodleAikenWriter {
         )?;
         if items.is_empty() {
             return Ok(WriteOutcome {
-                path: None,
+                artifact: None,
                 warnings: warnings.into_inner(),
             });
         }
         let document = items.concat();
-        fs::write(&output, document).map_err(|source| EngineError::Io {
-            engine: NAME,
-            path: output.clone(),
-            source,
-        })?;
+        let primary = NamedFile::new(context.output_name(), document.into_bytes())?;
         Ok(WriteOutcome {
-            path: Some(output),
+            artifact: Some(WriteArtifact::File {
+                primary,
+                companions: Vec::new(),
+            }),
             warnings: warnings.into_inner(),
         })
     }
@@ -174,12 +183,34 @@ fn html_error(message: String) -> EngineError {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
+    fn context(name: &str) -> crate::WriteContext {
+        crate::WriteContext::new(
+            name.to_owned(),
+            crate::DocumentMetadata {
+                title: "Exam".to_owned(),
+                date: "2026-09-30".to_owned(),
+            },
+            0,
+        )
+        .expect("valid context")
+    }
+
+    fn primary(outcome: &crate::WriteOutcome) -> &qti_core::NamedFile {
+        match outcome.artifact.as_ref().expect("file artifact") {
+            crate::WriteArtifact::File { primary, .. } => primary,
+            crate::WriteArtifact::Directory { .. } => panic!("expected file artifact"),
+        }
+    }
+
+    fn document(outcome: &crate::WriteOutcome) -> &str {
+        std::str::from_utf8(primary(outcome).bytes()).expect("UTF-8 document")
+    }
 
     use qti_core::media::MediaAction;
-    use qti_core::{Item, ItemBank, ItemBody, MediaBaseDir};
+    use qti_core::{Item, ItemBank, ItemBody};
 
-    use super::{EngineError, EngineOptions, ItemKind, boxed_writer, render_item};
+    use super::{EngineError, ItemKind, boxed_writer, render_item};
+    use qti_core::MemoryAssets;
 
     fn mc(question: &str, choices: &[&str], answer: &str) -> Item {
         Item::new(
@@ -245,10 +276,7 @@ mod tests {
 
     #[test]
     fn skips_non_mc_items_through_the_shared_writer_contract() {
-        let directory = tempfile::tempdir().expect("output directory");
-        fs::write(directory.path().join("unused.png"), b"unused image").expect("unused image");
-        let mut bank =
-            ItemBank::with_media_base_dir(true, MediaBaseDir::external(directory.path()));
+        let mut bank = ItemBank::new(true);
         bank.add_item(mc("Question", &["yes", "no"], "yes"))
             .expect("MC item");
         bank.add_item(
@@ -265,17 +293,17 @@ mod tests {
             .expect("order item"),
         )
         .expect("order bank item");
-        let output = directory.path().join("items.txt");
-        let outcome = boxed_writer(EngineOptions::default())
-            .save_package(&bank, Some(&output))
+        let output = "items.txt";
+        let outcome = boxed_writer()
+            .write_package(&bank, &MemoryAssets::new(), &context(output))
             .expect("writer skips unsupported item as Python does");
-        assert_eq!(outcome.path.as_deref(), Some(output.as_path()));
+        assert_eq!(primary(&outcome).name(), output);
         assert!(
             outcome.warnings.is_empty(),
             "unsupported items must not emit media policy warnings"
         );
         assert_eq!(
-            fs::read_to_string(output).expect("Aiken output"),
+            document(&outcome),
             "Question\nA. yes\nB. no\nANSWER: A\n\n\n"
         );
     }
@@ -308,14 +336,13 @@ mod tests {
         let rdkit = "<script src=\"https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js\"></script><canvas id=\"canvas_alanine_1dd2\"></canvas><script>initRDKitModule()</script>";
         bank.add_item(mc(rdkit, &["yes", "no"], "yes"))
             .expect("item");
-        let directory = tempfile::tempdir().expect("output directory");
-        let output = directory.path().join("items.txt");
-        let outcome = boxed_writer(EngineOptions::default())
-            .save_package(&bank, Some(&output))
+        let output = "items.txt";
+        let outcome = boxed_writer()
+            .write_package(&bank, &MemoryAssets::new(), &context(output))
             .expect("pinned Aiken behavior accepts canvas markup");
-        assert_eq!(outcome.path.as_deref(), Some(output.as_path()));
+        assert_eq!(primary(&outcome).name(), output);
         assert_eq!(
-            fs::read_to_string(&output).expect("Aiken output"),
+            document(&outcome),
             format!("{rdkit}\nA. yes\nB. no\nANSWER: A\n\n\n")
         );
 
@@ -326,39 +353,28 @@ mod tests {
             "yes",
         );
         table_bank.add_item(table_item).expect("table item");
-        let table_output = directory.path().join("table-items.txt");
-        let table_outcome = boxed_writer(EngineOptions::default())
-            .save_package(&table_bank, Some(&table_output))
+        let table_output = "table-items.txt";
+        let table_outcome = boxed_writer()
+            .write_package(&table_bank, &MemoryAssets::new(), &context(table_output))
             .expect("pinned Aiken behavior accepts table markup");
-        assert_eq!(table_outcome.path.as_deref(), Some(table_output.as_path()));
-        assert!(
-            fs::read_to_string(table_output)
-                .expect("Aiken table output")
-                .contains("<table><tr><td>cell</td></tr></table>")
-        );
+        assert_eq!(primary(&table_outcome).name(), table_output);
+        assert!(document(&table_outcome).contains("<table><tr><td>cell</td></tr></table>"));
     }
 
     #[test]
     fn substitutes_local_remote_and_data_images_as_text_with_escaped_attributes() {
-        let directory = tempfile::tempdir().expect("media directory");
-        fs::write(
-            directory.path().join("local.png"),
-            b"not decoded by placeholder policy",
-        )
-        .expect("local image");
-        let mut bank =
-            ItemBank::with_media_base_dir(false, MediaBaseDir::external(directory.path()));
+        let mut bank = ItemBank::new(false);
         bank.add_item(mc(
             "<p><img alt=\"&lt;ignored&gt;\" src=\"local.png\"/> <img src=\"https://example.test/remote.png?x=1\" alt=\"remote\"/> <img src=\"data:image/png;base64,AA==\" alt=\"embedded\"/></p>",
             &["yes", "no"],
             "yes",
         ))
         .expect("item");
-        let output = directory.path().join("items.txt");
-        let outcome = boxed_writer(EngineOptions::default())
-            .save_package(&bank, Some(&output))
+        let output = "items.txt";
+        let outcome = boxed_writer()
+            .write_package(&bank, &MemoryAssets::new(), &context(output))
             .expect("Aiken output");
-        assert_eq!(outcome.path.as_deref(), Some(output.as_path()));
+        assert_eq!(primary(&outcome).name(), output);
         assert_eq!(outcome.warnings.len(), 3);
         assert_eq!(
             outcome
@@ -375,7 +391,7 @@ mod tests {
                 ("data:image/png;base64,AA==", MediaAction::Substituted),
             ]
         );
-        let text = fs::read_to_string(output).expect("Aiken output");
+        let text = document(&outcome);
         assert!(text.contains("[image: local.png]"));
         assert!(text.contains("[image: remote.png]"));
         assert!(text.contains("[image: embedded image]"));
@@ -426,13 +442,11 @@ mod tests {
             .expect("order item"),
         )
         .expect("bank item");
-        let directory = tempfile::tempdir().expect("output directory");
-        let output = directory.path().join("items.txt");
-        let outcome = boxed_writer(EngineOptions::default())
-            .save_package(&bank, Some(&output))
+        let output = "items.txt";
+        let outcome = boxed_writer()
+            .write_package(&bank, &MemoryAssets::new(), &context(output))
             .expect("unsupported item is skipped");
-        assert_eq!(outcome.path, None);
+        assert!(outcome.artifact.is_none());
         assert!(outcome.warnings.is_empty());
-        assert!(!output.exists());
     }
 }

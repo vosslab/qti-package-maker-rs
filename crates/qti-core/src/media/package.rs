@@ -1,6 +1,6 @@
 use super::{AssetKind, MediaAsset, MediaError};
 
-/// Returns the file-backed assets a packaging writer may copy after policy approval.
+/// Returns local assets a packaging writer may copy after policy approval.
 /// The caller owns output I/O; this shared layer never creates a package or a network request.
 pub fn packageable_assets(assets: &[MediaAsset]) -> Result<Vec<&MediaAsset>, MediaError> {
     assets

@@ -6,28 +6,16 @@
 //! network service.
 
 use std::collections::BTreeMap;
-use std::fs;
-use std::path::Path;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use qti_core::media::{
-    AssetKind, MediaAsset, MediaError, MediaPolicy, apply_media_policy, rewrite_item_media,
+    AssetKind, AssetSource, MediaAsset, MediaError, apply_media_policy, rewrite_item_media,
 };
-use qti_core::{ItemBody, ItemKind, ItemRenderView};
+use qti_core::{ItemBank, ItemBody, ItemKind, ItemRenderView, NamedFile};
 
-use crate::{EngineError, EngineOptions, WriteOutcome, Writer};
+use crate::{EngineError, WriteArtifact, WriteContext, WriteOutcome, Writer};
 
 pub(crate) const NAME: &str = "html_selftest";
-const KINDS: &[ItemKind] = &[
-    ItemKind::Mc,
-    ItemKind::Ma,
-    ItemKind::Match,
-    ItemKind::Num,
-    ItemKind::Fib,
-    ItemKind::MultiFib,
-    ItemKind::Order,
-];
 const BASE_CSS: &str = include_str!("assets/base_styles.css");
 const CSS: &str = include_str!("assets/control_styles.css");
 const CONTROLS: &str = include_str!("assets/controls.js");
@@ -36,7 +24,7 @@ const MATCH_CONTROLS: &str = include_str!("assets/match_controls.js");
 const ORDER_CONTROLS: &str = include_str!("assets/order_controls.js");
 
 /// Creates the HTML self-test writer for the compile-time engine registry.
-pub fn boxed_writer(_: EngineOptions) -> Box<dyn Writer> {
+pub fn boxed_writer() -> Box<dyn Writer> {
     Box::new(HtmlSelftestWriter)
 }
 
@@ -48,22 +36,28 @@ impl Writer for HtmlSelftestWriter {
     }
 
     fn media_policy(&self) -> qti_core::media::MediaPolicy {
-        // Local images become data URIs.  As in the pinned Python writer, pre-existing data URIs
-        // and remote URLs retain their authored spelling; remote assets are never fetched.
-        qti_core::media::MediaPolicy::Package
+        crate::engine(NAME)
+            .expect("registered selftest engine")
+            .media_policy
     }
 
     fn supported_kinds(&self) -> &'static [ItemKind] {
-        KINDS
+        crate::engine(NAME)
+            .expect("registered selftest engine")
+            .supported_kinds
     }
 
-    fn save_package(
+    fn write_package(
         &self,
         bank: &qti_core::ItemBank,
-        output: Option<&Path>,
+        source: &dyn AssetSource,
+        context: &WriteContext,
     ) -> Result<WriteOutcome, EngineError> {
-        let item = pick_item(bank)?;
-        let assets = bank.collect_assets()?;
+        let item = pick_item(bank, context.shuffle_seed)?;
+        // Only the emitted practice question needs payloads from the caller's source.
+        let mut selected = ItemBank::new(true);
+        selected.add_item(item.clone())?;
+        let assets = selected.collect_assets(source)?;
         let dependencies = assets.dependencies_for(item.crc()).unwrap_or_default();
         // Python passes pre-existing data URIs through without invoking the package-file policy.
         // Apply the shared decision only to dependencies that this writer can package or warn on.
@@ -73,7 +67,7 @@ impl Writer for HtmlSelftestWriter {
             .cloned()
             .collect::<Vec<_>>();
         let warnings = apply_media_policy(
-            MediaPolicy::Package,
+            self.media_policy(),
             &policy_assets,
             NAME,
             &item.crc().to_string(),
@@ -102,16 +96,11 @@ impl Writer for HtmlSelftestWriter {
         let document = format!(
             "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n<title>QTI self-test</title><style>{BASE_CSS}{CSS}</style></head><body><main class=\"qti-selftest\">{fragment}</main><script>{CONTROLS}</script>{controls}</body></html>\n"
         );
-        let output = output
-            .unwrap_or_else(|| Path::new("selftest.html"))
-            .to_path_buf();
-        fs::write(&output, document).map_err(|source| EngineError::Io {
-            engine: NAME,
-            path: output.clone(),
-            source,
-        })?;
         Ok(WriteOutcome {
-            path: Some(output),
+            artifact: Some(WriteArtifact::File {
+                primary: NamedFile::new(context.output_name(), document.into_bytes())?,
+                companions: Vec::new(),
+            }),
             warnings,
         })
     }
@@ -135,7 +124,7 @@ fn item_control_assets(kind: ItemKind, crc: &str) -> String {
     }
 }
 
-fn pick_item(bank: &qti_core::ItemBank) -> Result<&qti_core::Item, EngineError> {
+fn pick_item(bank: &qti_core::ItemBank, shuffle_seed: u64) -> Result<&qti_core::Item, EngineError> {
     if bank.is_empty() {
         return Err(EngineError::InvalidFormat {
             engine: NAME,
@@ -145,7 +134,12 @@ fn pick_item(bank: &qti_core::ItemBank) -> Result<&qti_core::Item, EngineError> 
     }
     let candidates = bank
         .iter_ordered()
-        .filter(|item| KINDS.contains(&item.kind()))
+        .filter(|item| {
+            crate::engine(NAME)
+                .expect("registered selftest engine")
+                .supported_kinds
+                .contains(&item.kind())
+        })
         .collect::<Vec<_>>();
     if candidates.is_empty() {
         return Err(EngineError::InvalidFormat {
@@ -154,12 +148,8 @@ fn pick_item(bank: &qti_core::ItemBank) -> Result<&qti_core::Item, EngineError> 
             message: "no supported assessment item could be rendered".to_owned(),
         });
     }
-    // Python deliberately chooses one item.  The time mix keeps ordinary practice output varied,
-    // while a one-item parity harness remains deterministic.
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |duration| duration.subsec_nanos() as usize);
-    Ok(candidates[nanos % candidates.len()])
+    // The host supplies variation once; identical seeds select identical practice questions.
+    Ok(candidates[(shuffle_seed % candidates.len() as u64) as usize])
 }
 
 fn media_error(source: MediaError) -> EngineError {
@@ -368,10 +358,23 @@ fn escape_attribute(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{HtmlSelftestWriter, Writer, boxed_writer, render_item};
-    use crate::EngineOptions;
-    use qti_core::{Item, ItemBank, ItemBody, MediaBaseDir};
+    use crate::{DocumentMetadata, WriteArtifact, WriteContext};
+    use qti_core::media::MemoryAssets;
+    use qti_core::{Item, ItemBank, ItemBody};
     use scraper::{Html, Selector};
     use std::collections::BTreeMap;
+
+    fn context(seed: u64) -> WriteContext {
+        WriteContext::new(
+            "practice/custom.html",
+            DocumentMetadata {
+                title: "Practice".into(),
+                date: "2026-10-08".into(),
+            },
+            seed,
+        )
+        .expect("context")
+    }
 
     fn item(body: ItemBody) -> Item {
         let question = if matches!(body, ItemBody::MultiFib { .. }) {
@@ -423,30 +426,89 @@ mod tests {
 
     #[test]
     fn selftest_document_inlines_local_assets_and_preserves_external_urls() {
-        let directory = tempfile::tempdir().expect("temporary assets");
-        std::fs::write(directory.path().join("figure.png"), b"not a real image")
+        let mut assets = MemoryAssets::new();
+        assets
+            .insert("figure.png", b"not a real image".to_vec())
             .expect("local asset");
-        let mut bank = ItemBank::with_media_base_dir(
-            true,
-            MediaBaseDir::external(directory.path().to_owned()),
-        );
+        let mut bank = ItemBank::new(true);
         bank.add_item(Item::new("See <img src=\"figure.png\" /><img src=\"https://example.test/figure.png\" /><a href=\"https://example.test/source\">source</a>".into(), ItemBody::Fib {
             answers: vec!["yes".into()],
         }).expect("valid"))
         .expect("add");
-        let output = directory.path().join("selftest.html");
-        let outcome = boxed_writer(EngineOptions::default())
-            .save_package(&bank, Some(&output))
+        let outcome = boxed_writer()
+            .write_package(&bank, &assets, &context(0))
             .expect("write");
-        assert_eq!(outcome.path, Some(output.clone()));
         assert_eq!(outcome.warnings.len(), 1);
         assert_eq!(outcome.warnings[0].src, "https://example.test/figure.png");
-        let page = std::fs::read_to_string(output).expect("read");
+        let Some(WriteArtifact::File {
+            primary,
+            companions,
+        }) = outcome.artifact
+        else {
+            panic!("selftest file");
+        };
+        assert_eq!(primary.name(), "practice/custom.html");
+        assert!(companions.is_empty());
+        let page = String::from_utf8(primary.into_parts().1).expect("HTML bytes");
         assert!(page.contains("<!doctype html>"));
         assert!(page.contains("qti-feedback-result"));
         assert!(page.contains("data:image/png;base64,bm90IGEgcmVhbCBpbWFnZQ=="));
         assert!(page.contains("src=\"https://example.test/figure.png\""));
         assert!(page.contains("href=\"https://example.test/source\""));
+    }
+
+    #[test]
+    fn supplied_seed_selects_one_question_without_reading_other_question_media() {
+        let mut bank = ItemBank::new(true);
+        bank.add_item(
+            Item::new(
+                "Plain question".into(),
+                ItemBody::Fib {
+                    answers: vec!["yes".into()],
+                },
+            )
+            .expect("plain item"),
+        )
+        .expect("add plain");
+        bank.add_item(
+            Item::new(
+                "Image question <img src='missing.png'/>".into(),
+                ItemBody::Fib {
+                    answers: vec!["no".into()],
+                },
+            )
+            .expect("image item"),
+        )
+        .expect("add image");
+        let assets = MemoryAssets::new();
+        let first = boxed_writer()
+            .write_package(&bank, &assets, &context(0))
+            .expect("plain selection");
+        assert_eq!(
+            first,
+            boxed_writer()
+                .write_package(&bank, &assets, &context(2))
+                .expect("same selection")
+        );
+        let Some(WriteArtifact::File { primary, .. }) = first.artifact else {
+            panic!("HTML file");
+        };
+        let html = std::str::from_utf8(primary.bytes()).expect("UTF-8");
+        assert!(html.contains("Plain question"));
+        assert!(!html.contains("Image question"));
+        assert!(
+            boxed_writer()
+                .write_package(&bank, &assets, &context(1))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn empty_bank_keeps_selftest_error() {
+        let error = boxed_writer()
+            .write_package(&ItemBank::new(true), &MemoryAssets::new(), &context(0))
+            .expect_err("empty selftest");
+        assert!(error.to_string().contains("empty item bank"));
     }
 
     #[test]

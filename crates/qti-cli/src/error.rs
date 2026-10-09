@@ -36,10 +36,18 @@ pub enum CliError {
     Engine(#[from] qti_engines::EngineError),
     /// The native, static HTML-to-image conversion rejected the bank.
     #[error(transparent)]
-    HtmlToImage(#[from] qti_engines::html_to_image::ConversionError),
-    /// The operating system did not provide a local civil time.
-    #[error("could not obtain the host local civil date: {message}")]
-    LocalDate { message: String },
+    HtmlToImage(#[from] qti_native::html_to_image::ConversionError),
+    /// Persisting a finished artifact failed for the selected writer.
+    #[error("engine '{engine}' could not access {path}: {source}")]
+    Persistence {
+        engine: &'static str,
+        path: PathBuf,
+        #[source]
+        source: Box<qti_native::NativeError>,
+    },
+    /// Native input, persistence, or clock services failed.
+    #[error(transparent)]
+    Native(#[from] qti_native::NativeError),
 }
 
 impl CliError {
@@ -53,7 +61,9 @@ impl CliError {
             | Self::AmbiguousEngine { .. }
             | Self::ReaderUnavailable { .. }
             | Self::WriterUnavailable { .. } => 2,
-            Self::Engine(_) | Self::HtmlToImage(_) | Self::LocalDate { .. } => 1,
+            Self::Engine(_) | Self::HtmlToImage(_) | Self::Native(_) | Self::Persistence { .. } => {
+                1
+            }
         }
     }
 }

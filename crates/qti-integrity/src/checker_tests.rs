@@ -239,24 +239,16 @@ fn png(width: u32, height: u32) -> Vec<u8> {
 }
 
 #[test]
-fn valid_qti21_media_trace_passes_from_an_extracted_directory() {
-    let root = std::env::temp_dir().join(format!(
-        "qti-integrity-{}-{}",
-        std::process::id(),
-        std::thread::current().name().unwrap_or("test")
-    ));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(root.join("items")).expect("test package item directory");
-    std::fs::create_dir_all(root.join("images")).expect("test package image directory");
+fn valid_qti21_media_trace_passes_from_package_entries() {
     let package_manifest = manifest(
         "<resource identifier='item' href='items/item.xml'><file href='items/item.xml'/><dependency identifierref='media'/></resource><resource identifier='media'><file href='images/figure.png'/></resource>",
     );
     let item = b"<q:assessmentItem xmlns:q='http://www.imsglobal.org/xsd/imsqti_v2p1' identifier='item'><q:outcomeDeclaration identifier='SCORE'/><q:itemBody><img src='../images/figure.png'/></q:itemBody></q:assessmentItem>";
-    std::fs::write(root.join("imsmanifest.xml"), package_manifest).expect("test manifest");
-    std::fs::write(root.join("items/item.xml"), item).expect("test item");
-    std::fs::write(root.join("images/figure.png"), png(8, 8)).expect("test image");
-    let violations = crate::check_package(&root);
-    std::fs::remove_dir_all(&root).expect("remove test package");
+    let violations = crate::check_entries(&entries(&[
+        ("imsmanifest.xml", package_manifest),
+        ("items/item.xml", item.to_vec()),
+        ("images/figure.png", png(8, 8)),
+    ]));
     assert!(
         violations.is_empty(),
         "unexpected violations: {violations:?}"
@@ -267,10 +259,7 @@ fn valid_qti21_media_trace_passes_from_an_extracted_directory() {
 fn public_api_accepts_a_zip_without_extracting_it() {
     use std::io::Write;
 
-    let path = std::env::temp_dir().join(format!("qti-integrity-{}.zip", std::process::id()));
-    let _ = std::fs::remove_file(&path);
-    let file = std::fs::File::create(&path).expect("test ZIP");
-    let mut archive = zip::ZipWriter::new(file);
+    let mut archive = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
     let options = zip::write::SimpleFileOptions::default();
     archive
         .start_file("imsmanifest.xml", options)
@@ -278,9 +267,8 @@ fn public_api_accepts_a_zip_without_extracting_it() {
     archive
         .write_all(&manifest(""))
         .expect("test manifest bytes");
-    archive.finish().expect("finish test ZIP");
-    let violations = crate::check_package(&path);
-    std::fs::remove_file(&path).expect("remove test ZIP");
+    let bytes = archive.finish().expect("finish test ZIP").into_inner();
+    let violations = crate::check_package(&bytes);
     assert!(
         violations.is_empty(),
         "unexpected violations: {violations:?}"

@@ -7,12 +7,12 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-time.workspace = true
 clap.workspace = true
 thiserror.workspace = true
 qti-core = { path = "../qti-core" }
 qti-engines = { path = "../qti-engines" }
 qti-integrity = { path = "../qti-integrity" }
+qti-native = { path = "../qti-native" }
 
 [dev-dependencies]
 tempfile.workspace = true

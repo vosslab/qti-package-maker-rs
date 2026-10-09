@@ -5,7 +5,8 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-use qti_integrity::{Severity, check_package};
+use qti_integrity::Severity;
+use qti_native::check_package_path;
 use serde::Deserialize;
 
 const PINNED_PYTHON_HEAD: &str = "55e5f368777f7809fe2e91b5d070caf6df0cb581";
@@ -64,7 +65,7 @@ pub fn run(arguments: &[String]) -> Result<(), String> {
     let mut divergences = Vec::new();
     for record in &output.records {
         let mut python = record.python.clone();
-        let mut rust = check_package(&record.path)
+        let mut rust = check_package_path(&record.path)
             .into_iter()
             .map(|violation| CanonicalViolation {
                 code: violation.code.to_owned(),

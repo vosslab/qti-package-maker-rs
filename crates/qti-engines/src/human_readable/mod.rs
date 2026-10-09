@@ -2,27 +2,18 @@
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::fs;
-use std::path::Path;
 
 use qti_core::media::{MediaPolicy, apply_media_policy, replace_item_images};
-use qti_core::{ItemBody, ItemKind, ItemRenderView, make_question_pretty};
+use qti_core::{AssetSource, ItemBody, ItemKind, ItemRenderView, NamedFile, make_question_pretty};
 
-use crate::{EngineError, EngineOptions, RenderHooks, WriteOutcome, Writer, render_bank};
+use crate::{
+    EngineError, RenderHooks, WriteArtifact, WriteContext, WriteOutcome, Writer, render_bank,
+};
 
 pub(crate) const NAME: &str = "human_readable";
-const KINDS: &[ItemKind] = &[
-    ItemKind::Mc,
-    ItemKind::Ma,
-    ItemKind::Match,
-    ItemKind::Num,
-    ItemKind::Fib,
-    ItemKind::MultiFib,
-    ItemKind::Order,
-];
 
 /// Creates the fixed human-readable writer for the registry.
-pub fn boxed_writer(_: EngineOptions) -> Box<dyn Writer> {
+pub fn boxed_writer() -> Box<dyn Writer> {
     Box::new(HumanReadableWriter)
 }
 
@@ -33,24 +24,29 @@ impl Writer for HumanReadableWriter {
         NAME
     }
     fn media_policy(&self) -> MediaPolicy {
-        // The frozen engine declaration follows the Python registry.  Rendering still
-        // replaces image elements with reader-facing text below, because this writer
-        // has no binary output package in which to retain a reference.
-        MediaPolicy::ReferenceWarn
+        crate::engine(NAME).expect("registered engine").media_policy
     }
     fn supported_kinds(&self) -> &'static [ItemKind] {
-        KINDS
+        crate::engine(NAME)
+            .expect("registered engine")
+            .supported_kinds
     }
 
-    fn save_package(
+    fn write_package(
         &self,
         bank: &qti_core::ItemBank,
-        output: Option<&Path>,
+        _source: &dyn AssetSource,
+        context: &WriteContext,
     ) -> Result<WriteOutcome, EngineError> {
-        let output = output
-            .unwrap_or_else(|| Path::new("human-readable.html"))
-            .to_path_buf();
-        let assets = bank.collect_assets()?;
+        // Inspect only items this document can emit; placeholders need no payload reads.
+        let mut visible = qti_core::ItemBank::new(true);
+        for item in bank.iter_ordered().filter(|item| {
+            self.supported_kinds().contains(&item.kind())
+                && !has_unrenderable_content(&item.render_view())
+        }) {
+            visible.add_item(item.clone())?;
+        }
+        let assets = visible.inspect_assets()?;
         let pending_warnings = RefCell::new(BTreeMap::new());
         let warnings = RefCell::new(Vec::new());
         let pre_render = |item: &qti_core::Item| {
@@ -87,7 +83,7 @@ impl Writer for HumanReadableWriter {
         };
         let lines = render_bank(
             bank,
-            KINDS,
+            self.supported_kinds(),
             render_item,
             RenderHooks {
                 pre_render: Some(&pre_render),
@@ -104,7 +100,7 @@ impl Writer for HumanReadableWriter {
         )?;
         if lines.is_empty() {
             return Ok(WriteOutcome {
-                path: None,
+                artifact: None,
                 warnings: warnings.into_inner(),
             });
         }
@@ -115,13 +111,12 @@ impl Writer for HumanReadableWriter {
             document.push_str(&format!("{}. {line}", number + 1));
         }
         document.push_str("</pre>\n</body>\n</html>\n");
-        fs::write(&output, document).map_err(|source| EngineError::Io {
-            engine: NAME,
-            path: output.clone(),
-            source,
-        })?;
+        let primary = NamedFile::new(context.output_name(), document.into_bytes())?;
         Ok(WriteOutcome {
-            path: Some(output),
+            artifact: Some(WriteArtifact::File {
+                primary,
+                companions: Vec::new(),
+            }),
             warnings: warnings.into_inner(),
         })
     }
@@ -277,9 +272,32 @@ fn lower_letter(index: usize) -> char {
 
 #[cfg(test)]
 mod tests {
-    use super::{KINDS, boxed_writer, pretty, render_item};
-    use crate::EngineOptions;
-    use qti_core::{Item, ItemBank, ItemBody, MediaBaseDir};
+    fn context(name: &str) -> crate::WriteContext {
+        crate::WriteContext::new(
+            name.to_owned(),
+            crate::DocumentMetadata {
+                title: "Exam".to_owned(),
+                date: "2026-09-30".to_owned(),
+            },
+            0,
+        )
+        .expect("valid context")
+    }
+
+    fn primary(outcome: &crate::WriteOutcome) -> &qti_core::NamedFile {
+        match outcome.artifact.as_ref().expect("file artifact") {
+            crate::WriteArtifact::File { primary, .. } => primary,
+            crate::WriteArtifact::Directory { .. } => panic!("expected file artifact"),
+        }
+    }
+
+    fn document(outcome: &crate::WriteOutcome) -> &str {
+        std::str::from_utf8(primary(outcome).bytes()).expect("UTF-8 document")
+    }
+
+    use super::{NAME, boxed_writer, pretty, render_item};
+    use qti_core::MemoryAssets;
+    use qti_core::{Item, ItemBank, ItemBody};
     use std::collections::BTreeMap;
     #[test]
     fn renders_multiple_choice_with_correct_mark() {
@@ -294,7 +312,12 @@ mod tests {
         let rendered = render_item(&item.render_view())
             .expect("render")
             .expect("supported");
-        assert!(KINDS.contains(&item.kind()));
+        assert!(
+            crate::engine(NAME)
+                .expect("registry")
+                .supported_kinds
+                .contains(&item.kind())
+        );
         assert!(rendered.contains("[ ] A. first"));
         assert!(rendered.contains("[*] B. second"));
     }
@@ -342,7 +365,7 @@ mod tests {
     #[test]
     fn declares_the_frozen_reference_warn_policy() {
         assert_eq!(
-            boxed_writer(EngineOptions::default()).media_policy(),
+            boxed_writer().media_policy(),
             qti_core::media::MediaPolicy::ReferenceWarn
         );
     }
@@ -402,7 +425,12 @@ mod tests {
         ];
         for item in items {
             let item = item.expect("valid item");
-            assert!(KINDS.contains(&item.kind()));
+            assert!(
+                crate::engine(NAME)
+                    .expect("registry")
+                    .supported_kinds
+                    .contains(&item.kind())
+            );
             let rendered = render_item(&item.render_view())
                 .expect("render")
                 .expect("content");
@@ -414,14 +442,7 @@ mod tests {
 
     #[test]
     fn writer_substitutes_placeholder_media_without_mutating_source() {
-        let directory = tempfile::tempdir().expect("media directory");
-        std::fs::write(
-            directory.path().join("figure.png"),
-            b"not decoded by this policy",
-        )
-        .expect("image");
-        let mut bank =
-            ItemBank::with_media_base_dir(false, MediaBaseDir::external(directory.path()));
+        let mut bank = ItemBank::new(false);
         let item = Item::new(
             "Look <img src=\"figure.png\" alt=\"plot\" />".into(),
             ItemBody::Fib {
@@ -430,14 +451,14 @@ mod tests {
         )
         .expect("item");
         bank.add_item(item).expect("bank item");
-        let output = directory.path().join("human.html");
-        let outcome = boxed_writer(EngineOptions::default())
-            .save_package(&bank, Some(&output))
+        let output = "human.html";
+        let outcome = boxed_writer()
+            .write_package(&bank, &MemoryAssets::new(), &context(output))
             .expect("write human page");
-        assert_eq!(outcome.path.as_deref(), Some(output.as_path()));
+        assert_eq!(primary(&outcome).name(), output);
         assert_eq!(outcome.warnings.len(), 1);
         assert_eq!(outcome.warnings[0].src, "figure.png");
-        let page = std::fs::read_to_string(output).expect("page");
+        let page = document(&outcome);
         assert!(page.contains("[image: figure.png] (alt: plot) (source: figure.png)"));
         assert!(
             bank.get(0)
@@ -450,7 +471,6 @@ mod tests {
 
     #[test]
     fn zero_rendered_items_creates_no_human_readable_document() {
-        let directory = tempfile::tempdir().expect("output directory");
         let mut bank = ItemBank::new(false);
         bank.add_item(
             Item::new(
@@ -462,18 +482,16 @@ mod tests {
             .expect("item"),
         )
         .expect("bank item");
-        let output = directory.path().join("skipped.html");
-        let outcome = boxed_writer(EngineOptions::default())
-            .save_package(&bank, Some(&output))
+        let output = "skipped.html";
+        let outcome = boxed_writer()
+            .write_package(&bank, &MemoryAssets::new(), &context(output))
             .expect("skip document");
-        assert_eq!(outcome.path, None);
+        assert!(outcome.artifact.is_none());
         assert!(outcome.warnings.is_empty());
-        assert!(!output.exists());
     }
 
     #[test]
     fn rdkit_choice_skips_a_multiple_choice_item_and_its_document() {
-        let directory = tempfile::tempdir().expect("output directory");
         let mut bank = ItemBank::new(false);
         bank.add_item(
             Item::new(
@@ -489,14 +507,13 @@ mod tests {
             .expect("item"),
         )
         .expect("bank item");
-        let output = directory.path().join("skipped.html");
+        let output = "skipped.html";
 
-        let outcome = boxed_writer(EngineOptions::default())
-            .save_package(&bank, Some(&output))
+        let outcome = boxed_writer()
+            .write_package(&bank, &MemoryAssets::new(), &context(output))
             .expect("skip document");
 
-        assert_eq!(outcome.path, None);
+        assert!(outcome.artifact.is_none());
         assert!(outcome.warnings.is_empty());
-        assert!(!output.exists());
     }
 }

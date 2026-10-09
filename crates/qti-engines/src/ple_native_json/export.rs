@@ -1,33 +1,13 @@
 //! In-memory export of validated QPM items as PLE Native JSON.
 
-use std::path::PathBuf;
-
-use qti_core::{ItemBank, ItemCrc, ItemKind, ItemRenderView};
+use qti_core::media::AssetSource;
+use qti_core::{ItemBank, ItemCrc, ItemRenderView, NamedFile};
 
 use super::{mapping::map_item, media::finish_export, scan::scan_document, source::SourceDocument};
 use crate::{EngineError, MediaWarning, RenderHooks, render_bank};
 
 const ENGINE: &str = "ple_native_json";
 const FORMAT: &str = "PLE Native JSON";
-const KINDS: &[ItemKind] = &[
-    ItemKind::Mc,
-    ItemKind::Ma,
-    ItemKind::Fib,
-    ItemKind::MultiFib,
-    ItemKind::Num,
-    ItemKind::Match,
-    ItemKind::Order,
-];
-
-/// One file referenced by a question, with its path relative to the export directory.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AssociatedFile {
-    /// Relative path named by the question's JSON source.
-    pub path: PathBuf,
-    /// Exact bytes to write at that path.
-    pub bytes: Vec<u8>,
-}
-
 /// A serialized question and the files needed to interpret it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NativeQuestion {
@@ -38,7 +18,7 @@ pub struct NativeQuestion {
     /// Compact `pleQuestionJson` document.
     pub source_json: String,
     /// Associated files for this question.
-    pub files: Vec<AssociatedFile>,
+    pub files: Vec<NamedFile>,
 }
 
 /// Completed in-memory conversion, in bank order.
@@ -53,9 +33,17 @@ pub struct NativeExport {
 /// Export the seven supported item kinds to compact PLE Native JSON.
 ///
 /// The export scans represented display HTML, resolves local media, and records external URLs.
-pub fn export_bank(bank: &ItemBank) -> Result<NativeExport, EngineError> {
-    let mapped = render_bank(bank, KINDS, render_item, RenderHooks::default())?;
-    finish_export(bank, mapped)
+///
+/// # Errors
+///
+/// Returns [`EngineError`] when QPM cannot represent a mapped item, its display HTML or media
+/// cannot be scanned, resolved, or serialized, or its external-resource inventory is invalid.
+pub fn export_bank(bank: &ItemBank, assets: &dyn AssetSource) -> Result<NativeExport, EngineError> {
+    let kinds = crate::engine(ENGINE)
+        .expect("registered PLE engine")
+        .supported_kinds;
+    let mapped = render_bank(bank, kinds, render_item, RenderHooks::default())?;
+    finish_export(assets, mapped)
 }
 
 pub(super) struct MappedQuestion {

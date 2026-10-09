@@ -6,4 +6,7 @@ mod media_hotspot;
 mod types_core;
 mod types_extra;
 
+#[cfg(test)]
+mod reader_tests;
+
 pub(super) use discovery::read_package;

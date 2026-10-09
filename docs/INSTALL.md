@@ -8,6 +8,7 @@ artifact is certified yet.
 - Rust 1.98.1 or later with Cargo.
 - macOS or Linux source-build environment. The current native development target is macOS arm64.
 - Python is not required to build or run either production CLI binary.
+- Node, npm, wasm-pack, and a Wasm Rust target are not native CLI prerequisites.
 - A local Chromium-compatible browser is required only for `--html-to-image` tables. Put it on
   `PATH`, or set `QTI_CHROMIUM` to its executable path.
 
@@ -81,6 +82,13 @@ reference through `source_me.sh` and are development or release-gate tooling, no
 runtime dependency. See [PARITY.md](PARITY.md) and
 [../refactor_progress.md](../refactor_progress.md).
 
+## Browser package setup
+
+Build the separate local browser/Node package with Node 24 and the Rust
+`wasm32-unknown-unknown` target. `npm ci` installs the package-local build and test tools,
+including wasm-pack. See [WASM_PACKAGE.md](WASM_PACKAGE.md) for the complete commands and
+browser installation step. These tools are development dependencies for the browser package.
+
 ## Manual release preparation
 
 Run the local release checks against the pinned Python reference checkout before preparing a
@@ -105,6 +113,13 @@ documented in [PARITY.md](PARITY.md), including frozen Python defects. Review fi
 against source content, grading, media, and package integrity before deciding whether a
 product fix is needed. The classified corpus evidence does not make that command pass;
 new or changed findings still need investigation.
+
+Set `RUST_RELEASE_WASM=1` to run the browser package lane with Node 24. It checks portable
+crates for `wasm32-unknown-unknown`, then runs `npm ci`, build, strict TypeScript checks,
+Node host/native-Wasm parity tests, and Chromium/Firefox/WebKit tests in `packages/qti-wasm`. Install the Playwright
+browsers first as described in [WASM_PACKAGE.md](WASM_PACKAGE.md). Missing prerequisites and
+failed checks stop the selected lane; install or correct the reported requirement and rerun.
+Leaving the variable unset runs the existing native release checks.
 
 To run the complete Linux check locally under Podman, including Chromium and native RDKit, use:
 

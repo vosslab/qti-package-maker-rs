@@ -152,10 +152,7 @@ pub fn placeholder_text(asset: &MediaAsset) -> String {
 }
 
 fn resolved(asset: &MediaAsset) -> String {
-    asset
-        .file_path
-        .as_ref()
-        .map_or_else(|| asset.src.clone(), |path| path.display().to_string())
+    asset.src.clone()
 }
 
 fn warning(
@@ -201,7 +198,6 @@ mod tests {
             src: "image.png".to_owned(),
             kind: AssetKind::Local,
             mime_type: Some("image/png".to_owned()),
-            file_path: None,
             data_bytes: None,
             output_name: Some("image.png".to_owned()),
             content_hash: None,
@@ -252,7 +248,6 @@ mod tests {
             src: "https://example.test/image.png".to_owned(),
             kind: AssetKind::External,
             mime_type: None,
-            file_path: None,
             data_bytes: None,
             output_name: None,
             content_hash: None,
@@ -264,8 +259,7 @@ mod tests {
             src: "data:image/png;base64,AA==".to_owned(),
             kind: AssetKind::DataUri,
             mime_type: Some("image/png".to_owned()),
-            file_path: None,
-            data_bytes: Some(vec![0]),
+            data_bytes: Some(vec![0].into()),
             output_name: None,
             content_hash: None,
         };
@@ -279,7 +273,6 @@ mod tests {
             src: "https://example.test/image.png".to_owned(),
             kind: AssetKind::External,
             mime_type: None,
-            file_path: None,
             data_bytes: None,
             output_name: None,
             content_hash: None,
@@ -288,8 +281,7 @@ mod tests {
             src: "data:image/png;base64,AA==".to_owned(),
             kind: AssetKind::DataUri,
             mime_type: Some("image/png".to_owned()),
-            file_path: None,
-            data_bytes: Some(vec![0]),
+            data_bytes: Some(vec![0].into()),
             output_name: None,
             content_hash: None,
         };
@@ -329,7 +321,6 @@ mod tests {
             src: "figures/image.png".to_owned(),
             kind: AssetKind::Local,
             mime_type: Some("image/png".to_owned()),
-            file_path: None,
             data_bytes: None,
             output_name: Some("image(2).png".to_owned()),
             content_hash: None,
@@ -338,7 +329,6 @@ mod tests {
             src: "https://example.test/media/remote.png?cache=4".to_owned(),
             kind: AssetKind::External,
             mime_type: None,
-            file_path: None,
             data_bytes: None,
             output_name: Some("different-name.png".to_owned()),
             content_hash: None,
@@ -347,8 +337,7 @@ mod tests {
             src: "data:image/png;base64,AA==".to_owned(),
             kind: AssetKind::DataUri,
             mime_type: Some("image/png".to_owned()),
-            file_path: None,
-            data_bytes: Some(vec![0]),
+            data_bytes: Some(vec![0].into()),
             output_name: None,
             content_hash: None,
         };

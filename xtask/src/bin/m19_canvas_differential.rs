@@ -1,6 +1,6 @@
 //! Ignored development receipt for pinned Python static canvas-parser parity.
 
-use qti_engines::html_to_image::parse_canvas_script;
+use qti_native::html_to_image::parse_canvas_script;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};

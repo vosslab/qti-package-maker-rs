@@ -4,16 +4,16 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-use super::NativeExport;
-use crate::EngineError;
+use crate::NativeError;
+use qti_core::EntryMap;
 
-#[path = "ownership.rs"]
+#[path = "ple_output/ownership.rs"]
 mod ownership;
 
 const ENGINE: &str = "ple_native_json";
 const FORMAT: &str = "PLE Native JSON output";
 
-pub(super) fn write_export(export: &NativeExport, destination: &Path) -> Result<(), EngineError> {
+pub(crate) fn write_entries(entries: &EntryMap, destination: &Path) -> Result<(), NativeError> {
     let parent = destination
         .parent()
         .filter(|path| !path.as_os_str().is_empty())
@@ -26,23 +26,19 @@ pub(super) fn write_export(export: &NativeExport, destination: &Path) -> Result<
         .tempdir_in(parent)
         .map_err(|source| io(parent, source))?;
     let mut files = BTreeMap::<PathBuf, &[u8]>::new();
-    for question in &export.questions {
-        if question.item_number == 0 {
-            return Err(invalid("item number must be positive"));
+    for (name, bytes) in entries {
+        qti_core::NamedFile::new(name.clone(), Vec::new())
+            .map_err(|error| invalid(error.to_string()))?;
+        let path = PathBuf::from(name);
+        if !is_question_filename(name) && !is_canonical_media_filename(&path) {
+            return Err(invalid(
+                "export contains a path outside question JSON or media/",
+            ));
         }
-        insert_file(
-            &mut files,
-            PathBuf::from(question_filename(question.item_number)),
-            question.source_json.as_bytes(),
-        )?;
-        for file in &question.files {
-            // ASVS 5.3.2: output paths come from generated item numbers or one validated
-            // media filename component, never directly from an authored source path.
-            if !is_canonical_media_filename(&file.path) {
-                return Err(invalid("export contains a media path outside media/"));
-            }
-            insert_file(&mut files, file.path.clone(), &file.bytes)?;
-        }
+        insert_file(&mut files, path, bytes)?;
+    }
+    if !entries.keys().any(|name| is_question_filename(name)) {
+        return Err(invalid("export contains no question JSON"));
     }
     let manifest = ownership::manifest_bytes(&files)?;
     for (path, bytes) in files {
@@ -107,7 +103,7 @@ fn insert_file<'a>(
     files: &mut BTreeMap<PathBuf, &'a [u8]>,
     path: PathBuf,
     bytes: &'a [u8],
-) -> Result<(), EngineError> {
+) -> Result<(), NativeError> {
     if let Some(previous) = files.insert(path.clone(), bytes)
         && previous != bytes
     {
@@ -149,29 +145,21 @@ fn is_canonical_media_filename(path: &Path) -> bool {
     media_filename(path).is_some_and(|name| Path::new("media").join(name) == path)
 }
 
-fn foreign(path: &Path) -> EngineError {
+fn foreign(path: &Path) -> NativeError {
     invalid(format!(
         "destination contains a file not owned by this engine: {}",
         path.display()
     ))
 }
 
-fn invalid(message: impl Into<String>) -> EngineError {
-    EngineError::InvalidFormat {
-        engine: ENGINE,
-        format: FORMAT,
-        message: message.into(),
-    }
+fn invalid(message: impl Into<String>) -> NativeError {
+    NativeError::Invalid(format!("{ENGINE} {FORMAT}: {}", message.into()))
 }
 
-fn io(path: &Path, source: std::io::Error) -> EngineError {
-    EngineError::Io {
-        engine: ENGINE,
-        path: path.to_path_buf(),
-        source,
-    }
+fn io(path: &Path, source: std::io::Error) -> NativeError {
+    crate::error::io(path, source)
 }
 
 #[cfg(test)]
-#[path = "output_tests.rs"]
+#[path = "ple_output/output_tests.rs"]
 mod tests;

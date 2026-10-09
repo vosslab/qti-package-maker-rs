@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use super::{foreign, invalid, io, is_canonical_media_filename, is_question_filename};
-use crate::EngineError;
+use crate::NativeError;
 
 pub(super) const MANIFEST_NAME: &str = ".qpm-ple-native-json";
 const MARKER: &str = "qti-package-maker-rs/ple_native_json/v1";
@@ -21,7 +21,7 @@ struct OwnershipManifest {
     files: BTreeMap<String, String>,
 }
 
-pub(super) fn manifest_bytes(files: &BTreeMap<PathBuf, &[u8]>) -> Result<Vec<u8>, EngineError> {
+pub(super) fn manifest_bytes(files: &BTreeMap<PathBuf, &[u8]>) -> Result<Vec<u8>, NativeError> {
     let mut hashes = BTreeMap::new();
     for (path, bytes) in files {
         let name = path
@@ -36,7 +36,7 @@ pub(super) fn manifest_bytes(files: &BTreeMap<PathBuf, &[u8]>) -> Result<Vec<u8>
     .map_err(|source| invalid(format!("could not serialize output manifest: {source}")))
 }
 
-pub(super) fn verify_owned_directory(destination: &Path) -> Result<(), EngineError> {
+pub(super) fn verify_owned_directory(destination: &Path) -> Result<(), NativeError> {
     let mut entries = fs::read_dir(destination).map_err(|source| io(destination, source))?;
     if entries
         .next()

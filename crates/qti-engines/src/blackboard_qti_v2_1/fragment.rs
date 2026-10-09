@@ -3,8 +3,6 @@
 use lol_html::{RewriteStrSettings, element, rewrite_str};
 use markup5ever::data::NAMED_ENTITIES;
 
-use super::xml_attr;
-
 pub(super) fn plain_text(value: &str) -> String {
     html_entities_to_xml(&value.replace('<', "&lt;").replace('>', "&gt;"))
 }
@@ -142,4 +140,15 @@ fn is_xml_character(character: char) -> bool {
         || ('\u{20}'..='\u{D7FF}').contains(&character)
         || ('\u{E000}'..='\u{FFFD}').contains(&character)
         || ('\u{10000}'..='\u{10FFFF}').contains(&character)
+}
+
+pub(super) fn xml(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
+pub(super) fn xml_attr(value: &str) -> String {
+    xml(value).replace('"', "&quot;").replace('\'', "&apos;")
 }

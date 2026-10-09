@@ -1,11 +1,110 @@
 //! Object-safe engine boundaries and the shared generic rendering loop.
 
-use std::path::{Path, PathBuf};
+use qti_core::media::{AssetSource, MediaPolicy, MediaWarning, MemoryAssets};
+use qti_core::{EntryMap, Item, ItemBank, ItemKind, ItemRenderView, NamedFile};
 
-use qti_core::media::{MediaPolicy, MediaWarning};
-use qti_core::{Item, ItemBank, ItemKind, ItemRenderView};
+use crate::{DocumentMetadata, EngineError};
 
-use crate::EngineError;
+/// Borrowed format input, already loaded by the host adapter.
+#[derive(Clone, Copy, Debug)]
+pub enum ReadInput<'a> {
+    /// A single named document.
+    File { name: &'a str, bytes: &'a [u8] },
+    /// A decoded package with validated relative entry names.
+    Archive {
+        name: &'a str,
+        entries: &'a EntryMap,
+    },
+}
+
+impl<'a> ReadInput<'a> {
+    /// Returns the host-provided logical input name.
+    #[must_use]
+    pub fn name(self) -> &'a str {
+        match self {
+            Self::File { name, .. } | Self::Archive { name, .. } => name,
+        }
+    }
+
+    /// Borrows bytes from a file input, rejecting an archive input.
+    pub fn file_bytes(self, engine: &'static str) -> Result<&'a [u8], EngineError> {
+        match self {
+            Self::File { bytes, .. } => Ok(bytes),
+            Self::Archive { .. } => Err(EngineError::InvalidFormat {
+                engine,
+                format: "input",
+                message: format!("{} must be a single file", self.name()),
+            }),
+        }
+    }
+
+    /// Borrows UTF-8 text from a file input.
+    pub fn text(self, engine: &'static str) -> Result<&'a str, EngineError> {
+        std::str::from_utf8(self.file_bytes(engine)?).map_err(|error| EngineError::InvalidFormat {
+            engine,
+            format: "UTF-8 input",
+            message: format!("{}: {error}", self.name()),
+        })
+    }
+
+    /// Borrows entries from an archive input, rejecting a file input.
+    pub fn archive_entries(self, engine: &'static str) -> Result<&'a EntryMap, EngineError> {
+        match self {
+            Self::Archive { entries, .. } => Ok(entries),
+            Self::File { .. } => Err(EngineError::InvalidFormat {
+                engine,
+                format: "input",
+                message: format!("{} must be a decoded archive", self.name()),
+            }),
+        }
+    }
+}
+
+/// Explicit host-resolved values for one writer invocation.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WriteContext {
+    /// Validated logical relative name for the resulting file or directory.
+    output_name: String,
+    /// Document title and date supplied by the caller.
+    pub document: DocumentMetadata,
+    /// Deterministic shuffle seed supplied by the caller.
+    pub shuffle_seed: u64,
+}
+
+impl WriteContext {
+    /// Creates a context with a validated relative POSIX output name.
+    pub fn new(
+        output_name: impl Into<String>,
+        document: DocumentMetadata,
+        shuffle_seed: u64,
+    ) -> Result<Self, EngineError> {
+        let output_name = output_name.into();
+        qti_core::validate_entry_name(&output_name)?;
+        Ok(Self {
+            output_name,
+            document,
+            shuffle_seed,
+        })
+    }
+
+    /// Returns the validated logical output name.
+    #[must_use]
+    pub fn output_name(&self) -> &str {
+        &self.output_name
+    }
+}
+
+/// Owned output bytes ready for host persistence or download.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum WriteArtifact {
+    /// A primary document or ZIP plus any named companion files.
+    File {
+        primary: NamedFile,
+        companions: Vec<NamedFile>,
+    },
+    /// A directory export with relative POSIX file entries.
+    Directory { name: String, entries: EntryMap },
+}
 
 /// A format writer held in the registry as a trait object.
 pub trait Writer: Send + Sync {
@@ -16,18 +115,19 @@ pub trait Writer: Send + Sync {
     /// Item kinds that this writer can represent.
     fn supported_kinds(&self) -> &'static [ItemKind];
     /// Writes one completed output package or document.
-    fn save_package(
+    fn write_package(
         &self,
         bank: &ItemBank,
-        output: Option<&Path>,
+        assets: &dyn AssetSource,
+        context: &WriteContext,
     ) -> Result<WriteOutcome, EngineError>;
 }
 
-/// A completed output path and recoverable media diagnostics in render order.
+/// Completed output bytes and recoverable media diagnostics in render order.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WriteOutcome {
-    /// Completed package or document path, absent when no supported item rendered.
-    pub path: Option<PathBuf>,
+    /// Completed artifact, absent when no supported item rendered.
+    pub artifact: Option<WriteArtifact>,
     /// Media policy diagnostics for items emitted by the writer.
     pub warnings: Vec<MediaWarning>,
 }
@@ -37,7 +137,11 @@ pub trait Reader: Send + Sync {
     /// Stable registry name.
     fn name(&self) -> &'static str;
     /// Reads all valid records, retaining recoverable warnings in source order.
-    fn read_items(&self, input: &Path, allow_mixed: bool) -> Result<ReadOutcome, EngineError>;
+    fn read_items(
+        &self,
+        input: ReadInput<'_>,
+        allow_mixed: bool,
+    ) -> Result<ReadOutcome, EngineError>;
 }
 
 /// The precise source location available for a recoverable read warning.
@@ -71,6 +175,8 @@ pub struct ReadWarning {
 pub struct ReadOutcome {
     /// Validated items in input order.
     pub bank: ItemBank,
+    /// Owned media supplied by the format input.
+    pub assets: MemoryAssets,
     /// Recoverable warnings in input order.
     pub warnings: Vec<ReadWarning>,
 }

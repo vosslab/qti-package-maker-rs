@@ -9,10 +9,10 @@ cargo run -p qti-cli --bin qti-package-maker -- engines
 ```
 
 The registry contains eleven writers and four readers. Writers report their completed artifact and
-ordered recoverable media warnings through `WriteOutcome`; a missing path means the selected bank
+ordered recoverable media warnings through `WriteOutcome`; an absent artifact means the selected bank
 contained no item that the writer emitted. Readers return valid records and recoverable warnings in
-source order through `ReadOutcome`. Fatal input, validation, archive, XML, media, and I/O failures
-return `EngineError`.
+source order through `ReadOutcome`. Fatal portable input, validation, archive, XML, and media failures
+return `EngineError`; filesystem failures belong to the native host's `NativeError`.
 
 ## Writer inventory
 
@@ -34,7 +34,7 @@ kinds. `MC`, `MA`, `MATCH`, `NUM`, `FIB`, `MULTI_FIB`, and `ORDER` are defined i
 | `text2qti` | text2qti source text | `MC`, `MA`, `NUM`, `FIB` | `ReferenceWarn` |
 | `ple_native_json` | PLE Native JSON directory | all seven | `Package` |
 
-The `canvas_qti_v1_2` writer returns no path for an `ORDER`-only bank. The
+The `canvas_qti_v1_2` writer returns no artifact for an `ORDER`-only bank. The
 `blackboard_export_zip` writer instead creates its valid empty package and returns an ordered
 diagnostic. Do not infer a successful artifact from a selected engine alone; inspect `WriteOutcome`.
 
@@ -47,9 +47,11 @@ diagnostic. Do not infer a successful artifact from a selected engine alone; ins
 | `okla_chrst_bqgen` | BQGen text | one-based block |
 | `blackboard_export_zip` | Blackboard Original pool ZIP | archive entry, pool item, or media token |
 
-Readers create a validated `ItemBank`. File-based text readers keep their input directory as the
-bank's external media base. The Blackboard ZIP reader restores referenced media beneath a
-bank-owned temporary base that stays available while a derived bank retains it.
+Readers create a validated `ItemBank` from named bytes or entries. Text readers return empty
+recovered assets and use the caller's explicit `AssetSource` for local images. The Blackboard ZIP
+reader returns recovered `MemoryAssets` and rewrites media tokens to accepted relative names.
+Banks retain no host paths or temporary-directory ownership. The native host supplies a confined
+`DirectoryAssets` provider; browser callers supply named companion bytes.
 
 ## Engine selection
 
@@ -58,10 +60,12 @@ commonly used writers. `--all` selects every registered writer. The CLI resolves
 from `bbq-<name>-questions.txt` and uses it for default output names. See [USAGE.md](USAGE.md) for
 commands and [FORMATS.md](FORMATS.md) for the output contracts.
 
-`EngineOptions` carries owned document title/date metadata. The CLI resolves them once per run and
-clones them into factories. The three ZIP package writers and PLE Native JSON participate in the
-shared
-`--html-to-image` conversion path; conversion happens once before multi-format fan-out.
+`WriteContext` carries a validated logical output name, document title/date, and shuffle seed.
+The native host resolves context once per run; factories take no options. Registry metadata owns
+supported kinds, policies, default/content-derived names, and native-render eligibility. The three
+ZIP package writers and PLE Native JSON participate in the native `--html-to-image` pre-pass,
+which happens once before multi-format fan-out. Both native and browser consumers use the shared
+`read_bank`, `write_bank`, and `convert` phases.
 
 ## Extension boundary
 

@@ -1,35 +1,28 @@
 //! Canvas-compatible QTI 1.2 ZIP package writer.
 
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet};
-use std::path::Path;
+use std::collections::BTreeMap;
 
 use qti_core::media::{
-    AssetKind, MediaPolicy, apply_media_policy, packageable_assets, rewrite_item_media,
+    AssetKind, AssetSource, MediaPolicy, apply_media_policy, packageable_assets, rewrite_item_media,
 };
 use qti_core::{
-    ArchiveEntry, ArchiveMap, ItemBody, ItemKind, ItemRenderView, ItemResource, ManifestConfig,
-    QtiVersion, build_zip, generate_manifest,
+    EntryMap, ItemBody, ItemKind, ItemRenderView, ItemResource, ManifestConfig, NamedFile,
+    QtiVersion, encode_zip, generate_manifest,
 };
 
-use crate::{EngineError, EngineOptions, RenderHooks, WriteOutcome, Writer, render_bank};
+use crate::{
+    EngineError, RenderHooks, WriteArtifact, WriteContext, WriteOutcome, Writer, render_bank,
+};
 
 pub(crate) const NAME: &str = "canvas_qti_v1_2";
 const ITEM_PATH: &str = "canvas_qti12_questions/canvas_qti12_questions.xml";
 const MEDIA_DIRECTORY: &str = "media";
 const CDATA_SPLIT: &str = concat!("]]", "]]><![CDATA[>");
 const SCORE_OUTCOME: &str = "<outcomes><decvar maxvalue=\"100\" minvalue=\"0\" varname=\"SCORE\" vartype=\"Decimal\"/></outcomes>";
-const KINDS: &[ItemKind] = &[
-    ItemKind::Mc,
-    ItemKind::Ma,
-    ItemKind::Match,
-    ItemKind::Num,
-    ItemKind::Fib,
-    ItemKind::MultiFib,
-];
 
-/// Creates the QTI writer. This probe ignores `html_to_image`; M19 owns conversion dispatch.
-pub fn boxed_writer(_: EngineOptions) -> Box<dyn Writer> {
+/// Creates the QTI writer.
+pub fn boxed_writer() -> Box<dyn Writer> {
     Box::new(CanvasWriter)
 }
 
@@ -39,21 +32,31 @@ impl Writer for CanvasWriter {
         NAME
     }
     fn media_policy(&self) -> MediaPolicy {
-        MediaPolicy::Package
+        crate::engine(NAME)
+            .expect("registered Canvas writer")
+            .media_policy
     }
     fn supported_kinds(&self) -> &'static [ItemKind] {
-        KINDS
+        crate::engine(NAME)
+            .expect("registered Canvas writer")
+            .supported_kinds
     }
 
-    fn save_package(
+    fn write_package(
         &self,
         bank: &qti_core::ItemBank,
-        output: Option<&Path>,
+        assets: &dyn AssetSource,
+        context: &WriteContext,
     ) -> Result<WriteOutcome, EngineError> {
-        let output = output
-            .unwrap_or_else(|| Path::new("qti12-package.zip"))
-            .to_path_buf();
-        let collected = bank.collect_assets()?;
+        // Unsupported items cannot contribute package media or require source reads.
+        let mut media_bank = qti_core::ItemBank::new(true);
+        for item in bank
+            .iter_ordered()
+            .filter(|item| self.supported_kinds().contains(&item.kind()))
+        {
+            media_bank.add_item(item.clone())?;
+        }
+        let collected = media_bank.collect_assets(assets)?;
         let mut assets = collected.assets().to_vec();
         for asset in &mut assets {
             if asset.kind == AssetKind::Local {
@@ -105,7 +108,7 @@ impl Writer for CanvasWriter {
         };
         let items = render_bank(
             bank,
-            KINDS,
+            self.supported_kinds(),
             render_item,
             RenderHooks {
                 pre_render: Some(&pre_render),
@@ -117,19 +120,16 @@ impl Writer for CanvasWriter {
         // than manufacturing an empty ZIP from the requested output path.
         if items.is_empty() {
             return Ok(WriteOutcome {
-                path: None,
+                artifact: None,
                 warnings: warnings.into_inner(),
             });
         }
         let document = qti_document(&items);
-        let mut map = ArchiveMap::new();
-        map.insert(
-            ITEM_PATH.to_owned(),
-            ArchiveEntry::Bytes(document.into_bytes()),
-        );
+        let mut map = EntryMap::new();
+        map.insert(ITEM_PATH.to_owned(), document.into_bytes());
         map.insert(
             "canvas_qti12_questions/assessment_meta.xml".to_owned(),
-            ArchiveEntry::Bytes(assessment_meta().into_bytes()),
+            assessment_meta().into_bytes(),
         );
         let packaged_assets = assets
             .iter()
@@ -148,13 +148,13 @@ impl Writer for CanvasWriter {
                     .output_name
                     .clone()
                     .expect("packageable media has output name"),
-                ArchiveEntry::Bytes(asset.read_bytes().map_err(|error| {
-                    EngineError::InvalidFormat {
+                asset
+                    .read_bytes()
+                    .map_err(|error| EngineError::InvalidFormat {
                         engine: NAME,
                         format: "media",
                         message: error.to_string(),
-                    }
-                })?),
+                    })?,
             );
         }
         let dependency_indexes = (0..packaged_assets.len()).collect();
@@ -166,12 +166,15 @@ impl Writer for CanvasWriter {
                 asset_indexes: dependency_indexes,
             }],
             assets: &packaged_assets,
-            metadata_date: Some("2026-09-30".to_owned()),
+            metadata_date: context.document.date.clone(),
         })?;
-        map.insert("imsmanifest.xml".to_owned(), ArchiveEntry::Bytes(manifest));
-        build_zip(&output, &map, BTreeSet::<String>::new())?;
+        map.insert("imsmanifest.xml".to_owned(), manifest);
+        let bytes = encode_zip(&map, std::iter::empty::<&str>())?;
         Ok(WriteOutcome {
-            path: Some(output),
+            artifact: Some(WriteArtifact::File {
+                primary: NamedFile::new(context.output_name().to_owned(), bytes)?,
+                companions: Vec::new(),
+            }),
             warnings: warnings.into_inner(),
         })
     }
@@ -406,12 +409,38 @@ fn xml(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{SCORE_OUTCOME, boxed_writer, material, presentation, processing};
-    use crate::EngineOptions;
+    use crate::{DocumentMetadata, WriteArtifact, WriteContext, WriteOutcome};
     use base64::{Engine, engine::general_purpose::STANDARD};
-    use qti_core::{Item, ItemBank, ItemBody, MediaBaseDir};
+    use qti_core::media::MemoryAssets;
+    use qti_core::{Item, ItemBank, ItemBody};
     use quick_xml::{Reader, events::Event};
     use std::collections::BTreeMap;
     use std::io::Read;
+
+    fn context(name: &str) -> WriteContext {
+        WriteContext::new(
+            name.to_owned(),
+            DocumentMetadata {
+                title: "Canvas QTI 1.2".to_owned(),
+                date: "2026-09-30".to_owned(),
+            },
+            0,
+        )
+        .expect("context")
+    }
+
+    fn primary(outcome: &WriteOutcome) -> &qti_core::NamedFile {
+        match outcome.artifact.as_ref().expect("package artifact") {
+            WriteArtifact::File {
+                primary,
+                companions,
+            } => {
+                assert!(companions.is_empty());
+                primary
+            }
+            WriteArtifact::Directory { .. } => panic!("ZIP must be a file"),
+        }
+    }
 
     fn all_or_nothing_score(correct: &[&str], selected: &[&str]) -> u8 {
         let correct = correct
@@ -450,16 +479,11 @@ mod tests {
 
     #[test]
     fn package_covers_six_kinds_skips_order_and_handles_local_and_external_media() {
-        let directory = tempfile::tempdir().expect("media directory");
-        std::fs::write(
-            directory.path().join("local.png"),
-            STANDARD
-                .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAF/gL+X9VR/QAAAABJRU5ErkJggg==")
-                .expect("inline PNG"),
-        )
-        .expect("local image");
-        let mut bank =
-            ItemBank::with_media_base_dir(true, MediaBaseDir::external(directory.path()));
+        let assets = MemoryAssets::from_entries(BTreeMap::from([(
+            "local.png".to_owned(),
+            STANDARD.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAF/gL+X9VR/QAAAABJRU5ErkJggg==").expect("inline PNG"),
+        )])).expect("memory assets");
+        let mut bank = ItemBank::new(true);
         let mut multi = BTreeMap::new();
         multi.insert("blank".to_owned(), vec!["value".to_owned()]);
         let items = vec![
@@ -514,14 +538,13 @@ mod tests {
         for item in items {
             bank.add_item(item.expect("valid item")).expect("bank item");
         }
-        let path = directory.path().join("canvas.zip");
-        let outcome = boxed_writer(EngineOptions::default())
-            .save_package(&bank, Some(&path))
+        let outcome = boxed_writer()
+            .write_package(&bank, &assets, &context("canvas.zip"))
             .expect("package");
-        assert_eq!(outcome.path.as_deref(), Some(path.as_path()));
+        assert_eq!(primary(&outcome).name(), "canvas.zip");
         assert_eq!(outcome.warnings.len(), 1);
         assert_eq!(outcome.warnings[0].src, "https://example.test/external.png");
-        let violations = qti_integrity::check_package(&path);
+        let violations = qti_integrity::check_package(primary(&outcome).bytes());
         assert!(
             violations
                 .iter()
@@ -529,8 +552,18 @@ mod tests {
             "integrity violations: {violations:#?}"
         );
         let mut archive =
-            zip::ZipArchive::new(std::fs::File::open(&path).expect("package file")).expect("ZIP");
+            zip::ZipArchive::new(std::io::Cursor::new(primary(&outcome).bytes())).expect("ZIP");
         assert!(archive.file_names().any(|name| name == "media/local.png"));
+        let mut media_bytes = Vec::new();
+        archive
+            .by_name("media/local.png")
+            .expect("packaged image")
+            .read_to_end(&mut media_bytes)
+            .expect("image bytes");
+        assert_eq!(
+            media_bytes.as_slice(),
+            assets.get("local.png").expect("source image")
+        );
         let mut item_xml = String::new();
         archive
             .by_name("canvas_qti12_questions/canvas_qti12_questions.xml")
@@ -549,6 +582,41 @@ mod tests {
         assert!(item_xml.contains("../media/local.png"));
         assert!(item_xml.contains("https://example.test/external.png"));
         assert!(!item_xml.contains("ORDER SHOULD NOT RENDER"));
+    }
+
+    #[test]
+    fn uses_explicit_output_name_and_manifest_date_with_existing_format_title() {
+        let mut bank = ItemBank::new(false);
+        bank.add_item(
+            Item::new(
+                "Choose.".to_owned(),
+                ItemBody::Mc {
+                    choices: vec!["first".to_owned(), "second".to_owned()],
+                    answer: "first".to_owned(),
+                },
+            )
+            .expect("item"),
+        )
+        .expect("bank item");
+        let context = WriteContext::new(
+            "custom/canvas.payload".to_owned(),
+            DocumentMetadata {
+                title: "Caller document".to_owned(),
+                date: "2040-01-02".to_owned(),
+            },
+            42,
+        )
+        .expect("context");
+        let outcome = boxed_writer()
+            .write_package(&bank, &MemoryAssets::default(), &context)
+            .expect("package");
+        assert_eq!(primary(&outcome).name(), "custom/canvas.payload");
+        let entries =
+            qti_integrity::read_zip_entries(primary(&outcome).bytes()).expect("ZIP entries");
+        let manifest = std::str::from_utf8(&entries["imsmanifest.xml"]).expect("manifest text");
+        assert!(manifest.contains("2040-01-02"));
+        assert!(manifest.contains("Canvas QTI 1.2"));
+        assert!(!manifest.contains("Caller document"));
     }
 
     #[test]
@@ -582,11 +650,10 @@ mod tests {
 
     #[test]
     fn order_only_completes_without_creating_a_canvas_package() {
-        let directory = tempfile::tempdir().expect("output directory");
         let mut bank = ItemBank::new(false);
         bank.add_item(
             Item::new(
-                "ORDER".into(),
+                "ORDER <img src=\"missing.png\" />".into(),
                 ItemBody::Order {
                     answers: vec!["one".into(), "two".into(), "three".into()],
                 },
@@ -594,13 +661,12 @@ mod tests {
             .expect("ORDER item"),
         )
         .expect("bank item");
-        let output = directory.path().join("order-only.zip");
-        let outcome = boxed_writer(EngineOptions::default())
-            .save_package(&bank, Some(&output))
+        let output = "order-only.zip";
+        let outcome = boxed_writer()
+            .write_package(&bank, &MemoryAssets::default(), &context(output))
             .expect("ORDER omission");
-        assert_eq!(outcome.path, None);
+        assert_eq!(outcome.artifact, None);
         assert!(outcome.warnings.is_empty());
-        assert!(!output.exists());
     }
 
     #[test]
@@ -681,15 +747,14 @@ mod tests {
             2
         );
 
-        let directory = tempfile::tempdir().expect("output directory");
-        let output = directory.path().join("match.zip");
+        let output = "match.zip";
         let mut bank = ItemBank::new(false);
         bank.add_item(item).expect("bank item");
-        let outcome = boxed_writer(EngineOptions::default())
-            .save_package(&bank, Some(&output))
+        let outcome = boxed_writer()
+            .write_package(&bank, &MemoryAssets::default(), &context(output))
             .expect("MATCH package");
-        assert_eq!(outcome.path.as_deref(), Some(output.as_path()));
-        let violations = qti_integrity::check_package(&output);
+        assert_eq!(primary(&outcome).name(), output);
+        let violations = qti_integrity::check_package(primary(&outcome).bytes());
         assert!(
             violations
                 .iter()
@@ -744,14 +809,13 @@ mod tests {
             "an empty selection fails the required correct-choice conditions"
         );
 
-        let directory = tempfile::tempdir().expect("output directory");
-        let output = directory.path().join("ma.zip");
+        let output = "ma.zip";
         let mut bank = ItemBank::new(false);
         bank.add_item(item).expect("bank item");
-        boxed_writer(EngineOptions::default())
-            .save_package(&bank, Some(&output))
+        let outcome = boxed_writer()
+            .write_package(&bank, &MemoryAssets::default(), &context(output))
             .expect("MA package");
-        let violations = qti_integrity::check_package(&output);
+        let violations = qti_integrity::check_package(primary(&outcome).bytes());
         assert!(
             violations
                 .iter()

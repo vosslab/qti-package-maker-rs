@@ -8,5 +8,5 @@ mod input;
 mod types;
 
 pub use crate::checker::check_entries;
-pub use crate::input::check_package;
+pub use crate::input::{check_package, read_zip_entries, validate_entries};
 pub use crate::types::{Provenance, Severity, Violation};

@@ -7,7 +7,6 @@ use qti_molecule::CanvasSource;
 
 /// The reserved directory leaf used for generated images when it is unoccupied.
 pub(crate) const GENERATED_DIRECTORY: &str = "__qti_generated";
-pub(crate) const INPUT_DIRECTORY: &str = "__qti_input";
 
 /// Returns Python-compatible generated-image leaf name using the original item CRC.
 pub(crate) fn generated_leaf_name(crc: ItemCrc, family: &str, number: usize) -> String {

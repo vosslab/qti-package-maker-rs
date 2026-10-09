@@ -2,6 +2,94 @@
 
 Earlier entries: [CHANGELOG-2026-09a.md](CHANGELOG-2026-09a.md).
 
+## 2026-10-09
+
+- Recorded the preference to minimize dependencies to reduce the supply chain attack surface
+  in [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md).
+- Removed unused direct `sha2` from `qti-integrity` and `quick-xml` from `xtask`, and kept
+  `qti-engines`' direct `zip` dependency only for its tests. Disabled Scraper's standalone CLI
+  feature and ZIP's unused Zopfli encoder while retaining HTML diagnostics and the existing
+  ordinary Deflate backend. No dependency version upgrades or converter API changes.
+- The dependency cleanup reduces external Rust lockfile packages from 250 to 246, removing
+  `getopts`, `unicode-width`, `zopfli`, and `simd-adler32`. All 323 Rust tests pass, with four
+  optional tests ignored; strict Clippy, the Wasm target check, formatting, and 1,819 Python
+  hygiene checks pass. Browser and native rendering acceptance were not rerun for this cleanup.
+
+## 2026-10-08
+
+### Additions and New Features
+
+- Added a shared Rust native/WebAssembly conversion pipeline with the same four readers and
+  eleven writers. `qti-native` owns filesystem input, rendering, context, and persistence;
+  `qti-wasm` exposes Rust-generated TypeScript transport for format inventory, conversion,
+  and integrity checking. The private local package includes Node, browser, and worker examples,
+  companion-name editing, and multi-file ZIP downloads. Final source-bound acceptance is tracked in
+  [shared_engine_delivery.md](active_plans/reports/shared_engine_delivery.md).
+- Documented the shared native/browser Rust architecture, byte reader/writer contracts,
+  provider-owned media, generated TypeScript API, local package build, workers, and downloads.
+  Added [WASM_PACKAGE.md](WASM_PACKAGE.md) and a source-bound shared-engine delivery report.
+- Added the explicit `RUST_RELEASE_WASM=1` local release lane for portable target checks,
+  package installation/build, strict TypeScript, Node host/native-Wasm parity tests, and
+  Chromium/Firefox/WebKit tests.
+  Selected missing prerequisites fail with a correction-and-rerun message; native CLI setup
+  continues to use Cargo independently of Node or Wasm tooling.
+
+### Behavior or Interface Changes
+
+- Recorded the portable migration from filesystem readers/writers to logical named bytes,
+  explicit context, and `WriteArtifact` outputs. Native filesystem, PLE directory ownership,
+  rendering, and time resolution belong to `qti-native`; Wasm consumes the same four readers
+  and eleven writers. Browser omission defaults are documented, with explicit values for
+  reproducible calls. Native local media must resolve under the input parent directory,
+  including authored absolute paths and symlinks; migration guidance uses a common input root.
+  Reference/placeholder policies inspect metadata without payload reads; native rendering filters
+  selected supported kinds and preserves FIB grading literals and source item numbers.
+
+### Fixes and Maintenance
+
+- Removed an incidental allocation-count assertion and a one-time ignored browser-proof generator,
+  documented Wasm transport and asset-provider ownership contracts, clarified companion-name and
+  browser-picker behavior, and removed qti-native's unused direct `markup5ever` dependency.
+- Applied the six-pass PLE Native JSON audit cleanup: reduced the internal source model to its
+  emitted-only serialization surface, removed one direct private-helper test, clarified the
+  eligible `--html-to-image` writer rule, and repaired the PLE-issues handoff link. Final integrated
+  Rust tests pass (282 passed, 5 intentionally ignored), as do strict Clippy, formatting, and the
+  Python suite (1,576 passed with no failures or advisories). The earlier PLE corpus receipts remain
+  historical and do not cover the cleanup bytes; current source hashes and gates are recorded in
+  `tests/_temp/cohesive_splits_gate_receipt.md`.
+- Split seven files flagged by the size advisory into modules by responsibility, preserving public
+  APIs, comments, tests, and behavior. The Blackboard QTI XML escaping helper now has one owner in
+  `fragment.rs`. Fresh specification, quality, and integration reviews accepted all splits. Final
+  Rust tests (282 passed, 5 intentionally ignored), strict Clippy, formatting, 37 source hashes,
+  Python (1,576 passed with no failures or advisories), and parity on 59 banks with zero divergences
+  pass. Architecture and file-structure docs and the active split ledger describe the new modules.
+- The 2026-10-07 PLE corpus summary remains historical. Its verification, gates, and classification
+  records live under Git-ignored local `output_ple_native_json/` and are unavailable in fresh
+  clones; they do not establish coverage of the bytes changed by this audit cleanup.
+
+### Developer Tests and Notes
+
+- Completed the fresh Plan, Test, Style, Docs, Legacy, and Comment audit. After bounded cleanup,
+  323 Rust tests pass (four optional tests ignored), strict Clippy/formatting and 1,819 Python
+  checks pass, and the rebuilt package passes eight Node/parity tests, 15 browser tests, and
+  installed-tarball runtime/type checks. The Wasm binary remains byte-identical to prior acceptance.
+  Findings, unchanged pre-existing notes, and evidence boundaries are recorded in
+  [the audit report](active_plans/audits/shared_engine_six_pass_audit_2026_10_08.md).
+- Shared-engine final corrected source passes 323 active Rust tests with five existing optional
+  tests ignored, strict formatting/Clippy, and all 1,581 Python tests. Current identity-bound
+  native fixture parity covers 59 banks with zero divergences; three actual shim tests, 58
+  canvases, and four-format rendering/persistence correction receipts pass. Full current native
+  corpus parity covers 1,699 projected banks from 180 BBQ inputs with zero divergences; rendered
+  table parity passes across three ZIP formats. Comparable native timings preserve input/output
+  checks, and the small historical collision increase does not reproduce in alternating runs.
+  Completed contract and execution records are archived; evidence remains tracked in
+  [shared_engine_delivery.md](active_plans/reports/shared_engine_delivery.md).
+- The final local Wasm package passes build, strict TypeScript, eight Node host/native-Wasm parity
+  tests, 15 Chromium/Firefox/WebKit tests, and an actual installed nine-file npm tarball consumer's
+  runtime and positive/negative strict TypeScript checks. Source/artifact hashes, component sizes,
+  runtime versions, and browser smoke observations are bound in the delivery report; no package
+  publication is implied.
+
 ## 2026-10-07
 
 - Reproduced the clean Graphify 0.9.80 reclustering crash and validated an upstream

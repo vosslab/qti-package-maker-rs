@@ -1,7 +1,8 @@
 //! Package integrity accounting for the differential parity harness.
 
 use super::{Divergence, ZIP_ENGINES, display_error, file_sha256, parity_grading_program};
-use qti_integrity::{Severity, check_package};
+use qti_integrity::Severity;
+use qti_native::check_package_path;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::fs;
@@ -62,7 +63,7 @@ fn zip_integrity_errors(directory: &Path, engines: &[&str]) -> BTreeMap<&'static
         .filter(|engine| engines.contains(engine))
     {
         let path = directory.join(format!("{engine}.zip"));
-        let errors = check_package(&path)
+        let errors = check_package_path(&path)
             .into_iter()
             .filter(|finding| finding.severity == Severity::Error)
             .map(|finding| format!("{}:{}", finding.code, finding.path))

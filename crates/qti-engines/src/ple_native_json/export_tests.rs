@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use qti_core::media::MemoryAssets;
 use qti_core::{Item, ItemBank, ItemBody};
 use serde_json::Value;
 
@@ -76,7 +77,7 @@ fn exports_seven_kinds_as_compact_documents_in_bank_order() {
         bank.add_item(item).expect("add item");
     }
 
-    let result = export_bank(&bank).expect("export bank");
+    let result = export_bank(&bank, &MemoryAssets::new()).expect("export bank");
     assert_eq!(result.questions.len(), expected.len());
     assert!(result.warnings.is_empty());
     for (index, (question, (kind, crc))) in result.questions.iter().zip(expected).enumerate() {
@@ -92,7 +93,7 @@ fn exports_seven_kinds_as_compact_documents_in_bank_order() {
 
 #[test]
 fn empty_bank_returns_no_questions_or_warnings() {
-    let result = export_bank(&ItemBank::new(true)).expect("empty export");
+    let result = export_bank(&ItemBank::new(true), &MemoryAssets::new()).expect("empty export");
     assert!(result.questions.is_empty());
     assert!(result.warnings.is_empty());
 }
@@ -110,7 +111,9 @@ fn export_rejects_lossy_display_html_with_item_number() {
         .expect("valid source item"),
     )
     .expect("add item");
-    let message = export_bank(&bank).expect_err("lossy HTML").to_string();
+    let message = export_bank(&bank, &MemoryAssets::new())
+        .expect_err("lossy HTML")
+        .to_string();
     assert!(message.contains("item 1"), "{message}");
     assert!(message.contains("<script>"), "{message}");
 }

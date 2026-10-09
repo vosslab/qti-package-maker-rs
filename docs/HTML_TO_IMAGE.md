@@ -1,7 +1,7 @@
 # HTML-to-image contract
 
 `--html-to-image` converts selected HTML tables and static RDKit canvases to packaged PNGs for
-Canvas QTI 1.2, Blackboard QTI 2.1, and Blackboard Original exports. Table PNGs are rendered by a
+Canvas QTI 1.2, Blackboard QTI 2.1, Blackboard Original exports, and PLE Native JSON. Table PNGs are rendered by a
 local Chromium instance controlled from Rust. Chromium's rendering of the source HTML and CSS is
 the presentation authority. Python PNG layout is useful diagnostic evidence, not an acceptance
 target.
@@ -22,6 +22,21 @@ Static RDKit canvases remain a separate path. The converter validates the bounde
 uses the local RDKit shim to create its PNG, and inlines that PNG before Chromium renders a table
 that contains it. Existing sugar-library PNG/SVG exports stay images and do not enter the HTML
 table renderer.
+
+## Native ownership
+
+Rendering lives in [html_to_image/mod.rs](../crates/qti-native/src/html_to_image/mod.rs), outside
+portable engines. The native pre-pass uses a read-only `AssetSource` rooted at the input parent,
+and returns a rewritten bank with owned generated image bytes. Callers combine generated assets
+with recovered/input providers through the shared `qti-engines::AssetOverlay` before writing.
+The browser package consumes existing images and has no renderer runtime.
+
+Selection follows eligible selected writers' supported kinds. A table's display-image sources
+are inlined only when that table is rendered; unrelated references remain lazy. FIB/MULTIFIB
+accepted-answer literals are grading fields and stay outside rendering-media scans. The core
+`ItemBank::with_rewritten_items` map preserves source identity, kind, order, and source item numbers.
+Shared-engine correction and acceptance status is recorded in
+[shared_engine_delivery.md](active_plans/reports/shared_engine_delivery.md).
 
 ## Acceptance evidence
 

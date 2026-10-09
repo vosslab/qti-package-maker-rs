@@ -26,6 +26,14 @@ require_file() {
 	fi
 }
 
+require_command() {
+	local name="$1"
+	if ! command -v "$name" >/dev/null 2>&1; then
+		echo "missing command: $name; install it, then rerun this lane" >&2
+		exit 2
+	fi
+}
+
 readonly PYTHON_QTI="${RUST_RELEASE_PYTHON_QTI:?set RUST_RELEASE_PYTHON_QTI to the pinned Python checkout}"
 require_directory "$PYTHON_QTI" "pinned Python checkout"
 require_file "$PYTHON_QTI/source_me.sh" "Python checkout bootstrap"
@@ -55,4 +63,30 @@ if [[ "${RUST_RELEASE_HTML_TO_IMAGE:-0}" == "1" ]]; then
 	cargo test -p qti-molecule --test rdkit_shim --locked -- --ignored
 	cargo run --locked -p xtask -- parity --fixtures --html-to-image
 	cargo run --locked -p xtask -- parity --html-to-image
+fi
+
+# Browser/Wasm acceptance is an explicit release lane. Native builds need no Node.
+if [[ "${RUST_RELEASE_WASM:-0}" == "1" ]]; then
+	require_command node
+	require_command npm
+	require_command rustup
+	if [[ "$(node -p 'process.versions.node.split(".")[0]')" != "24" ]]; then
+		echo "the Wasm release lane requires Node 24; select it, then rerun" >&2
+		exit 2
+	fi
+	if [[ " $(rustup target list --installed | tr '\n' ' ') " != *" wasm32-unknown-unknown "* ]]; then
+		echo "install wasm32-unknown-unknown with rustup, then rerun this lane" >&2
+		exit 2
+	fi
+	cargo check -p qti-core -p qti-engines -p qti-integrity -p qti-wasm \
+		--target wasm32-unknown-unknown --locked
+	(
+		cd packages/qti-wasm
+		npm ci
+		require_file node_modules/.bin/wasm-pack "package-local wasm-pack"
+		npm run build
+		npm run typecheck
+		npm test
+		npm run test:browser
+	)
 fi

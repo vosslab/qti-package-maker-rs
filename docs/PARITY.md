@@ -74,9 +74,10 @@ the comparison projection. See the [binding ruling](active_plans/decisions/engin
 
 ## M6 package-integrity oracle
 
-`qti-integrity::check_package(path) -> Vec<Violation>` reads either a ZIP or
-an extracted package tree without extracting ZIP members. It is deliberately
-independent of `qti-core` and the writer crates. The cross-language authority
+`qti-integrity::check_package(&[u8])` and `check_entries(&BTreeMap<String, Vec<u8>>)` inspect
+portable bytes without extracting ZIP members. Native callers use
+`qti-native::check_package_path(&Path)` to load a ZIP or extracted package tree before checking.
+Integrity remains independent of `qti-core` and the writer crates. The cross-language authority
 is Python `package_integrity.py` at
 `55e5f368777f7809fe2e91b5d070caf6df0cb581`.
 
@@ -100,6 +101,13 @@ the Blackboard import incidents: unsafe IDs and absent `SCORE`, plus a media
 resource that cannot be reached through its manifest dependency graph. They
 are retained at the pinned Python revision and independently exercised by the
 M6 corpus.
+
+Safe ZIP decoding preflights all plausible EOCD and associated ZIP64 candidates before zip-rs
+can allocate member metadata, including candidates reachable by malformed-directory fallback.
+Selected-directory validation retains original raw names and rejects duplicate entries. An
+unusual input embedding a plausible overlimit archive directory can be conservatively rejected.
+The shared-engine correction and its source-bound acceptance are recorded in
+[shared_engine_delivery.md](active_plans/reports/shared_engine_delivery.md).
 
 QTI semantic elements are URI-qualified at every traversal. `bb:file` is also
 accepted only when its namespace URI is

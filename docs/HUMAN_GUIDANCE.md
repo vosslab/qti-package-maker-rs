@@ -8,8 +8,16 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 [PROPAGATED HEADER - ENTRIES BELOW ARE YOURS]
 <!-- VENDORED HEADER: END -->
 
+## Source organization
+
+- 2026-10-08: When source files approach a size cap, split them into focused modules and preserve
+  useful comments and behavior; do not squeeze comments just to meet the cap.
+
 ## Rust port
 
+- 2026-10-08: I want the native CLI, WebAssembly package, and generated TypeScript API to use the
+  same Rust parsing, validation, and media-writer implementation. Keep the native CLI free of Node
+  prerequisites.
 - 2026-10-07: For the PLE handoff, QPM supplies canonical question content and correct-answer
   information. PLE owns student presentation and any shuffling; QPM adds no permutations.
 - 2026-10-07: Ordinary FIB answers ignore capitalization and incidental whitespace. `DNA`,
@@ -51,6 +59,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - We can implement our own code as well. Consider a small local implementation alongside
   dependencies when it makes the overall design simpler.
+
+- 2026-10-09: I like to keep dependencies down to reduce the supply chain attack surface.
 
 - I prefer to use the latest versions of things. Prefer current dependency releases and
   adapt to their APIs when practical, while retaining reproducible locked builds.

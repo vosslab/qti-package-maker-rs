@@ -4,21 +4,17 @@ use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
-use qti_core::{ItemBank, ItemKind};
-use qti_engines::html_to_image::{ChromiumFragmentRenderer, RenderCache, convert_bank};
-use qti_engines::{DocumentMetadata, ENGINES, EngineEntry, EngineOptions, MediaWarning, Writer};
-use qti_integrity::{Severity, check_package};
+use qti_core::ItemKind;
+use qti_engines::{AssetOverlay, ENGINES, EngineEntry, MediaWarning, ReadInput, WriteContext};
+use qti_integrity::Severity;
+use qti_native::html_to_image::{ChromiumFragmentRenderer, RenderCache, convert_bank};
+use qti_native::{
+    DirectoryAssets, check_package_path, persist_artifact, read_source, resolve_write_context,
+};
 
 use crate::CliError;
 
 const BBQ_READER: &str = "bbq_text_upload";
-const HTML_TO_IMAGE_ENGINES: &[&str] = &[
-    "canvas_qti_v1_2",
-    "blackboard_qti_v2_1",
-    "blackboard_export_zip",
-    "ple_native_json",
-];
-
 /// `bbq-converter`, matching the established Python entry point.
 #[derive(Clone, Debug, Parser)]
 #[command(
@@ -147,8 +143,35 @@ pub fn run_bbq_converter(args: BbqConverterArgs) -> Result<ConverterReport, CliE
     let selected = selected_engines(&args)?;
     validate_output_and_conversion(&args, &selected)?;
     let content_name = extract_content_name(&args.input)?;
-    let options = engine_options_for_content_name(&content_name)?;
-    let mut bank = read_bbq_bank(&args.input, args.allow_mixed)?;
+    let context = resolve_write_context("output", &content_name)?;
+    let input_bytes = read_source(&args.input)?;
+    let input_name = args
+        .input
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| CliError::InputName {
+            path: args.input.clone(),
+        })?;
+    let read = qti_engines::read_bank(
+        BBQ_READER,
+        ReadInput::File {
+            name: input_name,
+            bytes: &input_bytes,
+        },
+        args.allow_mixed,
+        None,
+    )?;
+    let mut bank = read.bank;
+    let directory_assets = DirectoryAssets::new(
+        args.input
+            .parent()
+            .filter(|path| !path.as_os_str().is_empty())
+            .unwrap_or(Path::new(".")),
+    )?;
+    let input_assets = AssetOverlay {
+        memory: &read.assets,
+        fallback: &directory_assets,
+    };
     let loaded_items = bank.len();
     let verbose = !args.quiet;
     let mut progress = Vec::new();
@@ -166,8 +189,19 @@ pub fn run_bbq_converter(args: BbqConverterArgs) -> Result<ConverterReport, CliE
     let (converted, conversion_passes) =
         if args.html_to_image && selected.iter().any(|entry| is_html_to_image_engine(entry)) {
             let renderer = ChromiumFragmentRenderer::default();
+            let supported_kinds = selected
+                .iter()
+                .filter(|entry| is_html_to_image_engine(entry))
+                .flat_map(|entry| entry.supported_kinds.iter().copied())
+                .collect::<Vec<_>>();
             (
-                Some(convert_bank(&bank, &renderer, &RenderCache::new())?),
+                Some(convert_bank(
+                    &bank,
+                    &supported_kinds,
+                    &input_assets,
+                    &renderer,
+                    &RenderCache::new(),
+                )?),
                 1,
             )
         } else {
@@ -193,22 +227,44 @@ pub fn run_bbq_converter(args: BbqConverterArgs) -> Result<ConverterReport, CliE
                 bank.len()
             ));
         }
-        let writer = writer_for(entry, options.clone())?;
         let output = args
             .output
             .as_deref()
             .map_or_else(|| output_name(entry.name, &content_name), Path::to_path_buf);
-        // Conversion has already completed once. Writers always receive false so a direct-writer
-        // implementation cannot duplicate conversion inside this fan-out loop.
-        let output_bank = if args.html_to_image && is_html_to_image_engine(entry) {
-            converted
-                .as_ref()
-                .expect("package engine implies converted bank")
-        } else {
-            &bank
-        };
-        let outcome = writer.save_package(output_bank, Some(&output))?;
-        if let Some(path) = outcome.path {
+        let logical_output = output
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| CliError::Arguments {
+                message: "output must have a UTF-8 filename".into(),
+            })?;
+        let writer_context = WriteContext::new(
+            logical_output,
+            context.document.clone(),
+            context.shuffle_seed,
+        )?;
+        let generated_assets;
+        let (output_bank, output_assets): (_, &dyn qti_core::media::AssetSource) =
+            if args.html_to_image && is_html_to_image_engine(entry) {
+                let (converted_bank, memory) = converted
+                    .as_ref()
+                    .expect("package engine implies converted bank");
+                generated_assets = AssetOverlay {
+                    memory,
+                    fallback: &input_assets,
+                };
+                (converted_bank, &generated_assets)
+            } else {
+                (&bank, &input_assets)
+            };
+        let outcome =
+            qti_engines::write_bank(entry.name, output_bank, output_assets, &writer_context)?;
+        if let Some(artifact) = &outcome.artifact {
+            let path =
+                persist_artifact(artifact, &output).map_err(|source| CliError::Persistence {
+                    engine: entry.name,
+                    path: output.clone(),
+                    source: Box::new(source),
+                })?;
             if verbose {
                 progress.push(format!(
                     "Saved {} assessment items to {}",
@@ -261,7 +317,7 @@ pub fn run_package_maker(args: PackageMakerArgs) -> Result<String, CliError> {
             .join("\n")),
         PackageMakerCommand::ItemTypes => Ok(item_kind_names().join("\n")),
         PackageMakerCommand::Check { path } => {
-            let violations = check_package(path);
+            let violations = check_package_path(&path);
             if violations.is_empty() {
                 return Ok("OK".to_owned());
             }
@@ -282,7 +338,7 @@ pub fn run_package_maker(args: PackageMakerArgs) -> Result<String, CliError> {
 /// Returns whether integrity findings require a nonzero process exit.
 #[must_use]
 pub fn package_check_failed(path: &Path) -> bool {
-    check_package(path)
+    check_package_path(path)
         .iter()
         .any(|violation| violation.severity == Severity::Error)
 }
@@ -367,7 +423,12 @@ fn validate_output_and_conversion(
         return Err(CliError::Arguments {
             message: format!(
                 "--html-to-image applies only to supported output formats ({}) when --output is supplied",
-                HTML_TO_IMAGE_ENGINES.join(", ")
+                ENGINES
+                    .iter()
+                    .filter(|entry| entry.native_rendering)
+                    .map(|entry| entry.name)
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ),
         });
     }
@@ -375,26 +436,7 @@ fn validate_output_and_conversion(
 }
 
 fn is_html_to_image_engine(entry: &EngineEntry) -> bool {
-    HTML_TO_IMAGE_ENGINES.contains(&entry.name)
-}
-
-fn read_bbq_bank(path: &Path, allow_mixed: bool) -> Result<ItemBank, CliError> {
-    let entry = resolve_engine(BBQ_READER)?;
-    let reader = entry
-        .make_reader
-        .ok_or_else(|| CliError::ReaderUnavailable {
-            engine: entry.name.to_owned(),
-        })?(EngineOptions::default());
-    Ok(reader.read_items(path, allow_mixed)?.bank)
-}
-
-fn writer_for(entry: &EngineEntry, options: EngineOptions) -> Result<Box<dyn Writer>, CliError> {
-    entry
-        .make_writer
-        .ok_or_else(|| CliError::WriterUnavailable {
-            engine: entry.name.to_owned(),
-        })
-        .map(|factory| factory(options))
+    entry.native_rendering
 }
 
 fn extract_content_name(input: &Path) -> Result<String, CliError> {
@@ -420,23 +462,8 @@ fn extract_content_name(input: &Path) -> Result<String, CliError> {
 }
 
 fn output_name(engine: &str, content_name: &str) -> PathBuf {
-    if engine == "ple_native_json" {
-        return PathBuf::from(format!("ple-{content_name}"));
-    }
-    let (prefix, extension) = match engine {
-        "canvas_qti_v1_2" => ("qti12", "zip"),
-        "blackboard_qti_v2_1" => ("qti21", "zip"),
-        "human_readable" => ("human", "html"),
-        "bbq_text_upload" => ("bbq", "txt"),
-        "html_selftest" => ("selftest", "html"),
-        "moodle_aiken" => ("aiken", "txt"),
-        "blackboard_export_zip" => ("bez", "zip"),
-        "exam_yaml" => ("exam", "yaml"),
-        "okla_chrst_bqgen" => ("okla", "txt"),
-        "text2qti" => ("text2qti", "txt"),
-        _ => unreachable!("every engine has an output naming contract"),
-    };
-    PathBuf::from(format!("{prefix}-{content_name}.{extension}"))
+    let entry = qti_engines::engine(engine).expect("CLI uses registered engines");
+    PathBuf::from((entry.output_name_for_content)(content_name))
 }
 
 fn engine_names() -> Vec<&'static str> {
@@ -464,22 +491,6 @@ fn item_kind_names() -> Vec<&'static str> {
         ItemKind::Order => "ORDER",
     })
     .collect()
-}
-
-fn engine_options_for_content_name(content_name: &str) -> Result<EngineOptions, CliError> {
-    let local_date = time::OffsetDateTime::now_local()
-        .map_err(|error| CliError::LocalDate {
-            message: error.to_string(),
-        })?
-        .date()
-        .to_string();
-    Ok(EngineOptions {
-        html_to_image: false,
-        document: DocumentMetadata {
-            title: content_name.to_owned(),
-            date: local_date,
-        },
-    })
 }
 
 #[cfg(test)]
@@ -588,7 +599,7 @@ mod tests {
         .expect("Blackboard writer accepts a multiple-choice bank");
         assert_eq!(report.outputs, [output]);
         assert!(report.warnings.is_empty());
-        assert!(qti_integrity::check_package(&report.outputs[0]).is_empty());
+        assert!(qti_native::check_package_path(&report.outputs[0]).is_empty());
     }
 
     #[test]
@@ -622,11 +633,12 @@ mod tests {
     }
 
     #[test]
-    fn order_only_canvas_request_reports_no_saved_output() {
+    fn order_only_canvas_render_request_reports_no_saved_output() {
         let directory = tempfile::tempdir().expect("temporary output directory");
         let input = directory.path().join("bbq-order-questions.txt");
         let output = directory.path().join("qti12-order.zip");
-        std::fs::write(&input, "ORD\tPut these in order\tfirst\tsecond\n").expect("input fixture");
+        std::fs::write(&input, "ORD\t<table><tr><td>Skipped</td></tr></table><img src=\"missing.png\" />\tfirst\tsecond\n")
+            .expect("input fixture");
         let report = run_bbq_converter(BbqConverterArgs {
             input,
             output: Some(output.clone()),
@@ -634,7 +646,7 @@ mod tests {
             quiet: true,
             verbose: false,
             allow_mixed: false,
-            html_to_image: false,
+            html_to_image: true,
             formats: Vec::new(),
             all: false,
             qti12: true,

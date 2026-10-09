@@ -1,5 +1,6 @@
 [workspace]
-members = ["crates/qti-core", "crates/qti-integrity", "crates/qti-engines", "crates/qti-cli", "crates/qti-molecule", "xtask"]
+members = ["crates/qti-core", "crates/qti-integrity", "crates/qti-engines", "crates/qti-native", "crates/qti-cli", "crates/qti-molecule", "crates/qti-wasm", "xtask"]
+default-members = ["crates/qti-core", "crates/qti-integrity", "crates/qti-engines", "crates/qti-native", "crates/qti-cli", "crates/qti-molecule", "xtask"]
 resolver = "3"
 
 [workspace.package]
@@ -21,7 +22,8 @@ crc = "*"
 regex = "*"
 serde_json = { version = "*", features = ["float_roundtrip"] }
 quick-xml = "*"
-scraper = "*"
+# Keep HTML parse diagnostics without scraper's standalone command-line tool.
+scraper = { version = "*", default-features = false, features = ["errors"] }
 markup5ever = "*"
 indexmap = "*"
 tempfile = "*"
@@ -31,4 +33,5 @@ serde_yaml_ng = "*"
 base64 = "*"
 percent-encoding = "*"
 rayon = "*"
-zip = { version = "*", default-features = false, features = ["deflate"] }
+# All writers use ordinary Deflate; the optional Zopfli encoder is unused.
+zip = { version = "*", default-features = false, features = ["deflate-flate2-zlib-rs"] }
