@@ -16,7 +16,7 @@
   --qti-success-fg: #008000;
   --qti-error-fg: #9b1b1b;
   --qti-warning-fg: #b37100;
-  --qti-btn-bg: #3a5acd;
+  --qti-btn-bg: #008852;
   --qti-btn-fg: #ffffff;
   --qti-btn-disabled-bg: #aaaaaa;
   --qti-btn-disabled-fg: #eeeeee;
@@ -37,24 +37,24 @@
   padding-left: 0;
   margin: 0 0 12px 0;
 }
-/* Each choice row: min 40px height for comfortable tap targets */
+/* Compact choice rows grow naturally for wrapped text and scientific content. */
 .qti-selftest ul[id^="choices_"] > li {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 4px 0;
-  padding: 6px 4px;
-  min-height: 40px;
+  gap: 8px;
+  margin: 2px 0;
+  padding: 2px 4px;
+  min-height: 24px;
 }
 .qti-selftest ul[id^="choices_"].qti-auto-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 6px 12px;
+  gap: 4px 12px;
 }
 .qti-selftest ul[id^="choices_"].qti-auto-grid-compact {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 6px 12px;
+  gap: 4px 12px;
 }
 .qti-selftest ul[id^="choices_"] > li > label {
   display: flex;
@@ -85,7 +85,7 @@
   width: 1.4em;
   height: 1.4em;
   cursor: pointer;
-  accent-color: var(--qti-btn-bg, #3a5acd);
+  accent-color: var(--qti-btn-bg, #008852);
 }
 /* Primary filled button (Check Answer) */
 .qti-selftest .qti-btn {
@@ -93,13 +93,13 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  min-height: 44px;
+  min-height: 28px;
   margin: 0;
-  background-color: var(--qti-btn-bg, #3a5acd);
+  background-color: var(--qti-btn-bg, #008852);
   color: var(--qti-btn-fg, #ffffff);
   border: none;
   border-radius: 4px;
-  padding: 8px 14px;
+  padding: 3px 10px;
   font-family: inherit;
   font-size: 14px;
   font-weight: 600;
@@ -109,7 +109,7 @@
   transition: transform 80ms ease-out, filter 80ms ease-out;
 }
 .qti-selftest .qti-btn:hover {
-  filter: brightness(1.1);
+  filter: brightness(0.9);
 }
 .qti-selftest .qti-btn.qti-pressed:not(:disabled) {
   transform: scale(0.97);
@@ -216,7 +216,7 @@
     --qti-success-fg: #a8e6b0;
     --qti-error-fg: #ffc1c1;
     --qti-warning-fg: #ffd9a3;
-    --qti-btn-bg: #4a6ee0;
+    --qti-btn-bg: #008852;
     --qti-btn-fg: #ffffff;
     --qti-btn-disabled-bg: #555555;
     --qti-btn-disabled-fg: #aaaaaa;
@@ -245,7 +245,7 @@ body[data-md-color-scheme="default"] .qti-selftest {
   --qti-success-fg: #008000;
   --qti-error-fg: #9b1b1b;
   --qti-warning-fg: #b37100;
-  --qti-btn-bg: #3a5acd;
+  --qti-btn-bg: #008852;
   --qti-btn-fg: #ffffff;
   --qti-btn-disabled-bg: #aaaaaa;
   --qti-btn-disabled-fg: #eeeeee;
@@ -273,7 +273,7 @@ body[data-md-color-scheme="slate"] .qti-selftest {
   --qti-success-fg: #a8e6b0;
   --qti-error-fg: #ffc1c1;
   --qti-warning-fg: #ffd9a3;
-  --qti-btn-bg: #4a6ee0;
+  --qti-btn-bg: #008852;
   --qti-btn-fg: #ffffff;
   --qti-btn-disabled-bg: #555555;
   --qti-btn-disabled-fg: #aaaaaa;

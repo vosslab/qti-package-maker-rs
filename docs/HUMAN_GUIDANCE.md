@@ -17,6 +17,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ## Rust port
 
+- 2026-10-10: Make Check Answer Roosevelt University green and shorter, close to BPW's
+  completion badge or download links. Reduce MC/MA answer padding.
 - 2026-10-10: Remove reports that caused drift. The visual parity assessment caused major drift;
   I had removed `docs/active_plans/reports/SELFTEST_VISUAL_PARITY.md` and found it had returned.
 - 2026-10-09: Python QPM defines Rust QPM's responsibilities: parse and validate questions, convert

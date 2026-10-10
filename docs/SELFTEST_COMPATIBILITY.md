@@ -54,8 +54,11 @@ document elements, metadata, viewport, and page theme. Opening the emitted fragm
 provides an independent preview of that same output contract.
 Keep all QPM CSS and JavaScript inline in the emitted fragment.
 
-The shared theme and control CSS are copied from current Python QPM and installed once using
-its `qti-selftest-theme` identifier. Preserve its transparent background fallback, inherited host
+The shared theme and control CSS originate in Python QPM and are installed once using
+its `qti-selftest-theme` identifier. The user-requested 2026-10-10 styling update uses Roosevelt
+green primary buttons, shorter action buttons, and tighter MC/MA rows. These are intentional
+presentation differences; the frozen Python references remain unchanged.
+Preserve the transparent background fallback, inherited host
 theme variables, native field appearance, form/control placement, feedback space, and paragraph
 folding. Python uses `--md-default-bg-color` when supplied, otherwise transparency; it uses
 `--md-default-fg-color` when supplied, otherwise its theme's foreground. Do not introduce separate

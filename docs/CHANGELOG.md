@@ -3,6 +3,16 @@
 Earlier entries: [CHANGELOG-2026-10a.md](CHANGELOG-2026-10a.md) and
 [CHANGELOG-2026-09a.md](CHANGELOG-2026-09a.md).
 
+## 2026-10-10
+
+### Behavior or Interface Changes
+
+- At the user's request, use Roosevelt green `#008852` with white text for primary self-test
+  buttons, reduce action buttons to a 28px minimum height, and tighten MC/MA answer rows.
+  Keep a small gap between controls and let rich answer content determine row height.
+  The shared native/Wasm stylesheet owns these deliberate differences from the frozen Python
+  reference. Grading, question order, and MATCH/ORDER response shuffling are unchanged.
+
 ## 2026-10-09
 
 ### Additions and New Features
