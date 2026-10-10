@@ -120,7 +120,7 @@ fn mixed_bank() -> ItemBank {
             ItemBody::Ma {
                 choices: vec!["one".to_owned(), "two".to_owned(), "three".to_owned()],
                 answers: vec!["one".to_owned(), "two".to_owned()],
-                min_answers_required: 0,
+                min_answers_required: -2,
                 allow_all_correct: false,
             },
         ),
@@ -233,7 +233,7 @@ fn absent_private_grading_metadata_uses_frozen_blackboard_defaults() {
             .expect("NUM item");
         (ma, num)
     };
-    assert_eq!(grading(&present.bank), ((0, false), (0.01, true)));
+    assert_eq!(grading(&present.bank), ((-2, false), (0.01, true)));
     let xml =
         String::from_utf8(entries.remove("res00002.dat").expect("pool XML")).expect("UTF-8 XML");
     entries.insert(

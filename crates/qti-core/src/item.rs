@@ -29,7 +29,7 @@ pub enum ItemBody {
     Ma {
         choices: Vec<String>,
         answers: Vec<String>,
-        min_answers_required: usize,
+        min_answers_required: i64,
         allow_all_correct: bool,
     },
     Match {
@@ -162,6 +162,19 @@ impl Item {
         item_number: usize,
         raw_body: ItemBody,
     ) -> Result<Self, ValidationError> {
+        // Python's constructors resolve answer indices against the original choices before
+        // validating normalized fields. A prefix must not make an absent answer valid.
+        match &raw_body {
+            ItemBody::Mc { choices, answer } if !choices.contains(answer) => {
+                return Err(ValidationError::AnswerAbsentFromChoices);
+            }
+            ItemBody::Ma {
+                choices, answers, ..
+            } if answers.iter().any(|a| !choices.contains(a)) => {
+                return Err(ValidationError::AnswerAbsentFromChoices);
+            }
+            _ => {}
+        }
         let question_text = strip_crc_prefix(&question);
         let secondary = secondary_string(&raw_body);
         let body = normalize_body(raw_body.clone());
@@ -477,6 +490,30 @@ mod tests {
     }
 
     #[test]
+    fn mc_and_ma_answers_must_belong_to_raw_choices_before_normalization() {
+        let choices = vec!["A. one".into(), "B. two".into(), "C. three".into()];
+        for answer in ["one", "A. one"] {
+            for body in [
+                ItemBody::Mc {
+                    choices: choices.clone(),
+                    answer: answer.into(),
+                },
+                ItemBody::Ma {
+                    choices: choices.clone(),
+                    answers: vec![answer.into()],
+                    min_answers_required: 1,
+                    allow_all_correct: true,
+                },
+            ] {
+                assert_eq!(
+                    Item::new("Question".into(), body).is_ok(),
+                    answer == "A. one"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn typed_num_deserialization_rejects_boolean_answer_and_tolerance() {
         for body in [
             r#"{"NUM":{"answer":true,"tolerance":0.1,"tolerance_message":false}}"#,
@@ -501,6 +538,16 @@ mod tests {
             ),
             Err(ValidationError::Crc(CrcError::NonAscii { .. }))
         ));
+        // MULTIFIB hashes Python list repr, which escapes non-printable characters first.
+        assert!(
+            Item::new(
+                "Fill [blank]".into(),
+                ItemBody::MultiFib {
+                    answers: BTreeMap::from([("blank".into(), vec!["x\u{85}y".into()])]),
+                },
+            )
+            .is_ok()
+        );
     }
 
     #[test]

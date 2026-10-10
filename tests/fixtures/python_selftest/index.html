@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Python QPM self-test references</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f3f5f8; color: #17243a; font: 16px/1.5 system-ui, sans-serif; }
+    main { max-width: 1120px; margin: auto; padding: 24px 16px 48px; }
+    h1 { margin: 0 0 8px; font-size: clamp(1.7rem, 4vw, 2.3rem); line-height: 1.2; }
+    h2 { margin: 0; font-size: 1.2rem; }
+    p { margin: 8px 0 16px; }
+    a { color: #174ea6; text-underline-offset: 3px; }
+    a:focus-visible { outline: 3px solid #174ea6; outline-offset: 4px; }
+    nav { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 16px 0 24px; }
+    article { margin: 20px 0; background: white; border: 1px solid #ccd4df; border-radius: 10px; overflow: hidden; }
+    .case-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; padding: 14px 16px; }
+    .case-links { display: flex; gap: 16px; }
+    .kind { font-size: .85rem; color: #4a5870; }
+    iframe { display: block; width: 100%; height: 520px; border: 0; border-top: 1px solid #ccd4df; background: white; }
+    .long-preview { height: 760px; }
+    @media (max-width: 600px) {
+      main { padding: 20px 10px 32px; }
+      .case-heading { padding: 12px; }
+      iframe { height: 600px; }
+      .long-preview { height: 780px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Python QPM self-test references</h1>
+      <p>Ten existing question-bank records rendered by current Python QPM. Try the original
+        controls in each preview, or open a capture for a full browser view.</p>
+      <p>These captures document Python behavior and presentation. Rust parity requires a separate
+        comparison. The two RDKit examples need network access to unpkg.</p>
+      <p><a href="README.md">README.md</a> &middot; <a href="manifest.json">manifest.json</a></p>
+      <nav aria-label="Reference cases">
+        <a href="#mc">MC</a><a href="#ma">MA</a><a href="#match">MATCH</a>
+        <a href="#num">NUM</a><a href="#fib">FIB</a><a href="#multi_fib">MULTI_FIB</a>
+        <a href="#order">ORDER</a><a href="#match_tables">MATCH tables</a>
+        <a href="#mc_rdkit">MC RDKit</a><a href="#match_rdkit">MATCH RDKit</a>
+      </nav>
+    </header>
+    <article id="mc">
+      <div class="case-heading"><h2><span class="kind">MC</span> &middot; Buffer pH</h2>
+        <div class="case-links"><a href="mc.html">mc.html</a><a href="mc.txt">mc.txt</a></div></div>
+      <iframe src="mc.html" title="MC preview: Buffer pH"></iframe>
+    </article>
+    <article id="ma">
+      <div class="case-heading"><h2><span class="kind">MA</span> &middot; Alpha-helix hydrogen bonds</h2>
+        <div class="case-links"><a href="ma.html">ma.html</a><a href="ma.txt">ma.txt</a></div></div>
+      <iframe src="ma.html" title="MA preview: Alpha-helix hydrogen bonds"></iframe>
+    </article>
+    <article id="match">
+      <div class="case-heading"><h2><span class="kind">MATCH</span> &middot; Degrees of dominance</h2>
+        <div class="case-links"><a href="match.html">match.html</a><a href="match.txt">match.txt</a></div></div>
+      <iframe src="match.html" title="MATCH preview: Degrees of dominance"></iframe>
+    </article>
+    <article id="num">
+      <div class="case-heading"><h2><span class="kind">NUM</span> &middot; Buffer pH with tolerance</h2>
+        <div class="case-links"><a href="num.html">num.html</a><a href="num.txt">num.txt</a></div></div>
+      <iframe src="num.html" title="NUM preview: Buffer pH with tolerance"></iframe>
+    </article>
+    <article id="fib">
+      <div class="case-heading"><h2><span class="kind">FIB</span> &middot; RNA transcription</h2>
+        <div class="case-links"><a href="fib.html">fib.html</a><a href="fib.txt">fib.txt</a></div></div>
+      <iframe src="fib.html" title="FIB preview: RNA transcription"></iframe>
+    </article>
+    <article id="multi_fib">
+      <div class="case-heading"><h2><span class="kind">MULTI_FIB</span> &middot; Three-point genetic map</h2>
+        <div class="case-links"><a href="multi_fib.html">multi_fib.html</a><a href="multi_fib.txt">multi_fib.txt</a></div></div>
+      <iframe class="long-preview" src="multi_fib.html" title="MULTI_FIB preview: Three-point genetic map"></iframe>
+    </article>
+    <article id="order">
+      <div class="case-heading"><h2><span class="kind">ORDER</span> &middot; Model organism complexity</h2>
+        <div class="case-links"><a href="order.html">order.html</a><a href="order.txt">order.txt</a></div></div>
+      <iframe src="order.html" title="ORDER preview: Model organism complexity"></iframe>
+    </article>
+    <article id="match_tables">
+      <div class="case-heading"><h2><span class="kind">MATCH tables</span> &middot; Amino-acid properties</h2>
+        <div class="case-links"><a href="match_tables.html">match_tables.html</a><a href="match_tables.txt">match_tables.txt</a></div></div>
+      <iframe class="long-preview" src="match_tables.html" title="MATCH tables preview: Amino-acid properties with tables"></iframe>
+    </article>
+    <article id="mc_rdkit">
+      <div class="case-heading"><h2><span class="kind">MC RDKit</span> &middot; Identify an amino acid</h2>
+        <div class="case-links"><a href="mc_rdkit.html">mc_rdkit.html</a><a href="mc_rdkit.txt">mc_rdkit.txt</a></div></div>
+      <iframe class="long-preview" src="mc_rdkit.html" title="MC RDKit preview: Identify an amino acid"></iframe>
+    </article>
+    <article id="match_rdkit">
+      <div class="case-heading"><h2><span class="kind">MATCH RDKit</span> &middot; Match amino-acid structures</h2>
+        <div class="case-links"><a href="match_rdkit.html">match_rdkit.html</a><a href="match_rdkit.txt">match_rdkit.txt</a></div></div>
+      <iframe class="long-preview" src="match_rdkit.html" title="MATCH RDKit preview: Match amino-acid structures"></iframe>
+    </article>
+  </main>
+</body>
+</html>

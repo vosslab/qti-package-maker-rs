@@ -153,7 +153,7 @@ async function gradeCorrectViaControls(page: Page, id: string): Promise<string> 
   } else if (kind === "order") {
     await arrangeOrder(page, id, ["transcription", "RNA processing", "translation"]);
   } else throw new Error(`unknown self-test kind ${kind}`);
-  await box.locator("[data-action=grade]").click();
+  await box.locator("button[onclick^=checkAnswer_]").click();
   return resultText(page, id);
 }
 
@@ -172,13 +172,13 @@ async function gradeMeaningfullyWrong(page: Page, id: string): Promise<void> {
   } else if (kind === "order") {
     await arrangeOrder(page, id, ["translation", "RNA processing", "transcription"]);
   } else throw new Error(`unknown self-test kind ${kind}`);
-  await box.locator("[data-action=grade]").click();
+  await box.locator("button[onclick^=checkAnswer_]").click();
 }
 
 async function resetAndExpectCurrentBehavior(page: Page, id: string): Promise<void> {
   const box = page.locator(`#question_html_${id}`);
   const kind = await box.getAttribute("data-kind");
-  const reset = box.locator("[data-action=reset]");
+  const reset = box.locator(".qti-btn-reset");
   if (kind === "ma") {
     await reset.click();
     await expect(box.locator("input:checked")).toHaveCount(0);
@@ -212,11 +212,71 @@ test("native and delivered Wasm self-tests preserve stable question identities",
   for (let index = 0; index < names.length; index++) {
     expect(crc(native[index] ?? "")).toBe(crc(wasm[index] ?? ""));
     expect(native[index]).toContain(`statement_text_${crc(native[index] ?? "")}`);
+    for (const html of [native[index], wasm[index]]) {
+      expect(html).not.toMatch(/<!doctype|<\/?(?:html|head|body|title|meta)\b/i);
+    }
   }
   const variantA = wasmHtml("NUM\tConcentration\t2.5\t0.125\n");
   const variantB = wasmHtml("NUM\tConcentration\t3.5\t0.125\n");
   expect(crc(variantA)).not.toBe(crc(variantB));
   await mount(page, native[0] ?? "");
+});
+
+test("text answers preserve Python's per-type character-reference handling", async ({ page }) => {
+  // On regression, restore the emitted answer representation for the affected question type.
+  const cases = [
+    { source: "FIB\tName this protein structure.\t&alpha;-helix\talpha helix\n",
+      attempts: [["\u03b1-helix", "incorrect"], ["&alpha;-helix", "CORRECT"]] },
+    { source: "FIB_PLUS\tThe protein structure is [shape].\tshape\t&beta;-sheet\tpleated sheet\n",
+      attempts: [["\u03b2-sheet", "CORRECT"], ["&beta;-sheet", "Correct: 0 of 1"]] },
+  ] as const;
+  const native = nativeHtml(cases.map(({ source }) => source));
+  for (const [index, entry] of cases.entries()) {
+    for (const html of [native[index]!, wasmHtml(entry.source)]) {
+      const id = await mount(page, html);
+      for (const [answer, expected] of entry.attempts) {
+        await page.locator("input").fill(answer);
+        await page.getByRole("button", { name: "Check Answer", exact: true }).click();
+        await expect(page.locator(`#result_${id}`)).toHaveText(expected);
+      }
+    }
+  }
+});
+
+test("fragments preserve the host document and inherit its changing theme", async ({ page }) => {
+  // On regression, restore fragment-owned controls and host-owned document/theme behavior.
+  for (const host of rendered) {
+    await page.goto("about:blank");
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.setContent(`<!doctype html><html lang="fr"><head><title>Host title</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>body { margin: 23px; background: rgb(231, 219, 205); color-scheme: light;
+      font-family: Georgia; --md-default-fg-color: rgb(31, 42, 53); }
+      body[data-md-color-scheme=slate] { --md-default-fg-color: rgb(223, 234, 245); }
+      </style></head><body data-md-color-scheme="default"><header>Host header</header>
+      <main>${host.html.mc}${host.html.match}</main></body></html>`);
+    expect(await page.title()).toBe("Host title");
+    expect(await page.evaluate(() => document.compatMode)).toBe("CSS1Compat");
+    await expect(page.locator("html")).toHaveAttribute("lang", "fr");
+    await expect(page.locator("meta[name=viewport]")).toHaveCount(1);
+    await expect(page.locator("#qti-selftest-theme")).toHaveCount(1);
+    const box = page.locator(".qti-selftest").first();
+    await expect(box).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(box).toHaveCSS("color", "rgb(31, 42, 53)");
+    await expect(box).toHaveCSS("font-family", "Georgia");
+    const lightChoice = await page.locator(".qti-match-choice").first().evaluate(el => getComputedStyle(el).backgroundColor);
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.locator("body").evaluate(el => { el.dataset.mdColorScheme = "slate"; });
+    await expect(box).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(box).toHaveCSS("color", "rgb(223, 234, 245)");
+    expect(await page.locator(".qti-match-choice").first().evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(lightChoice);
+    await expect(page.locator("body")).toHaveCSS("background-color", "rgb(231, 219, 205)");
+    await expect(page.locator("body")).toHaveCSS("color-scheme", "light");
+    await page.locator("body").evaluate(el => el.style.setProperty("--md-default-bg-color", "rgb(21, 32, 43)"));
+    await expect(box).toHaveCSS("background-color", "rgb(21, 32, 43)");
+    await gradeCorrectViaControls(page, crc(host.html.mc));
+    await expect(box.locator(".qti-feedback-result")).toHaveText("CORRECT");
+  }
 });
 
 test("native and delivered Wasm self-tests grade all authored fixtures", async ({ page }) => {
@@ -226,11 +286,11 @@ test("native and delivered Wasm self-tests grade all authored fixtures", async (
       const id = await mount(page, html);
       const box = page.locator(`#question_html_${id}`);
       await wrapGrade(page, id);
-      await expect(box.locator("[data-action=grade]")).toBeEnabled();
+      await expect(box.locator("button[onclick^=checkAnswer_]")).toBeEnabled();
       if (name === "num") {
         await box.locator(".qti-num-input").fill("Infinity");
-        await box.locator("[data-action=grade]").click();
-        await expect(box.locator(`#result_${id}`)).toHaveText("Please enter a valid number.");
+        await box.locator("button[onclick^=checkAnswer_]").click();
+        await expect(box.locator(`#result_${id}`)).toHaveText("Too high. Try again.");
       }
       await gradeMeaningfullyWrong(page, id);
       const feedback = await resultText(page, id);
@@ -246,7 +306,7 @@ test("native and delivered Wasm self-tests grade all authored fixtures", async (
       await expect(box.locator(`#result_${id}`)).toHaveText(name === "match" ? "Total Score: 2 out of 2"
         : name === "order" ? "Correct positions: 3 of 3" : "CORRECT");
       await expect(box.locator(`#result_${id}`)).toHaveClass(/qti-feedback-success/);
-      await expect(box.locator("[data-action=grade]")).toBeEnabled();
+      await expect(box.locator("button[onclick^=checkAnswer_]")).toBeEnabled();
       expect(await hookCalls(page)).toEqual(name === "num" ? [id, id, id] : [id, id]);
       expect(await page.evaluate((crcText) => (Reflect.get(window, "__completedByCrc") as Set<string>).has(crcText), id)).toBe(true);
       await resetAndExpectCurrentBehavior(page, id);
@@ -260,12 +320,12 @@ test("grading feedback and keyboard behavior use the public hook exactly once", 
     const mcId = await mount(page, host.html.mc);
     await wrapGrade(page, mcId);
     const mc = page.locator(`#question_html_${mcId}`);
-    await mc.locator("[data-action=grade]").click();
+    await mc.locator("button[onclick^=checkAnswer_]").click();
     await expect(mc.locator(`#result_${mcId}`)).toHaveText("Please select an answer.");
     await mc.getByLabel(/ATP/).check();
-    await mc.locator("[data-action=grade]").click();
+    await mc.locator("button[onclick^=checkAnswer_]").click();
     await expect(mc.locator(`#result_${mcId}`)).toHaveText("CORRECT");
-    await expect(mc.locator("[data-action=grade]")).toBeEnabled();
+    await expect(mc.locator("button[onclick^=checkAnswer_]")).toBeEnabled();
     expect(await hookCalls(page)).toEqual([mcId, mcId]);
 
     const numId = await mount(page, host.html.num);
@@ -276,7 +336,7 @@ test("grading feedback and keyboard behavior use the public hook exactly once", 
     await numeric.fill("2.625");
     await numeric.press("Enter");
     await expect(page.locator(`#result_${numId}`)).toHaveText("CORRECT");
-    await expect(page.locator(`#question_html_${numId} [data-action=grade]`)).toBeEnabled();
+    await expect(page.locator(`#question_html_${numId} button[onclick^=checkAnswer_]`)).toBeEnabled();
     expect(await hookCalls(page)).toEqual([numId, numId]);
   }
 
@@ -293,11 +353,11 @@ test("grading feedback and keyboard behavior use the public hook exactly once", 
   await blanks.nth(0).fill("adenine");
   await blanks.nth(0).press("Enter");
   expect(await hookCalls(page)).toEqual([]);
-  await page.locator(`#question_html_${multiId} [data-action=grade]`).click();
+  await page.locator(`#question_html_${multiId} button[onclick^=checkAnswer_]`).click();
   await expect(page.locator(`#result_${multiId}`)).toHaveText("Correct: 1 of 3");
   await blanks.nth(1).fill("A");
   await blanks.nth(2).fill("T");
-  await page.locator(`#question_html_${multiId} [data-action=grade]`).click();
+  await page.locator(`#question_html_${multiId} button[onclick^=checkAnswer_]`).click();
   await expect(page.locator(`#result_${multiId}`)).toHaveText("CORRECT");
   expect(await hookCalls(page)).toEqual([multiId, multiId]);
 });
@@ -306,9 +366,9 @@ test("MA, MATCH, and ORDER retain current interactive controls", async ({ page }
   const maId = await mount(page, wasmHtml(sources.ma));
   const ma = page.locator(`#question_html_${maId}`);
   await ma.getByLabel(/adenine/).check();
-  await ma.locator("[data-action=grade]").click();
+  await ma.locator("button[onclick^=checkAnswer_]").click();
   await expect(ma.locator(`#result_${maId}`)).toHaveText("Too few answers selected. You got 1 out of 2 correct.");
-  await ma.locator("[data-action=reset]").click();
+  await ma.locator(".qti-btn-reset").click();
   await expect(ma.locator("input:checked")).toHaveCount(0);
 
   const matchHtml = wasmHtml(sources.match);
@@ -374,7 +434,7 @@ test("wrapped grading survives same-node replay, concurrent questions, and A-B-A
   await replayScripts(htmlA);
   expect(await page.evaluate((id) => Reflect.get(window, "__wrapperBeforeReplay") === Reflect.get(window, `checkAnswer_${id}`), idA)).toBe(true);
   await page.locator(`#question_html_${idA}`).getByLabel(/ATP/).check();
-  await page.locator(`#question_html_${idA} [data-action=grade]`).click();
+  await page.locator(`#question_html_${idA} button[onclick^=checkAnswer_]`).click();
   await expect(page.locator(`#result_${idA}`)).toHaveText("CORRECT");
   expect(await hookCalls(page)).toEqual([idA]);
 
@@ -385,7 +445,7 @@ test("wrapped grading survives same-node replay, concurrent questions, and A-B-A
   await expect(page.locator(`#result_${idB}`)).toHaveText("");
   expect(await page.evaluate((id) => (Reflect.get(window, "__completedByCrc") as Set<string>).has(id), idB)).toBe(false);
   await page.locator(`#question_html_${idB}`).getByLabel(/GDP/).check();
-  await page.locator(`#question_html_${idB} [data-action=grade]`).click();
+  await page.locator(`#question_html_${idB} button[onclick^=checkAnswer_]`).click();
   await expect(page.locator(`#result_${idB}`)).toHaveText("incorrect");
   expect(await page.evaluate((id) => (Reflect.get(window, "__completedByCrc") as Set<string>).has(id), idB)).toBe(false);
 
@@ -394,7 +454,7 @@ test("wrapped grading survives same-node replay, concurrent questions, and A-B-A
   await expect(page.locator(`#result_${idA}`)).toHaveText("");
   expect(await page.evaluate((id) => (Reflect.get(window, "__completedByCrc") as Set<string>).has(id), idA)).toBe(true);
   await page.locator(`#question_html_${idA}`).getByLabel(/ATP/).check();
-  await page.locator(`#question_html_${idA} [data-action=grade]`).click();
+  await page.locator(`#question_html_${idA} button[onclick^=checkAnswer_]`).click();
   expect(await hookCalls(page)).toEqual([idA, idB, idA]);
 
   // Mount two questions together. Their feedback and completion state must stay
@@ -406,11 +466,11 @@ test("wrapped grading survives same-node replay, concurrent questions, and A-B-A
   const a = page.locator(`#question_html_${idA}`);
   const b = page.locator(`#question_html_${idB}`);
   await a.getByLabel(/ATP/).check();
-  await a.locator("[data-action=grade]").click();
+  await a.locator("button[onclick^=checkAnswer_]").click();
   await expect(a.locator(`#result_${idA}`)).toHaveText("CORRECT");
   await expect(b.locator(`#result_${idB}`)).toHaveText("");
   await b.getByLabel(/GDP/).check();
-  await b.locator("[data-action=grade]").click();
+  await b.locator("button[onclick^=checkAnswer_]").click();
   await expect(b.locator(`#result_${idB}`)).toHaveText("incorrect");
   await expect(a.locator(`#result_${idA}`)).toHaveText("CORRECT");
 });
@@ -422,9 +482,25 @@ test("standalone controls retain compact layouts, theme colors, and usable feedb
     await mount(page, html);
     const rows = await page.locator("ul[id^=choices_] > li").evaluateAll(items => items.map(item => item.getBoundingClientRect().top));
     expect(new Set(rows).size).toBeLessThan(rows.length);
-    await expect(page.locator(".qti-statement > p")).toHaveCount(2);
+    expect(await page.locator("[id^=statement_text_]").innerText()).toBe("Choose bases.\nSelect purines.");
   }
   for (const host of rendered) {
+    // Short MATCH rows stay as compact as the answer cards, with actions next to the table.
+    // Failure means restoring the student-facing layout, not copying a CSS implementation.
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await mount(page, host.html.match);
+      const slot = page.locator(".qti-match-slot").first();
+      const table = (await page.locator(".qti-match-table").boundingBox())!;
+      const actions = (await page.locator(".qti-game-actions").boundingBox())!;
+      const bank = (await page.locator(".qti-match-bank").boundingBox())!;
+      const card = (await page.locator(".qti-match-choice").first().boundingBox())!;
+      expect((await slot.boundingBox())!.height).toBeLessThanOrEqual(card.height);
+      expect(actions.y).toBeGreaterThanOrEqual(table.y + table.height);
+      expect(actions.y + actions.height).toBeLessThanOrEqual(bank.y);
+      await expect(slot).toHaveAccessibleDescription(/adenine.*Drag a choice/);
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
     await page.emulateMedia({ colorScheme: "light" });
     await mount(page, host.html.match);
     const colors = () => page.locator(".qti-match-choice").evaluateAll(choices => choices.map(choice => ({ bg: getComputedStyle(choice).backgroundColor, fg: getComputedStyle(choice).color })));

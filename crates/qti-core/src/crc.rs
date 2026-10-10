@@ -1,8 +1,10 @@
 //! Python-compatible CRC16-XMODEM item identities.
 
 use std::fmt;
+use std::sync::LazyLock;
 
 use crc::{CRC_16_XMODEM, Crc};
+use regex::Regex;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;
 
@@ -162,6 +164,11 @@ fn python_list_repr(values: &[String]) -> String {
 }
 
 fn python_string_repr(value: &str) -> String {
+    // Python repr escapes Unicode separators and non-printable characters before ASCII CRC
+    // encoding. Printable authored Unicode continues to fail that existing encoding boundary.
+    static NON_PRINTABLE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^[\p{C}\p{Z}]$").expect("Unicode character category expression is valid")
+    });
     let quote = if value.contains('\'') && !value.contains('"') {
         '"'
     } else {
@@ -181,10 +188,18 @@ fn python_string_repr(value: &str) -> String {
             '\t' => result.push_str("\\t"),
             '\u{08}' => result.push_str("\\x08"),
             '\u{0c}' => result.push_str("\\x0c"),
-            character if character.is_ascii_control() => {
+            character
+                if character != ' '
+                    && NON_PRINTABLE.is_match(character.encode_utf8(&mut [0; 4])) =>
+            {
                 use std::fmt::Write;
-                write!(&mut result, "\\x{:02x}", character as u32)
-                    .expect("writing to a string cannot fail");
+                let code = character as u32;
+                match code {
+                    0..=0xff => write!(&mut result, "\\x{code:02x}"),
+                    0x100..=0xffff => write!(&mut result, "\\u{code:04x}"),
+                    _ => write!(&mut result, "\\U{code:08x}"),
+                }
+                .expect("writing to a string cannot fail");
             }
             character => result.push(character),
         }

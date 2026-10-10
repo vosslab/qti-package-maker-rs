@@ -19,6 +19,7 @@ base64.workspace = true
 percent-encoding.workspace = true
 indexmap.workspace = true
 zip.workspace = true
+roxmltree.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

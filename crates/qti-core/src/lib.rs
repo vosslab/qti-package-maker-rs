@@ -7,6 +7,7 @@ mod manifest;
 pub mod media;
 mod strings;
 mod validate;
+mod xml_validation;
 pub mod zip;
 
 pub use bank::{AddOutcome, AssetCollectionAction, BankError, CollectedAssets, ItemBank};

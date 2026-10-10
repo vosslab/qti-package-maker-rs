@@ -10,11 +10,38 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ## Source organization
 
+- 2026-10-09: Prioritize positive prompting. Phrase instructions as "Do X" or "Use Y";
+  positive prompting plus omission is often stronger than a negative boundary.
 - 2026-10-08: When source files approach a size cap, split them into focused modules and preserve
   useful comments and behavior; do not squeeze comments just to meet the cap.
 
 ## Rust port
 
+- 2026-10-10: Remove reports that caused drift. The visual parity assessment caused major drift;
+  I had removed `docs/active_plans/reports/SELFTEST_VISUAL_PARITY.md` and found it had returned.
+- 2026-10-09: Python QPM defines Rust QPM's responsibilities: parse and validate questions, convert
+  them, and generate interactive fragments with local answer-checking JavaScript. Preserve modular
+  engines and shared native/Wasm code; student submissions and grade management belong elsewhere.
+- 2026-10-09: Represent Unicode in authored HTML with escapes such as `&alpha;`.
+- 2026-10-09: Keep Rust QPM modular and engine based.
+- 2026-10-09: Compare generated HTML source for Python QPM parity, ignoring whitespace and
+  unimportant formatting. Pixel tests should not define parity. QPM is limited to inline CSS
+  and inline JavaScript.
+- 2026-10-09: HTML are supposed to be fragments; do not change this. We are going for Python
+  QPM parity. Do not go above and beyond and break things.
+- 2026-10-09: Fragment semantics, background transparency, and host-theme inheritance are
+  functional integration requirements. Correct Rust-owned deviations and verify independently
+  and embedded in a themed host, including light and dark modes.
+- 2026-10-09: Python QPM is the reference implementation for standalone self-test HTML. Rust
+  QPM must reproduce its existing presentation and behavior across supported question types.
+- 2026-10-09: Treat every visible or behavioral discrepancy as a parity defect unless there is a
+  concrete reason it cannot be reproduced. Do not claim feature parity while known discrepancies
+  remain. Scope is Rust QPM only.
+- 2026-10-09: Compare the same inputs side by side in a browser, including screenshots, grading,
+  partial feedback, interactions, both themes, and responsive layouts. A passing suite is not
+  proof of visual parity.
+- 2026-10-09: For now, keep Rust QPM in parity with current Python QPM. The matching-renderer
+  repair scope is Rust QPM only.
 - 2026-10-09: I relaxed byte-for-byte equivalence, not feature parity. Preserve the functionality
   and useful presentation of Python self-tests while allowing Rust its own architecture. Compare
   standalone QPM output; the website team handles its own CSS interference and lifecycle bugs.

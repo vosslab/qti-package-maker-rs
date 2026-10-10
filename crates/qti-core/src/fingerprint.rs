@@ -70,7 +70,7 @@ enum FingerprintBody {
     Ma {
         choices: Vec<String>,
         answers: Vec<String>,
-        min_answers_required: usize,
+        min_answers_required: i64,
         allow_all_correct: bool,
     },
     Match {

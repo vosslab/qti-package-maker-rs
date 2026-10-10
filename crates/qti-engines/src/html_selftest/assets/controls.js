@@ -20,7 +20,8 @@
       correct === null ? '' : correct ? ' qti-feedback-success' : ' qti-feedback-error'
     }`;
     result.textContent = text;
-    box.querySelector('[role=status]').textContent = text;
+    const status = box.querySelector('[role=status]');
+    if (status) status.textContent = text;
   };
   const clearFeedback = box => {
     box.querySelectorAll('.feedback').forEach(cell => {
@@ -28,7 +29,9 @@
       cell.style.backgroundColor = 'transparent';
       cell.removeAttribute('aria-label');
     });
-    feedback(box, '', null);
+    const result = box.querySelector('.qti-feedback-result');
+    result.className = 'qti-feedback-result';
+    result.textContent = '';
   };
   const grade = box => {
     const { kind, crc } = box.dataset;
@@ -69,7 +72,7 @@
       const text = input.value.trim();
       if (!text) { feedback(box, 'Please enter a value.', null); return; }
       const value = Number(text);
-      if (!Number.isFinite(value)) { feedback(box, 'Please enter a valid number.', null); return; }
+      if (Number.isNaN(value)) { feedback(box, 'Please enter a valid number.', null); return; }
       const answer = Number(box.dataset.answer);
       const tolerance = Number(box.dataset.tolerance);
       const correct = value >= answer - tolerance && value <= answer + tolerance;
@@ -83,7 +86,7 @@
       let count = 0;
       inputs.forEach(input => {
         const value = multiNorm(input.value);
-        const correct = value !== '' && decode(input.dataset.answers).split('\u001f')
+        const correct = value !== '' && JSON.parse(input.dataset.answers || '[]')
           .map(multiNorm).includes(value);
         input.classList.toggle('correct', correct);
         input.classList.toggle('incorrect', !correct);
@@ -114,9 +117,14 @@
     if (window.__qtiSelftestButtonFeedbackBound) return;
     window.__qtiSelftestButtonFeedbackBound = true;
     let pressed;
+    let keyboardPress = false;
     const buttonFor = event => event.target instanceof Element
       ? event.target.closest('.qti-selftest .qti-btn') : null;
-    const release = () => { pressed?.classList.remove('qti-pressed'); pressed = undefined; };
+    const release = () => {
+      pressed?.classList.remove('qti-pressed');
+      pressed = undefined;
+      keyboardPress = false;
+    };
     document.addEventListener('pointerdown', event => {
       if (event.button !== 0) return;
       release();
@@ -133,9 +141,14 @@
       const button = buttonFor(event);
       if (!button || button.disabled) return;
       pressed = button;
+      keyboardPress = true;
       pressed.classList.add('qti-pressed');
     });
     document.addEventListener('keyup', event => { if ([' ', 'Enter'].includes(event.key)) release(); });
+    // Match Python: focus loss releases keyboard presses; pointerup owns pointer releases.
+    document.addEventListener('focusout', event => {
+      if (keyboardPress && buttonFor(event) === pressed) release();
+    });
     window.addEventListener('blur', release);
   };
 
@@ -159,17 +172,17 @@
         if (current) clearFeedback(current);
       };
     }
-    box.addEventListener('click', event => {
-      if (event.target.closest('[data-action=grade]')) {
-        window[checkName]?.();
-      } else if (event.target.closest('[data-action=reset]')) {
-        // Clear the score first so game reset announcements remain available to screen readers.
-        clearFeedback(box);
-        if (box.qtiResetGame) box.qtiResetGame();
-        else if (kind === 'ma') box.querySelectorAll('input[type=checkbox]')
+    const resetName = kind === 'ma' ? `clearSelection_${crc}` : `resetGame_${crc}`;
+    if (['ma', 'match', 'order'].includes(kind) && typeof window[resetName] !== 'function') {
+      window[resetName] = () => {
+        const current = boxFor(crc);
+        if (!current) return;
+        if (current.qtiResetGame) current.qtiResetGame();
+        else current.querySelectorAll('input[type=checkbox]')
           .forEach(input => { input.checked = false; });
-      }
-    });
+        clearFeedback(current);
+      };
+    }
     box.addEventListener('keydown', event => {
       if (event.key === 'Enter' && event.target.matches('.qti-num-input')) {
         event.preventDefault();

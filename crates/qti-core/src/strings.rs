@@ -7,12 +7,19 @@ use scraper::{ElementRef, Html, Selector};
 use thiserror::Error;
 
 static CRC_PREFIX_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^\s*(?:\d{1,3}\.\s*)?(?:<p>)?[a-f0-9_]{4,16}(?:</p>)?\s*")
+    Regex::new(r"^[\s\x1c-\x1f]*(?:\d{1,3}\.[\s\x1c-\x1f]*)?(?:<p>)?[a-f0-9_]{4,16}(?:</p>)?[\s\x1c-\x1f]*")
         .expect("CRC prefix regular expression is valid")
 });
 static PREFIX_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?is)^(?P<leading>(?:\s*<[^/!][^>]*>\s*)*)(?P<prefix>[A-Za-z0-9][):.])\s*")
+    Regex::new(r"^([A-Za-z0-9][):.])[\s\x1c-\x1f]*")
         .expect("choice prefix regular expression is valid")
+});
+static HTML_TAG_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"<[^>]+>").expect("HTML tag regular expression is valid"));
+static OUTER_TAG_RE: LazyLock<Regex> = LazyLock::new(|| {
+    // Compare the closing tag below: Rust regex deliberately has no backreferences.
+    Regex::new(r"^<([\p{L}\p{N}_]+)([^>]*)>(.*)</([\p{L}\p{N}_]+)>\n?$")
+        .expect("outer HTML tag regular expression is valid")
 });
 static NO_BORDER_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?i)border\s*:\s*(0|0px|none|0\s)").expect("no-border regular expression is valid")
@@ -36,48 +43,53 @@ pub fn strip_crc_prefix(question_text: &str) -> String {
 
 /// Return whether every choice begins with the same supported choice-prefix shape.
 pub fn has_prefix(choices: &[String]) -> bool {
-    choices.iter().all(|choice| prefix_span(choice).is_some())
+    choices
+        .iter()
+        .all(|choice| prefix_end(&HTML_TAG_RE.replace_all(choice, "")).is_some())
 }
 
-/// Remove one supported letter or number prefix while retaining leading nested HTML tags.
+/// Remove a prefix at the start or within one outer HTML tag, as Python does.
 pub fn strip_prefix_from_string(choice: &str) -> String {
+    if let Some(captures) = OUTER_TAG_RE.captures(choice)
+        && captures[1].eq_ignore_ascii_case(&captures[4])
+    {
+        return format!(
+            "<{}{}>{}</{}>",
+            &captures[1],
+            &captures[2],
+            remove_prefix(&captures[3]),
+            &captures[1]
+        );
+    }
     remove_prefix(choice)
 }
 
 fn remove_prefix(value: &str) -> String {
-    prefix_span(value).map_or_else(
-        || value.to_owned(),
-        |(leading_end, prefix_end)| format!("{}{}", &value[..leading_end], &value[prefix_end..]),
-    )
+    prefix_end(value).map_or_else(|| value.to_owned(), |end| value[end..].to_owned())
 }
 
-fn prefix_span(value: &str) -> Option<(usize, usize)> {
+fn prefix_end(value: &str) -> Option<usize> {
     let captures = PREFIX_RE.captures(value)?;
-    let prefix = captures
-        .name("prefix")
-        .expect("prefix capture is present")
-        .as_str();
-    let after_prefix = captures
-        .name("prefix")
-        .expect("prefix capture is present")
-        .end();
-    if prefix.ends_with('.')
-        && value[after_prefix..]
+    let prefix = captures.get(1).expect("prefix capture is present");
+    if prefix.as_str().ends_with('.')
+        && value[prefix.end()..]
             .chars()
             .next()
-            .is_some_and(char::is_numeric)
+            .is_some_and(|c| c.is_ascii_digit())
     {
         return None;
     }
-    let leading_end = captures
-        .name("leading")
-        .expect("leading tag capture is present")
-        .end();
-    let prefix_end = captures
-        .get(0)
-        .expect("whole prefix capture is present")
-        .end();
-    Some((leading_end, prefix_end))
+    Some(
+        captures
+            .get(0)
+            .expect("whole prefix capture is present")
+            .end(),
+    )
+}
+
+/// Python str.strip/re \s also treat the four ASCII information separators as whitespace.
+pub(crate) fn python_whitespace(character: char) -> bool {
+    character.is_whitespace() || matches!(character, '\u{1c}'..='\u{1f}')
 }
 
 /// Remove choice prefixes only when every supplied choice has one.
@@ -352,11 +364,12 @@ fn rfind_ascii_case_insensitive(haystack: &str, needle: &str) -> Option<usize> {
 }
 
 fn decode_html_entities(text: &str) -> String {
-    text.replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", "\"")
-        .replace("&#39;", "'")
-        .replace("&amp;", "&")
+    // Python's html.unescape handles named and numeric references, not just XML entities.
+    // Keep literal less-than signs as text while the existing HTML parser decodes references.
+    Html::parse_fragment(&text.replace('<', "&lt;"))
+        .root_element()
+        .text()
+        .collect()
 }
 
 fn html_table_to_text(table_html: &str) -> String {
@@ -618,7 +631,7 @@ mod tests {
             strip_prefix_from_string(
                 "<table><tbody><tr><td><div>A. box plot</div></td></tr></tbody></table>"
             ),
-            "<table><tbody><tr><td><div>box plot</div></td></tr></tbody></table>"
+            "<table><tbody><tr><td><div>A. box plot</div></td></tr></tbody></table>"
         );
         assert_eq!(
             remove_prefix_from_list(&[
@@ -626,8 +639,8 @@ mod tests {
                 "<table><tr><td><div>B. second</div></td></tr></table>".into(),
             ]),
             [
-                "<table><tr><td><div>first</div></td></tr></table>",
-                "<table><tr><td><div>second</div></td></tr></table>",
+                "<table><tr><td><div>A. first</div></td></tr></table>",
+                "<table><tr><td><div>B. second</div></td></tr></table>",
             ]
         );
         assert_eq!(

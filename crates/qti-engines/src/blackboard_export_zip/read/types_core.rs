@@ -125,7 +125,7 @@ fn choice_body(element: &Node, names: &BTreeMap<String, String>) -> Result<ItemB
         .is_some_and(|value| value == "Multiple")
         || answers.len() > 1
     {
-        let min_answers_required = metadata_usize(element, MA_MINIMUM)?.unwrap_or(1);
+        let min_answers_required = metadata_i64(element, MA_MINIMUM)?.unwrap_or(1);
         let allow_all_correct = metadata_bool(element, MA_ALLOW_ALL)?.unwrap_or(true);
         Ok(ItemBody::Ma {
             choices,
@@ -244,12 +244,12 @@ fn metadata_value(element: &Node, name: &str) -> Option<String> {
         .map(text)
 }
 
-fn metadata_usize(element: &Node, name: &str) -> Result<Option<usize>, String> {
+fn metadata_i64(element: &Node, name: &str) -> Result<Option<i64>, String> {
     metadata_value(element, name)
         .map(|value| {
             value
-                .parse::<usize>()
-                .map_err(|_| format!("{name} metadata is not an unsigned integer"))
+                .parse::<i64>()
+                .map_err(|_| format!("{name} metadata is not an integer"))
         })
         .transpose()
 }

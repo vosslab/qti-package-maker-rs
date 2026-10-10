@@ -1,7 +1,7 @@
+
 .qti-selftest {
   color: var(--md-default-fg-color, #111111);
-  background-color: var(--md-default-bg-color, #ffffff);
-  color-scheme: light;
+  background-color: var(--md-default-bg-color, transparent);
   --qti-choice-1-bg: #fff3dc; --qti-choice-1-fg: #8a5300;
   --qti-choice-2-bg: #e8f1ff; --qti-choice-2-fg: #004080;
   --qti-choice-3-bg: #e6fff3; --qti-choice-3-fg: #008066;
@@ -27,11 +27,11 @@
   --qti-input-fg: #111111;
   --qti-input-border: #999999;
 }
-.qti-selftest .qti-choice-1 { background-color: var(--qti-choice-1-bg); color: var(--qti-choice-1-fg); }
-.qti-selftest .qti-choice-2 { background-color: var(--qti-choice-2-bg); color: var(--qti-choice-2-fg); }
-.qti-selftest .qti-choice-3 { background-color: var(--qti-choice-3-bg); color: var(--qti-choice-3-fg); }
-.qti-selftest .qti-choice-4 { background-color: var(--qti-choice-4-bg); color: var(--qti-choice-4-fg); }
-.qti-selftest .qti-choice-5 { background-color: var(--qti-choice-5-bg); color: var(--qti-choice-5-fg); }
+.qti-choice-1 { background-color: var(--qti-choice-1-bg); color: var(--qti-choice-1-fg); }
+.qti-choice-2 { background-color: var(--qti-choice-2-bg); color: var(--qti-choice-2-fg); }
+.qti-choice-3 { background-color: var(--qti-choice-3-bg); color: var(--qti-choice-3-fg); }
+.qti-choice-4 { background-color: var(--qti-choice-4-bg); color: var(--qti-choice-4-fg); }
+.qti-choice-5 { background-color: var(--qti-choice-5-bg); color: var(--qti-choice-5-fg); }
 .qti-selftest ul[id^="choices_"] {
   list-style: none;
   padding-left: 0;
@@ -48,12 +48,12 @@
 }
 .qti-selftest ul[id^="choices_"].qti-auto-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 6px 12px;
 }
 .qti-selftest ul[id^="choices_"].qti-auto-grid-compact {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 6px 12px;
 }
 .qti-selftest ul[id^="choices_"] > li > label {
@@ -73,7 +73,11 @@
   min-width: 0;
   overflow-x: auto;
 }
-/* Enlarge radio/checkbox inputs without scaling their surrounding layout. */
+/* Preserve cell sizing when a host theme makes tables inline blocks. */
+.qti-selftest table:not([class]) {
+  display: table;
+}
+/* Enlarged radio/checkbox inputs: ~1.4em via width/height, transform-origin top-left keeps layout aligned */
 .qti-selftest ul[id^="choices_"] > li > input[type="radio"],
 .qti-selftest ul[id^="choices_"] > li > input[type="checkbox"] {
   margin: 0;
@@ -135,7 +139,7 @@
   background-color: var(--qti-surface-hover-bg, #e6e6e6);
 }
 /* Text input styling */
-.qti-selftest .qti-input {
+.qti-input {
   background-color: var(--qti-input-bg, #ffffff);
   color: var(--qti-input-fg, #111111);
   border: 1px solid var(--qti-input-border, #999999);
@@ -151,7 +155,7 @@
   height: auto;
 }
 /* Feedback pill: neutral base state (empty placeholder, invisible until JS sets content) */
-.qti-selftest .qti-feedback-result {
+.qti-feedback-result {
   display: inline-block;
   min-height: 1.5em;
   margin: 8px 0 8px 0;
@@ -164,7 +168,7 @@
   vertical-align: middle;
 }
 /* Success pill */
-.qti-selftest .qti-feedback-success {
+.qti-feedback-success {
   display: inline-block;
   background-color: var(--qti-success-bg, #ccffcc);
   color: var(--qti-success-fg, #008000);
@@ -178,7 +182,7 @@
   vertical-align: middle;
 }
 /* Error pill */
-.qti-selftest .qti-feedback-error {
+.qti-feedback-error {
   display: inline-block;
   background-color: var(--qti-error-bg, #ffcccc);
   color: var(--qti-error-fg, #9b1b1b);
@@ -192,13 +196,12 @@
   vertical-align: middle;
 }
 /* Non-color accessibility markers (ASCII, no impact on textContent) */
-.qti-selftest .qti-feedback-success::before { content: "[+] "; }
-.qti-selftest .qti-feedback-error::before { content: "[x] "; }
+.qti-feedback-success::before { content: "[+] "; }
+.qti-feedback-error::before { content: "[x] "; }
 @media (prefers-color-scheme: dark) {
   .qti-selftest {
     color: var(--md-default-fg-color, #e0e0e0);
-    background-color: var(--md-default-bg-color, #202124);
-    color-scheme: dark;
+    background-color: var(--md-default-bg-color, transparent);
     --qti-choice-1-bg: #5a3600; --qti-choice-1-fg: #ffd9a3;
     --qti-choice-2-bg: #0f2a55; --qti-choice-2-fg: #b7d4ff;
     --qti-choice-3-bg: #10493c; --qti-choice-3-fg: #b6f2e1;
@@ -227,8 +230,7 @@
 }
 body[data-md-color-scheme="default"] .qti-selftest {
   color: var(--md-default-fg-color, #111111);
-  background-color: var(--md-default-bg-color, #ffffff);
-  color-scheme: light;
+  background-color: var(--md-default-bg-color, transparent);
   --qti-choice-1-bg: #fff3dc; --qti-choice-1-fg: #8a5300;
   --qti-choice-2-bg: #e8f1ff; --qti-choice-2-fg: #004080;
   --qti-choice-3-bg: #e6fff3; --qti-choice-3-fg: #008066;
@@ -256,8 +258,7 @@ body[data-md-color-scheme="default"] .qti-selftest {
 }
 body[data-md-color-scheme="slate"] .qti-selftest {
   color: var(--md-default-fg-color, #e0e0e0);
-  background-color: var(--md-default-bg-color, #202124);
-  color-scheme: dark;
+  background-color: var(--md-default-bg-color, transparent);
   --qti-choice-1-bg: #5a3600; --qti-choice-1-fg: #ffd9a3;
   --qti-choice-2-bg: #0f2a55; --qti-choice-2-fg: #b7d4ff;
   --qti-choice-3-bg: #10493c; --qti-choice-3-fg: #b6f2e1;
@@ -283,16 +284,3 @@ body[data-md-color-scheme="slate"] .qti-selftest {
   --qti-input-fg: #e0e0e0;
   --qti-input-border: #666666;
 }
-
-/* Keep authored content intact while making its containing control shrinkable. */
-.qti-selftest ul[id^="choices_"] > li { min-width: 0; }
-.qti-selftest ul[id^="choices_"] > li > label > strong { flex-shrink: 0; }
-.qti-selftest .qti-statement > p:has(+ p) { margin-bottom: 0; }
-.qti-selftest .qti-statement > p + p { margin-top: 0; }
-.qti-selftest .qti-input { box-sizing: border-box; max-width: 100%; }
-.qti-selftest .fib-blank.correct { outline: 2px solid var(--qti-success-fg); }
-.qti-selftest .fib-blank.incorrect { outline: 2px solid var(--qti-error-fg); }
-.qti-selftest .qti-game-actions, .qti-selftest .qti-game-buttons {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
-}
-.qti-selftest .qti-game-actions { margin: 12px 0; }

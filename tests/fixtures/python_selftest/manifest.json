@@ -1,0 +1,283 @@
+{
+  "status": "proposed for human review",
+  "engine": "html_selftest",
+  "python_commit": "f7a06b55e293490acdb129b74598ea7a00186940",
+  "python_worktree": [],
+  "random_seed": 0,
+  "python_source_sha256": {
+    "qti_package_maker/engines/html_selftest/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "qti_package_maker/engines/html_selftest/add_FIB.py": "3d60a77b0c59ad847e23c6f11b2c02d397bd3bbf10901de95577a64d6a96a724",
+    "qti_package_maker/engines/html_selftest/add_MA.py": "d64e4e15db7313a308bdc0e7997d11819718e0df0c0cc744aa45fba84d62cbac",
+    "qti_package_maker/engines/html_selftest/add_MATCH.py": "fc25cee07f33d1c380553c452a5188aab30855109c21e51c84fd472e7f0df505",
+    "qti_package_maker/engines/html_selftest/add_MC.py": "57dc5498a0b6a0870552affd0c278675eb881cb45e1898fda36c471f0d789207",
+    "qti_package_maker/engines/html_selftest/add_MULTI_FIB.py": "7e03f4aa3180fa25f7452005b78a38e112f611faccb4315e77bcb5ff417e7176",
+    "qti_package_maker/engines/html_selftest/add_NUM.py": "874137fc31c49fa87628f4d83e96591a17a3c2a3b06303042ee98ca39b8fe2f4",
+    "qti_package_maker/engines/html_selftest/add_ORDER.py": "8b279df70a4fee00207885c458da027f9e8f841f2fe0c3e83e4f83f5804b92f3",
+    "qti_package_maker/engines/html_selftest/button_controls.py": "1926509d3e1c48b91f4c23d751be5e2bdf9d8e7ffb2168940452c1cf09bede1c",
+    "qti_package_maker/engines/html_selftest/control_styles.py": "af8c8c61b158dac5cf7b39c8cc8d2a68f757aef1b828c778aef1e87c9d8c8701",
+    "qti_package_maker/engines/html_selftest/drag_controls.py": "a86964c288dc7e7ac12241d56f28cfa6d9abf2799926764855ab808de6c64445",
+    "qti_package_maker/engines/html_selftest/engine_class.py": "9d0205b8eac13b35c89cfb4e1a2bddb6426c9a91797bbb03f96f88414c432cc4",
+    "qti_package_maker/engines/html_selftest/html_functions.py": "79436e64d7efab65cb464e96ddea005144aa7dfb6cd53415bfaaeff556631382",
+    "qti_package_maker/engines/html_selftest/javascript_functions.py": "6bcee7b6bad9839d4f3a0841f8ab539018b7a93474e509b9201f3c4c41b9059b",
+    "qti_package_maker/engines/html_selftest/match_controls.py": "710d1ccce65fa196537b9d9887e57ff4914310f22fa098cf3ef75422fa1e5d70",
+    "qti_package_maker/engines/html_selftest/order_controls.py": "da7ffbdf76e5ef6527667ca9a98bd48fb7eb56d92723850308fd6bff659e9ef0",
+    "qti_package_maker/engines/html_selftest/write_item.py": "f87d3de09ced3531dd12872fe5eafc5b2fa58ddf1dc7aa3c583dc7084f972e01"
+  },
+  "cases": [
+    {
+      "name": "mc",
+      "title": "Buffer pH",
+      "kind": "MC",
+      "bank": "biochemistry/topic02/bbq-Henderson-Hasselbalch-pH_mc-questions.txt",
+      "line": 1,
+      "crc": "1582_9d95",
+      "input": "mc.txt",
+      "output": "mc.html",
+      "input_sha256": "143d77c50507d5ac22b075ab1bd0580272d342e283f9038e25d8905b3f16ead2",
+      "output_sha256": "cc40b19d8649b38d51be970e70fc7f44f97d5d3713f6ef092f9a2fd22f202774",
+      "answer_key": {
+        "answer_text": "<span style='font-family: monospace;'>10.13</span>",
+        "choices_list": [
+          "<span style='font-family: monospace;'>9.78</span>",
+          "<span style='font-family: monospace;'>10.13</span>",
+          "<span style='font-family: monospace;'>9.13</span>",
+          "<span style='font-family: monospace;'>11.13</span>"
+        ]
+      },
+      "external_scripts": []
+    },
+    {
+      "name": "ma",
+      "title": "Alpha-helix hydrogen bonds",
+      "kind": "MA",
+      "bank": "biochemistry/topic04/bbq-alpha_helix_h-bonds-MA-questions.txt",
+      "line": 1,
+      "crc": "437c_5a75",
+      "input": "ma.txt",
+      "output": "ma.html",
+      "input_sha256": "86da5686b7910540201bcb49e30b55f4b81f5beb7a374b0f51a09ed76e6a23bb",
+      "output_sha256": "e33269be9ff4b57c040b6ae9d203b7425c0bbc85c7e916ade69378ddc2cd4233",
+      "answer_key": {
+        "answers_list": [
+          "amino acid 6",
+          "amino acid 14"
+        ],
+        "choices_list": [
+          "amino acid 5",
+          "amino acid 6",
+          "amino acid 8",
+          "amino acid 9",
+          "amino acid 11",
+          "amino acid 14",
+          "amino acid 15",
+          "amino acid 17",
+          "amino acid 18"
+        ]
+      },
+      "external_scripts": []
+    },
+    {
+      "name": "match",
+      "title": "Degrees of dominance",
+      "kind": "MATCH",
+      "bank": "genetics/topic05/bbq-MATCH-degrees_of_dominance-questions.txt",
+      "line": 1,
+      "crc": "b36d_a5b3",
+      "input": "match.txt",
+      "output": "match.html",
+      "input_sha256": "bb11cbdeae1839a830e1cace7a878d06fe0583838f0707d721c503560604dd45",
+      "output_sha256": "994c2e496f05274d18550d89badec74267b30635952e16b6bf5bc0855872ec06",
+      "answer_key": {
+        "prompts_list": [
+          "<span style=\"color: #616205;\">complete dominance</span>",
+          "<span style=\"color: #793ca7;\">incomplete dominance</span>",
+          "<span style=\"color: #006d5d;\">epistasis</span>",
+          "<span style=\"color: #a32e30;\">codominance</span>"
+        ],
+        "choices_list": [
+          "one allele masks the effect of another allele",
+          "heterozygote appearance is a blended phenotype of both homozygous phenotypes",
+          "one gene suppresses the effect of another gene that is<strong> <strong>NOT</strong> </strong>its allele",
+          "heterozygotes equally express both alleles in the phenotype"
+        ]
+      },
+      "external_scripts": []
+    },
+    {
+      "name": "num",
+      "title": "Buffer pH with tolerance",
+      "kind": "NUM",
+      "bank": "biochemistry/topic02/bbq-Henderson-Hasselbalch-pH_num-questions.txt",
+      "line": 1,
+      "crc": "5b5b_bd32",
+      "input": "num.txt",
+      "output": "num.html",
+      "input_sha256": "4362798ec18377156693f50d6bb08b77f501e5dba34ddd31854d226c0c266ddc",
+      "output_sha256": "4d959703bde16632e1b2873f099908da644d8c0e4a1d8dab6c3f47a5ddfd9173",
+      "answer_key": {
+        "answer_float": 3.39,
+        "tolerance_float": 0.05
+      },
+      "external_scripts": []
+    },
+    {
+      "name": "fib",
+      "title": "RNA transcription",
+      "kind": "FIB",
+      "bank": "biochemistry/topic11/bbq-rna_transcribe-FIB-prime-len_9-questions.txt",
+      "line": 1,
+      "crc": "f385_a29a",
+      "input": "fib.txt",
+      "output": "fib.html",
+      "input_sha256": "301006359123693c723d275135692e2cede24df8d1c8c07845bea0d390239d25",
+      "output_sha256": "f83a0e2ef785245324247b5f95aa8289887aa656fd3cd645056d29524178eac1",
+      "answer_key": {
+        "answers_list": [
+          "CUGACGAGA",
+          "CUG,ACG,AGA",
+          "5'-CUGACGAGA-3'",
+          "5&prime;-CUGACGAGA-3&prime;",
+          "5'-CUG,ACG,AGA-3'",
+          "5&prime;-CUG,ACG,AGA-3&prime;"
+        ]
+      },
+      "external_scripts": []
+    },
+    {
+      "name": "multi_fib",
+      "title": "Three-point genetic map",
+      "kind": "MULTI_FIB",
+      "bank": "genetics/topic08/bbq-three-point_test_cross-distances_plus-questions.txt",
+      "line": 1,
+      "crc": "4a69_e21e",
+      "input": "multi_fib.txt",
+      "output": "multi_fib.html",
+      "input_sha256": "df35b5c53cd42d608f5875b5a8026604ba49126240985258eeac37ae2d40fbc5",
+      "output_sha256": "262f0a8589032921eb5d30034f133ef804a934fec1ed21b051693e2056d9f511",
+      "answer_key": {
+        "answer_map": {
+          "NR": [
+            "6"
+          ],
+          "NX": [
+            "30"
+          ],
+          "RX": [
+            "33"
+          ],
+          "geneorder": [
+            "rnx",
+            "xnr"
+          ]
+        }
+      },
+      "external_scripts": []
+    },
+    {
+      "name": "order",
+      "title": "Model organism complexity",
+      "kind": "ORDER",
+      "bank": "biotechnology/topic01/bbq-model_organism_complexity_order-ORD-4_choices-questions.txt",
+      "line": 1,
+      "crc": "068d_b62f",
+      "input": "order.txt",
+      "output": "order.html",
+      "input_sha256": "e3331da18b1e4240a0a4e36175fb192bdbab9adc217085ec5dc31369253090af",
+      "output_sha256": "943f6f363bf937270e02a70df527f803964af92279e11f9286fce522c516a7b8",
+      "answer_key": {
+        "ordered_answers_list": [
+          "Photosynthetic cyanobacteria (bacteria)",
+          "Caenorhabditis elegans (nematode)",
+          "Drosophila melanogaster (fruit fly)",
+          "Oryctolagus cuniculus domesticus (rabbit)"
+        ]
+      },
+      "external_scripts": []
+    },
+    {
+      "name": "match_tables",
+      "title": "Amino-acid properties with tables",
+      "kind": "MATCH",
+      "bank": "biochemistry/topic03/bbq-MATCH-amino_acids_properties-long_tables-questions.txt",
+      "line": 1,
+      "crc": "e294_689b",
+      "input": "match_tables.txt",
+      "output": "match_tables.html",
+      "input_sha256": "b626e26add0005841abedbe5df69e384ec952e0a18320352fe2929df8529d733",
+      "output_sha256": "fdcae7c1963085e292d25fdb7cab4707efc0ede17a1cb63e4085ef7535c37c58",
+      "answer_key": {
+        "prompts_list": [
+          "<span style=\"color: #833c8e;\">tyrosine</span>",
+          "<span style=\"color: #006a7a;\">glutamic acid</span>",
+          "<span style=\"color: #006e53;\">aspartic acid</span>",
+          "<span style=\"color: #9a3746;\">alanine</span>",
+          "<span style=\"color: #4951b6;\">tryptophan</span>"
+        ],
+        "choices_list": [
+          "a <strong><span style=\"color: #b74300;\">aromatic amino acid</span></strong> with a <strong><span style=\"color: #a719db;\">side chain</span></strong> containing a phenol (-C<sub>6</sub>H<sub>6</sub>OH) group, derived from phenylalanine",
+          "a <strong><span style=\"color: #d40000;\">negatively charged amino acid</span></strong> with a large, carboxylate (-COOH) <strong><span style=\"color: #a719db;\">side chain</span></strong>",
+          "a <strong><span style=\"color: #d40000;\">negatively charged amino acid</span></strong> with a small, carboxylate (-COOH) <strong><span style=\"color: #a719db;\">side chain</span></strong>",
+          "a <strong><span style=\"color: #6c6c00;\">non-<strong><span style=\"color: #007a00;\">polar amino acid</span></strong></span></strong>, with a single methyl group (-CH<sub>3</sub>) as its <strong><span style=\"color: #a719db;\">side chain</span></strong>",
+          "an <strong><span style=\"color: #b74300;\">aromatic amino acid</span></strong> with the largest <strong><span style=\"color: #a719db;\">side chain</span></strong> consisting of a fused pair of rings"
+        ]
+      },
+      "external_scripts": []
+    },
+    {
+      "name": "mc_rdkit",
+      "title": "Identify an amino acid",
+      "kind": "MC",
+      "bank": "biochemistry/topic03/bbq-which_amino_acid-MC-7_choices-questions.txt",
+      "line": 1,
+      "crc": "25a8_a4ef",
+      "input": "mc_rdkit.txt",
+      "output": "mc_rdkit.html",
+      "input_sha256": "f1eaa879c9f995439730cd41bb6e91b59df95bf086744f0ee1963408912b19a3",
+      "output_sha256": "c5e981ae977838f1e38c5dcbdcbd6aa66b69a23d2db7ef03325fd88ca65ccb33",
+      "answer_key": {
+        "answer_text": "cysteine",
+        "choices_list": [
+          "alanine",
+          "asparagine",
+          "aspartic acid",
+          "cysteine",
+          "proline",
+          "serine",
+          "threonine"
+        ]
+      },
+      "external_scripts": [
+        "https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js"
+      ]
+    },
+    {
+      "name": "match_rdkit",
+      "title": "Match amino-acid structures",
+      "kind": "MATCH",
+      "bank": "biochemistry/topic03/bbq-match_amino_acid_structures-4_choices-questions.txt",
+      "line": 1,
+      "crc": "948b_5f09",
+      "input": "match_rdkit.txt",
+      "output": "match_rdkit.html",
+      "input_sha256": "1fa2ec1a1566f18eb69955e193599ac3dc50d92e606a528b1047440fe31685cb",
+      "output_sha256": "c08322cedf52564f0d3c01ecb402e70df5fef5b0fc630afae4708a48c04ed0f1",
+      "answer_key": {
+        "prompts_list": [
+          "<span style=\"color: #006c6a;\"><p><canvas id=\"canvas_edd0\" width=\"480\" height=\"320\"></canvas></p><script>/* */initRDKitModule().then(function(instance){RDKitModule=instance;console.log(\"RDKit:\"+RDKitModule.version());/* */let/* */smiles=\"C1C[C@H](NC1)C(=O)O\";let/* */mol=RDKitModule.get_mol(smiles);let/* */mdetails={};mdetails[\"legend\"]=\"\";mdetails[\"explicitMethyl\"]=true;canvas=document.getElementById(\"canvas_edd0\");mol.draw_to_canvas_with_highlights(canvas,JSON.stringify(mdetails));});/* */</script></span>",
+          "<span style=\"color: #676017;\"><p><canvas id=\"canvas_7462\" width=\"480\" height=\"320\"></canvas></p><script>/* */initRDKitModule().then(function(instance){RDKitModule=instance;console.log(\"RDKit:\"+RDKitModule.version());/* */let/* */smiles=\"C([C@@H](C(=O)O)N)C(=O)N\";let/* */mol=RDKitModule.get_mol(smiles);let/* */mdetails={};mdetails[\"legend\"]=\"\";mdetails[\"explicitMethyl\"]=true;canvas=document.getElementById(\"canvas_7462\");mol.draw_to_canvas_with_highlights(canvas,JSON.stringify(mdetails));});/* */</script></span>",
+          "<span style=\"color: #6e44a7;\"><p><canvas id=\"canvas_f970\" width=\"480\" height=\"320\"></canvas></p><script>/* */initRDKitModule().then(function(instance){RDKitModule=instance;console.log(\"RDKit:\"+RDKitModule.version());/* */let/* */smiles=\"C(CC(=O)O)[C@@H](C(=O)O)N\";let/* */mol=RDKitModule.get_mol(smiles);let/* */mdetails={};mdetails[\"legend\"]=\"\";mdetails[\"explicitMethyl\"]=true;canvas=document.getElementById(\"canvas_f970\");mol.draw_to_canvas_with_highlights(canvas,JSON.stringify(mdetails));});/* */</script></span>",
+          "<span style=\"color: #9b3644;\"><p><canvas id=\"canvas_5280\" width=\"480\" height=\"320\"></canvas></p><script>/* */initRDKitModule().then(function(instance){RDKitModule=instance;console.log(\"RDKit:\"+RDKitModule.version());/* */let/* */smiles=\"C[C@H]([C@@H](C(=O)O)N)O\";let/* */mol=RDKitModule.get_mol(smiles);let/* */mdetails={};mdetails[\"legend\"]=\"\";mdetails[\"explicitMethyl\"]=true;canvas=document.getElementById(\"canvas_5280\");mol.draw_to_canvas_with_highlights(canvas,JSON.stringify(mdetails));});/* */</script></span>"
+        ],
+        "choices_list": [
+          "proline",
+          "asparagine",
+          "glutamic acid",
+          "threonine"
+        ]
+      },
+      "external_scripts": [
+        "https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js"
+      ]
+    }
+  ]
+}

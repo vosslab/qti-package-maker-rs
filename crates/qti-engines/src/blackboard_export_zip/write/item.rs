@@ -127,7 +127,7 @@ fn choice_item(
     choices: &[String],
     answers: &[String],
     multiple: bool,
-    grading_options: Option<(usize, bool)>,
+    grading_options: Option<(i64, bool)>,
 ) -> String {
     let label_ids = choices
         .iter()

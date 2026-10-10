@@ -27,7 +27,7 @@ kinds. `MC`, `MA`, `MATCH`, `NUM`, `FIB`, `MULTI_FIB`, and `ORDER` are defined i
 | `blackboard_qti_v2_1` | Blackboard QTI 2.1 ZIP | all seven | `Package` |
 | `canvas_qti_v1_2` | Canvas QTI 1.2 ZIP | all except `ORDER` | `Package` |
 | `exam_yaml` | print-oriented exam YAML | all seven | `ReferenceWarn` |
-| `html_selftest` | standalone HTML self-test | all seven | `Package` |
+| `html_selftest` | self-contained HTML self-test fragment | all seven | `Package` |
 | `human_readable` | human-readable HTML | all seven | `ReferenceWarn` |
 | `moodle_aiken` | Moodle Aiken text | `MC` | `PlaceholderWarn` |
 | `okla_chrst_bqgen` | OKLA Christian BQGen text | `MC`, `MA`, `MATCH`, `FIB` | `PlaceholderWarn` |

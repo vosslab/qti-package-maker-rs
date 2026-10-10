@@ -1,13 +1,13 @@
 //! Item validation, including safe XML well-formedness checks for HTML-bearing fields.
 
-use quick_xml::escape::unescape;
-use quick_xml::events::Event;
-use quick_xml::{Reader, XmlVersion};
+use std::sync::LazyLock;
+
 use regex::Regex;
 use thiserror::Error;
 
 use crate::crc::CrcError;
 use crate::item::ItemBody;
+use crate::strings::python_whitespace;
 
 /// Reasons an assessment item cannot enter the validated domain model.
 #[derive(Clone, Debug, Error, PartialEq)]
@@ -76,7 +76,9 @@ pub fn validate_item(question_text: &str, body: &ItemBody) -> Result<(), Validat
             allow_all_correct,
         } => {
             validate_list(choices, "choices", 3)?;
-            validate_list(answers, "answers", *min_answers_required)?;
+            // Python accepts negative minima; the list must still contain an answer.
+            let minimum = usize::try_from((*min_answers_required).max(1)).unwrap_or(usize::MAX);
+            validate_list(answers, "answers", minimum)?;
             if !*allow_all_correct
                 && choices.iter().collect::<std::collections::BTreeSet<_>>()
                     == answers.iter().collect::<std::collections::BTreeSet<_>>()
@@ -133,7 +135,8 @@ pub fn validate_item(question_text: &str, body: &ItemBody) -> Result<(), Validat
                     });
                 }
                 for value in values {
-                    validate_string(value, "MULTI_FIB answer values", 1)?;
+                    // Python validates these as answer text, rather than HTML-bearing fields.
+                    validate_text(value, "MULTI_FIB answer values", 1)?;
                 }
             }
         }
@@ -145,63 +148,56 @@ pub fn validate_item(question_text: &str, body: &ItemBody) -> Result<(), Validat
 /// Applies the Python validator's conservative cleanup before XML parsing.
 #[must_use]
 pub fn clean_html_for_xml(html: &str) -> String {
-    let script =
-        Regex::new(r"(?is)<script\b[^>]*>.*?</script>").expect("static script regex is valid");
-    let script_open = Regex::new(r"(?i)<script[^>]*>").expect("static script-open regex is valid");
-    let numeric_attribute = Regex::new(
-        r#"(?i)(\b(?:colspan|rowspan|width|height|size)\s*=\s*)(\d+)([^\"A-Za-z0-9_]|$)"#,
-    )
-    .expect("static numeric-attribute regex is valid");
-    let entity = Regex::new(r"&[#a-zA-Z0-9]+;").expect("static entity regex is valid");
-    let href_query = Regex::new(r#"(?i)(href=['\"])(https?://[^'\"]+?)\?.*?(['\"])"#)
-        .expect("static href regex is valid");
-    let smiles = Regex::new(r#"(?i)smiles=\"[^\"]*?\""#).expect("static smiles regex is valid");
+    static SCRIPT_OPEN: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"<script[^>]*>").expect("static script-open regex is valid"));
+    static SCRIPT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"<script\b[^>]*>.*?</script>").expect("static script regex is valid")
+    });
+    static NUMERIC_ATTRIBUTE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"((?:colspan|rowspan|width|height|size)[\s\x1c-\x1f]*=[\s\x1c-\x1f]*)(\d+)")
+            .expect("static numeric-attribute regex is valid")
+    });
+    static ENTITY: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"&[#a-zA-Z0-9]+;").expect("static entity regex is valid"));
+    static HREF_QUERY: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#"(href=['"])(https?://[^'"]+?)\?.*?(['"])"#)
+            .expect("static href regex is valid")
+    });
+    static SMILES: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r#"smiles="[^"]*?""#).expect("static smiles regex is valid"));
 
-    let html = script.replace_all(html, "<script></script>");
-    let html = script_open.replace_all(&html, "<script>");
-    let html = numeric_attribute.replace_all(&html, "$1\"$2\"$3");
-    let html = entity.replace_all(&html, "");
-    let html = href_query.replace_all(&html, "$1$2$3");
-    smiles.replace_all(&html, "smiles=\"\"").trim().to_owned()
+    // Preserve Python's order, case sensitivity, and single-line script matching.
+    let html = SCRIPT_OPEN.replace_all(html, "<script>");
+    let html = SCRIPT.replace_all(&html, "<script></script>");
+    let html = NUMERIC_ATTRIBUTE.replace_all(&html, |captures: &regex::Captures<'_>| {
+        let matched = captures.get(0).expect("whole numeric attribute capture");
+        // Python's (?!["\w]) leaves already quoted and unit-suffixed numbers untouched.
+        // Inspect the following character without consuming a later attribute's boundary.
+        if html[..matched.start()]
+            .chars()
+            .next_back()
+            .is_some_and(|c| c == '_' || c.is_alphanumeric())
+            || html[matched.end()..]
+                .chars()
+                .next()
+                .is_some_and(|c| c == '"' || c == '_' || c.is_alphanumeric())
+        {
+            matched.as_str().to_owned()
+        } else {
+            format!("{}\"{}\"", &captures[1], &captures[2])
+        }
+    });
+    let html = ENTITY.replace_all(&html, "");
+    let html = HREF_QUERY.replace_all(&html, "$1$2$3");
+    SMILES
+        .replace_all(&html, "smiles=\"\"")
+        .trim_matches(python_whitespace)
+        .to_owned()
 }
 
-/// Checks XML well-formedness without loading entities or executing content.
-///
-/// DTD declarations are rejected before entity expansion. This keeps item validation a pure parse
-/// operation and prevents external-entity access (ASVS 1.5.1 and 2.2.1).
+/// Checks the cleaned fragment with Python/lxml's XML document boundary.
 pub fn validate_html(html: &str) -> Result<(), String> {
-    let cleaned = clean_html_for_xml(html);
-    if cleaned
-        .chars()
-        .any(|character| character.is_control() && !matches!(character, '\t' | '\n' | '\r'))
-    {
-        return Err("XML 1.0 forbids this control character".to_owned());
-    }
-    let wrapped = format!("<root><cleaned>{cleaned}</cleaned></root>");
-    let mut reader = Reader::from_str(&wrapped);
-    reader.config_mut().check_end_names = true;
-    reader.config_mut().expand_empty_elements = true;
-
-    loop {
-        match reader.read_event() {
-            Ok(Event::Eof) => return Ok(()),
-            Ok(Event::Start(event)) | Ok(Event::Empty(event)) => {
-                for attribute in event.attributes().with_checks(true) {
-                    let attribute = attribute.map_err(|error| error.to_string())?;
-                    attribute
-                        .normalized_value(XmlVersion::Implicit1_0)
-                        .map_err(|error| error.to_string())?;
-                }
-            }
-            Ok(Event::Text(event)) => {
-                let decoded = event.xml_content(XmlVersion::Implicit1_0);
-                unescape(&decoded).map_err(|error| error.to_string())?;
-            }
-            Ok(Event::DocType(_)) => return Err("DTD declarations are not allowed".to_owned()),
-            Ok(_) => {}
-            Err(error) => return Err(error.to_string()),
-        }
-    }
+    crate::xml_validation::validate_fragment(&clean_html_for_xml(html))
 }
 
 fn validate_string(
@@ -209,7 +205,12 @@ fn validate_string(
     field: &'static str,
     minimum: usize,
 ) -> Result<(), ValidationError> {
-    let found = value.trim().len();
+    validate_text(value, field, minimum)?;
+    validate_html(value).map_err(|reason| ValidationError::MalformedHtml { field, reason })
+}
+
+fn validate_text(value: &str, field: &'static str, minimum: usize) -> Result<(), ValidationError> {
+    let found = value.trim_matches(python_whitespace).chars().count();
     if found < minimum {
         return Err(ValidationError::EmptyField {
             field,
@@ -217,7 +218,7 @@ fn validate_string(
             found,
         });
     }
-    validate_html(value).map_err(|reason| ValidationError::MalformedHtml { field, reason })
+    Ok(())
 }
 
 fn validate_list(
@@ -225,7 +226,7 @@ fn validate_list(
     field: &'static str,
     minimum: usize,
 ) -> Result<(), ValidationError> {
-    if values.len() < minimum {
+    if values.is_empty() || values.len() < minimum {
         return Err(ValidationError::TooFewItems {
             field,
             minimum,
@@ -284,6 +285,15 @@ mod tests {
         for malformed in [
             "<img src=x/>",
             "<p a=\"1\" a=\"2\">x</p>",
+            "<p a=\"1\"b=\"2\">x</p>",
+            "<1bad>Text</1bad>",
+            "<x:p/>",
+            "<p xmlns:x=\"urn:x\" xmlns:y=\"urn:x\" x:a=\"1\" y:a=\"2\"/>",
+            "<p xml:id=\"bad id\"/>",
+            "<p xml:id=\"same\"/><p xml:id=\"same\"/>",
+            "<!-- bad -- comment -->",
+            "x ]]> y",
+            "<?xml version=\"1.0\"?>",
             "a & b",
             "a\u{1}b",
             "<!DOCTYPE root [<!ENTITY x SYSTEM \"file:///etc/passwd\">]><p>&x;</p>",
@@ -292,6 +302,63 @@ mod tests {
                 validate_html(malformed).is_err(),
                 "{malformed:?} should fail"
             );
+        }
+        for valid in [
+            "<p xmlns:x=\"urn:x\"><x:span xml:id=\"label\">Text</x:span></p>",
+            "<![CDATA[x < y & z]]>",
+            "Text\u{7f}",
+        ] {
+            assert!(validate_html(valid).is_ok(), "{valid:?} should pass");
+        }
+    }
+
+    #[test]
+    fn html_cleanup_preserves_python_case_and_line_boundaries() {
+        for valid in [
+            "<td colspan=2 rowspan=3>Cell</td>",
+            "<script>if (a < b) run();</script>",
+            "<p smiles=\"C<C&N\"/>",
+        ] {
+            assert!(validate_html(valid).is_ok(), "{valid:?} should pass");
+        }
+        for invalid in [
+            "<td COLSPAN=2>Cell</td>",
+            "<script>\nif (a < b) run();\n</script>",
+            "<SCRIPT>if (a < b) run();</SCRIPT>",
+            "<p SMILES=\"C<C&N\"/>",
+        ] {
+            assert!(validate_html(invalid).is_err(), "{invalid:?} should fail");
+        }
+    }
+
+    #[test]
+    fn multifib_answers_are_nonempty_text_while_fib_answers_are_unique_html() {
+        let stem = "Complete [blank].";
+        let multi = |values| ItemBody::MultiFib {
+            answers: BTreeMap::from([("blank".into(), values)]),
+        };
+        let values = vec!["x < 5".into(), "A & B".into(), "A & B".into()];
+        assert!(validate_item(stem, &multi(values.clone())).is_ok());
+        assert!(validate_item(stem, &ItemBody::Fib { answers: values }).is_err());
+        for values in [vec![], vec!["".into()], vec!["\u{1c} \t".into()]] {
+            assert!(validate_item(stem, &multi(values)).is_err());
+        }
+    }
+
+    #[test]
+    fn ma_minimum_preserves_python_nonempty_answer_rule() {
+        for minimum in [-2, 0, 1, 2] {
+            let mut body = ItemBody::Ma {
+                choices: vec!["one".into(), "two".into(), "three".into()],
+                answers: vec![],
+                min_answers_required: minimum,
+                allow_all_correct: true,
+            };
+            assert!(validate_item("A question", &body).is_err());
+            if let ItemBody::Ma { answers, .. } = &mut body {
+                answers.push("one".into());
+            }
+            assert_eq!(validate_item("A question", &body).is_ok(), minimum <= 1);
         }
     }
 

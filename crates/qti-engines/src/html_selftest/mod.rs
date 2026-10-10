@@ -1,8 +1,8 @@
-//! Standalone, accessible HTML practice writer.
+//! Embeddable, self-contained HTML practice fragments.
 //!
 //! The writer intentionally keeps the assessment item immutable.  It creates an
 //! [`qti_core::ItemRenderView`] at the output boundary, inlines local images,
-//! and emits one complete document with no runtime dependency on Python or a
+//! and emits a fragment with no runtime dependency on Python or a
 //! network service.
 
 use std::collections::BTreeMap;
@@ -93,12 +93,25 @@ impl Writer for HtmlSelftestWriter {
         // writer does: this output is a self-test renderer, not an HTML sanitizer.
         let fragment = render_item(&view, context.shuffle_seed)?;
         let controls = item_control_assets(item.kind(), item.crc().to_string().as_str());
-        let document = format!(
-            "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>QTI self-test</title><style>{BASE_CSS}{CSS}</style></head><body><main class=\"qti-selftest\">{fragment}</main><script>{CONTROLS}</script>{controls}</body></html>\n"
+        // Python emits fragments: the host owns document mode, metadata, and theme.
+        // Install the shared Python CSS once, at the same boundary as its theme script.
+        let styles = serde_json::to_string(&format!("{BASE_CSS}{CSS}"))
+            .expect("static CSS serializes as a JSON string");
+        let html = format!(
+            "<script>(function() {{if (document.getElementById('qti-selftest-theme')) return;var style = document.createElement('style');style.id = 'qti-selftest-theme';style.textContent = {styles};(document.head || document.documentElement).appendChild(style);}})();</script>\n<div class=\"qti-selftest\">\n{fragment}\n<script>{CONTROLS}</script>{controls}</div>\n"
         );
+        // Match Python's character references: fragments carry no charset declaration.
+        let mut bytes = Vec::with_capacity(html.len());
+        for character in html.chars() {
+            if character.is_ascii() {
+                bytes.push(character as u8);
+            } else {
+                bytes.extend_from_slice(format!("&#{};", character as u32).as_bytes());
+            }
+        }
         Ok(WriteOutcome {
             artifact: Some(WriteArtifact::File {
-                primary: NamedFile::new(context.output_name(), document.into_bytes())?,
+                primary: NamedFile::new(context.output_name(), bytes)?,
                 companions: Vec::new(),
             }),
             warnings,
@@ -181,13 +194,18 @@ fn asset_data_uri(asset: &MediaAsset) -> Result<String, EngineError> {
 
 fn render_item(item: &ItemRenderView, seed: u64) -> Result<String, EngineError> {
     let crc = item.crc().to_string();
-    let stem = &item.common().question_text;
+    // Match Python's format_question_text, including paragraph-to-line-break folding.
+    // CSS margin suppression leaves separate paragraph boxes and changes authored styles.
+    let adjacent_paragraphs =
+        regex::Regex::new(r"</p>\s*<p>").expect("static adjacent paragraph expression");
+    let stem = adjacent_paragraphs.replace_all(&item.common().question_text, "<br/>");
     let mut html = format!(
-        "<div class=\"qti-selftest-item\" id=\"question_html_{crc}\" data-crc=\"{crc}\" data-kind=\"{}\"><div id=\"statement_text_{crc}\" class=\"qti-statement\">{stem}</div>",
+        "<div class=\"qti-selftest-item\" id=\"question_html_{crc}\" data-crc=\"{crc}\" data-kind=\"{}\">\n<div id=\"statement_text_{crc}\">{stem}</div>\n",
         kind_name(item.kind())
     );
     match item.body() {
         ItemBody::Mc { choices, answer } => {
+            html.push_str("<form>\n");
             html.push_str(&choice_list(
                 &crc,
                 choices,
@@ -198,6 +216,7 @@ fn render_item(item: &ItemRenderView, seed: u64) -> Result<String, EngineError> 
         ItemBody::Ma {
             choices, answers, ..
         } => {
+            html.push_str("<form>\n");
             html.push_str(&choice_list(
                 &crc,
                 choices,
@@ -206,22 +225,17 @@ fn render_item(item: &ItemRenderView, seed: u64) -> Result<String, EngineError> 
             ));
         }
         ItemBody::Fib { answers } => {
+            html.push_str("<form>\n");
             html.push_str(&format!(
-                "<input id=\"fib_input_{crc}\" class=\"qti-input qti-fib-input\" autocomplete=\"off\" placeholder=\"Enter your answer\" aria-label=\"Your answer\" data-answers=\"{}\">",
+                "<input type=\"text\" id=\"fib_input_{crc}\" class=\"qti-input qti-fib-input\" autocomplete=\"off\" placeholder=\"Enter your answer\" data-answers=\"{}\">",
                 encode_answers(answers)
             ));
         }
         ItemBody::Num {
-            answer,
-            tolerance,
-            tolerance_message,
+            answer, tolerance, ..
         } => {
-            if *tolerance_message {
-                html.push_str(&format!(
-                    "<p>Answer must be within &plusmn;{tolerance}.</p>"
-                ));
-            }
-            html.push_str(&format!("<input id=\"num_input_{crc}\" class=\"qti-input qti-num-input\" inputmode=\"decimal\" pattern=\"[0-9]*[.,]?[0-9]*\" placeholder=\"Enter a number\" aria-label=\"Numeric answer\" data-answer=\"{answer}\" data-tolerance=\"{tolerance}\">"));
+            html.push_str("<div>\n");
+            html.push_str(&format!("<input type=\"text\" id=\"num_input_{crc}\" class=\"qti-input qti-num-input\" inputmode=\"decimal\" pattern=\"[0-9]*[.,]?[0-9]*\" placeholder=\"Enter a number\">"));
             // Keep JS lookup simple and avoid serializing untrusted data into executable code.
             html = html.replacen(
                 "data-kind=\"num\"",
@@ -234,15 +248,25 @@ fn render_item(item: &ItemRenderView, seed: u64) -> Result<String, EngineError> 
         ItemBody::MultiFib { answers } => {
             html = inject_blanks(html, answers, &crc);
         }
-        ItemBody::Match { prompts, choices } => {
-            html.push_str(&match_controls(&crc, prompts, choices, seed))
-        }
+        ItemBody::Match { prompts, .. } => html.push_str(&match_prompts(&crc, prompts)),
         ItemBody::Order { answers } => html.push_str(&order_controls(&crc, answers, seed)),
     }
     html.push_str(&actions(item.kind(), &crc));
-    html.push_str(
-        "<div class=\"qti-sr-only\" role=\"status\" aria-live=\"polite\" aria-atomic=\"true\"></div></div>",
-    );
+    match item.kind() {
+        ItemKind::Mc | ItemKind::Ma | ItemKind::Fib => html.push_str("</form><br/>\n"),
+        ItemKind::Num => html.push_str("</div><br/>\n"),
+        _ => {}
+    }
+    if let ItemBody::Match { choices, .. } = item.body() {
+        html.push_str(&format!("<p class=\"qti-control-instructions\" id=\"instructions_{crc}\">Drag a choice to a row, or click a choice and then a row. With a slot focused, type a letter to move that choice here from other rows.</p>"));
+        html.push_str(&match_choices(&crc, choices, seed));
+    }
+    if item.kind() == ItemKind::Match {
+        html.push_str(
+            "<div class=\"qti-sr-only\" role=\"status\" aria-live=\"polite\" aria-atomic=\"true\"></div>",
+        );
+    }
+    html.push_str("</div>");
     Ok(html)
 }
 
@@ -287,18 +311,29 @@ fn choice_layout(choices: &[String]) -> &'static str {
 }
 
 fn scroll_attributes(content: &str) -> &'static str {
-    if has_rich_content(&scraper::Html::parse_fragment(content)) {
-        " tabindex=\"0\" role=\"group\" aria-label=\"Scrollable question content\""
+    let rich = scraper::Selector::parse("table, div, pre, svg, canvas, img")
+        .expect("static rich answer selector");
+    if scraper::Html::parse_fragment(content)
+        .select(&rich)
+        .next()
+        .is_some()
+    {
+        " tabindex=\"0\" role=\"group\" aria-label=\"Answer content\""
     } else {
         ""
     }
 }
 
 fn actions(kind: ItemKind, crc: &str) -> String {
-    format!(
-        "<div class=\"qti-game-actions\">{}<div id=\"result_{crc}\" class=\"qti-feedback-result\" aria-live=\"polite\"></div></div>",
-        buttons(kind)
-    )
+    let controls = format!(
+        "{}<div id=\"result_{crc}\" class=\"qti-feedback-result\">&#160;</div>\n",
+        buttons(kind, crc)
+    );
+    if matches!(kind, ItemKind::Match | ItemKind::Order) {
+        format!("<div class=\"qti-game-actions\">{controls}</div>\n")
+    } else {
+        controls
+    }
 }
 
 // Shuffle presentation indices only: source item contents, CRC, and grading tokens stay fixed.
@@ -325,21 +360,39 @@ fn choice_list(
         let option_number = if multiple { index + 1 } else { index };
         let id = format!("option_{crc}_{option_number}");
         let letter = letter(index);
-        html.push_str(&format!("<li><input type=\"{input_type}\" id=\"{id}\" name=\"answer_{crc}\" data-correct=\"{}\"><label for=\"{id}\"><strong>{letter}.</strong><div class=\"qti-choice-content\">{choice}</div></label></li>", correct(choice)));
+        html.push_str(&format!("<li><input type=\"{input_type}\" id=\"{id}\" name=\"answer_{crc}\" data-correct=\"{}\"><label for=\"{id}\"><span style=\"font-weight: bold;\">{letter}.</span> <div class=\"qti-choice-content\">{choice}</div></label></li>\n", correct(choice)));
     }
-    html.push_str("</ul>");
+    html.push_str("</ul>\n");
     html
 }
 
-fn match_controls(crc: &str, prompts: &[String], choices: &[String], seed: u64) -> String {
-    let mut html = "<p class=\"qti-control-instructions\">Drag a choice to a row, or click a choice and then a row. With a slot focused, type a letter to move that choice here.</p><div class=\"qti-match-layout\"><table class=\"qti-match-table\"><thead><tr><th scope=\"col\"><span class=\"qti-sr-only\">Feedback</span></th><th>Your choice</th><th>Prompt</th></tr></thead><tbody>".to_owned();
+fn match_prompts(crc: &str, prompts: &[String]) -> String {
+    let mut html = "<div class=\"qti-match-layout\"><table class=\"qti-match-table\"><thead><tr><th scope=\"col\"><span class=\"qti-sr-only\">Feedback</span></th><th scope=\"col\">Your Choice</th><th scope=\"col\">Prompt</th></tr></thead><tbody>".to_owned();
+    let rich = scraper::Selector::parse("table, div, pre, svg, canvas, img")
+        .expect("static rich prompt selector");
     for (index, prompt) in prompts.iter().enumerate() {
         let token = format!("{crc}_{:03}", index + 1);
-        let scroll = scroll_attributes(prompt);
-        html.push_str(&format!("<tr class=\"qti-match-row\"><td class=\"feedback\"></td><td class=\"qti-match-answer\"><button type=\"button\" class=\"qti-match-slot\" data-correct=\"{token}\" data-prompt=\"{}\" aria-label=\"Assign a choice to prompt {}\" aria-describedby=\"prompt_{crc}_{}\">Drop Your Choice Here</button></td><td class=\"qti-match-prompt\" id=\"prompt_{crc}_{}\"><div class=\"qti-match-prompt-content\"{scroll}>{}. {prompt}</div></td></tr>", index + 1, index + 1, index + 1, index + 1, index + 1));
+        let number = index + 1;
+        // Diagrams use the available prompt width; prose retains Python's compact line length.
+        let fragment = scraper::Html::parse_fragment(prompt);
+        let (class, scroll) = if fragment.select(&rich).next().is_some() {
+            (
+                " qti-match-prompt-rich",
+                format!(" tabindex=\"0\" role=\"group\" aria-label=\"Prompt {number} content\""),
+            )
+        } else {
+            ("", String::new())
+        };
+        html.push_str(&format!("<tr class=\"qti-match-row\"><td class=\"qti-match-feedback\"><span class=\"feedback\"></span></td><td class=\"qti-match-answer\"><button type=\"button\" class=\"qti-match-slot\" data-correct=\"{token}\" data-prompt=\"{number}\" aria-label=\"Assign a choice to prompt {number}\" aria-describedby=\"prompt_{crc}_{number} instructions_{crc}\">Drop Your Choice Here</button></td><td class=\"qti-match-prompt\" id=\"prompt_{crc}_{number}\"><div class=\"qti-match-prompt-content{class}\"{scroll}>{number}. {prompt}</div></td></tr>"));
     }
-    html.push_str("</tbody></table>");
-    html.push_str("<ul class=\"qti-match-bank\" aria-label=\"Answer choices\">");
+    html.push_str("</tbody></table></div>");
+    html
+}
+
+fn match_choices(crc: &str, choices: &[String], seed: u64) -> String {
+    let mut html = format!(
+        "<ul id=\"choiceList_{crc}\" class=\"qti-match-bank\" aria-label=\"Answer choices\">"
+    );
     // Match choices are displayed in a shuffled order, but their token always retains the
     // original pair position.  A slot grades against that source token, never its display letter.
     for (display_index, source_index) in shuffled_indices(choices.len(), seed)
@@ -348,10 +401,12 @@ fn match_controls(crc: &str, prompts: &[String], choices: &[String], seed: u64) 
     {
         let choice = &choices[source_index];
         let letter = letter(display_index);
-        let palette = display_index % 5 + 1;
-        html.push_str(&format!("<li><button type=\"button\" class=\"qti-match-choice qti-choice-{palette}\" data-value=\"{crc}_{:03}\" data-letter=\"{letter}\" draggable=\"true\" aria-pressed=\"false\"><strong>{letter}.</strong> <span class=\"qti-choice-content\">{choice}</span></button></li>", source_index + 1));
+        let palette = (display_index + 1) % 5 + 1;
+        // ASVS 1.2.1: escape the plain choice name at its HTML attribute boundary.
+        let name = escape_attribute(&qti_core::make_question_pretty(choice));
+        html.push_str(&format!("<li><button type=\"button\" class=\"qti-match-choice qti-choice-{palette}\" data-value=\"{crc}_{:03}\" data-letter=\"{letter}\" draggable=\"true\" aria-pressed=\"false\" aria-label=\"Select {letter}. {name}\"><span class=\"qti-choice-content\"><strong>{letter}.</strong> {choice}</span></button></li>", source_index + 1));
     }
-    html.push_str("</ul></div>");
+    html.push_str("</ul>");
     html
 }
 
@@ -364,9 +419,17 @@ fn order_controls(crc: &str, answers: &[String], seed: u64) -> String {
         let answer = &answers[index];
         let position = display_index + 1;
         let scroll = scroll_attributes(answer);
-        html.push_str(&format!("<li class=\"qti-order-row qti-choice-{}\" data-value=\"{crc}_{:03}\" data-initial=\"{position}\" draggable=\"true\"><span class=\"feedback\"></span><strong class=\"qti-order-position\">{position}</strong><div class=\"qti-choice-content\"{scroll}>{answer}</div><span class=\"qti-order-actions\"><button type=\"button\" class=\"qti-order-move\" data-direction=\"up\">Move up</button><button type=\"button\" class=\"qti-order-move\" data-direction=\"down\">Move down</button></span></li>", position % 5 + 1, index + 1));
+        html.push_str(&format!("<li class=\"qti-order-row qti-choice-{}\" data-value=\"{crc}_{:03}\" draggable=\"true\"><span class=\"feedback\"></span><strong class=\"qti-order-position\">{position}</strong><div class=\"qti-choice-content\"{scroll}>{answer}</div><div class=\"qti-order-actions\">", position % 5 + 1, index + 1));
+        for (direction, label, relative, disabled) in [
+            ("up", "Move up", "earlier", position == 1),
+            ("down", "Move down", "later", position == answers.len()),
+        ] {
+            let disabled = if disabled { " disabled" } else { "" };
+            html.push_str(&format!("<button type=\"button\" class=\"qti-order-move\" data-direction=\"{direction}\" aria-label=\"Move item {position} {relative}\"{disabled}>{label}</button>"));
+        }
+        html.push_str("</div></li>");
     }
-    html.push_str("</ol>");
+    html.push_str("</ol><div class=\"qti-sr-only\" role=\"status\" aria-live=\"polite\" aria-atomic=\"true\"></div>");
     html
 }
 
@@ -387,12 +450,16 @@ fn inject_blanks(
         };
         let name = &after_open[..close];
         if let Some(values) = answers.get(name) {
+            let answers = serde_json::to_string(values).expect("string answers serialize as JSON");
+            // Match Python's MULTIFIB JSON attribute and format_html_lxml ampersand handling:
+            // the browser decodes authored character references before JSON.parse reads them.
+            // ASVS 1.2.1/1.2.3: keep quotes and markup escaped at the attribute boundary.
+            let answers = escape_attribute(&answers).replace("&amp;", "&");
             result.push_str(&format!(
-                "<input class=\"qti-input fib-blank\" name=\"{}\" id=\"fib_blank_{crc}_{occurrence}\" aria-label=\"{}\" autocomplete=\"off\" placeholder=\"{}\" data-answers=\"{}\">",
+                "<input type=\"text\" class=\"fib-blank\" name=\"{}\" id=\"fib_blank_{crc}_{occurrence}\" placeholder=\"{}\" data-answers=\"{}\">",
                 escape_attribute(name),
                 escape_attribute(name),
-                escape_attribute(name),
-                encode_answers(values)
+                answers
             ));
             occurrence += 1;
         } else {
@@ -404,17 +471,18 @@ fn inject_blanks(
     result
 }
 
-fn buttons(kind: ItemKind) -> &'static str {
+fn buttons(kind: ItemKind, crc: &str) -> String {
+    let check = format!(
+        "<button type=\"button\" class=\"qti-btn\" onclick=\"checkAnswer_{crc}()\">Check Answer</button>\n"
+    );
     match kind {
-        ItemKind::Match | ItemKind::Order => {
-            "<div class=\"qti-game-buttons\"><button type=\"button\" class=\"qti-btn\" data-action=\"grade\">Check Answer</button><button type=\"button\" class=\"qti-btn qti-btn-reset\" data-action=\"reset\">Reset</button></div>"
-        }
-        ItemKind::Ma => {
-            "<button type=\"button\" class=\"qti-btn\" data-action=\"grade\">Check Answer</button><button type=\"button\" class=\"qti-btn qti-btn-reset\" data-action=\"reset\">Clear Selection</button>"
-        }
-        _ => {
-            "<button type=\"button\" class=\"qti-btn\" data-action=\"grade\">Check Answer</button>"
-        }
+        ItemKind::Match | ItemKind::Order => format!(
+            "<div class=\"qti-game-buttons\">{check}<button type=\"button\" class=\"qti-btn qti-btn-reset\" onclick=\"resetGame_{crc}()\">Reset</button>\n</div>"
+        ),
+        ItemKind::Ma => format!(
+            "{check}<button type=\"button\" class=\"qti-btn qti-btn-reset\" onclick=\"clearSelection_{crc}()\">Clear Selection</button>\n"
+        ),
+        _ => check,
     }
 }
 
@@ -570,7 +638,7 @@ mod tests {
     }
 
     #[test]
-    fn selftest_document_inlines_local_assets_and_preserves_external_urls() {
+    fn selftest_fragment_inlines_local_assets_and_preserves_external_urls() {
         let mut assets = MemoryAssets::new();
         assets
             .insert("figure.png", b"not a real image".to_vec())
@@ -595,7 +663,10 @@ mod tests {
         assert_eq!(primary.name(), "practice/custom.html");
         assert!(companions.is_empty());
         let page = String::from_utf8(primary.into_parts().1).expect("HTML bytes");
-        assert!(page.contains("<!doctype html>"));
+        for document_tag in ["<!doctype", "<html", "<head", "<body", "<meta", "<title"] {
+            assert!(!page.to_ascii_lowercase().contains(document_tag));
+        }
+        assert!(page.contains("<div class=\"qti-selftest\">"));
         assert!(page.contains("qti-feedback-result"));
         assert!(page.contains("data:image/png;base64,bm90IGEgcmVhbCBpbWFnZQ=="));
         assert!(page.contains("src=\"https://example.test/figure.png\""));
@@ -670,12 +741,12 @@ mod tests {
 
     #[test]
     fn match_choice_tokens_keep_source_pairing_after_display_shuffle() {
-        let html = super::match_controls(
-            "c0de",
-            &["A".to_owned(), "C".to_owned()],
-            &["T".to_owned(), "G".to_owned()],
-            0,
-        );
+        let item = item(ItemBody::Match {
+            prompts: vec!["A".into(), "C".into()],
+            choices: vec!["T".into(), "G".into()],
+        });
+        let crc = item.crc().to_string();
+        let html = render_item(&item.render_view(), 0).expect("render matching question");
         let document = Html::parse_fragment(&html);
         let prompt_selector = Selector::parse(".qti-match-prompt").expect("prompt selector");
         let slot_selector = Selector::parse(".qti-match-slot").expect("slot selector");
@@ -698,42 +769,50 @@ mod tests {
         let choices = document
             .select(&choice_selector)
             .map(|choice| {
+                let letter = choice.value().attr("data-letter").expect("choice letter");
+                let text = choice
+                    .select(&choice_content_selector)
+                    .next()
+                    .expect("choice content")
+                    .text()
+                    .collect::<String>();
                 (
                     choice
                         .value()
                         .attr("data-value")
                         .expect("choice token")
                         .to_owned(),
-                    choice
-                        .select(&choice_content_selector)
-                        .next()
-                        .expect("choice content")
-                        .text()
-                        .collect::<String>()
-                        .trim()
+                    text.strip_prefix(&format!("{letter}. "))
+                        .expect("display letter precedes choice text")
                         .to_owned(),
                 )
             })
             .collect::<BTreeMap<_, _>>();
-        assert_eq!(prompts["1. A"], "c0de_001");
-        assert_eq!(prompts["2. C"], "c0de_002");
-        assert_eq!(choices["c0de_001"], "T");
-        assert_eq!(choices["c0de_002"], "G");
-        let display = document
-            .select(&choice_selector)
-            .map(|choice| {
-                choice
-                    .select(&choice_content_selector)
-                    .next()
-                    .expect("choice content")
-                    .text()
-                    .collect::<String>()
-                    .trim()
-                    .to_owned()
-            })
-            .collect::<Vec<_>>();
-        assert_eq!(display.len(), 2);
-        assert!(display.contains(&"G".to_owned()) && display.contains(&"T".to_owned()));
+        assert_eq!(prompts["1. A"], format!("{crc}_001"));
+        assert_eq!(prompts["2. C"], format!("{crc}_002"));
+        assert_eq!(choices[&format!("{crc}_001")], "T");
+        assert_eq!(choices[&format!("{crc}_002")], "G");
+        assert_eq!(choices.len(), 2);
+    }
+
+    #[test]
+    fn match_choice_accessible_name_preserves_text_without_creating_attributes() {
+        let html = super::match_choices(
+            "c0de",
+            &["<b>A &amp; B</b> \"quoted\" &mdash;H<sub>2</sub>PO<sub>4</sub>&ndash;".into()],
+            0,
+        );
+        let document = Html::parse_fragment(&html);
+        let selector = Selector::parse("button").expect("button selector");
+        let choice = document.select(&selector).next().expect("choice");
+        assert_eq!(
+            choice.value().attr("aria-label"),
+            Some("Select A. A & B \"quoted\" \u{2014}H2PO4\u{2013}")
+        );
+        assert_eq!(
+            choice.text().collect::<String>(),
+            "A. A & B \"quoted\" \u{2014}H2PO4\u{2013}"
+        );
     }
 
     #[test]

@@ -31,6 +31,44 @@ Earlier entries: [CHANGELOG-2026-10a.md](CHANGELOG-2026-10a.md) and
 
 ### Fixes and Maintenance
 
+- Recreated `docs/active_plans/reports/SELFTEST_VISUAL_PARITY.md` with verified source ownership,
+  frozen-reference links, historical receipts,
+  and the final ten-case local parity/composition evidence. Post-correction actual-MkDocs
+  Playwright passes 94 cases; source-owned contrast/NUM limits and earlier server failures remain
+  explicit. All final reviews pass and the manager accepts independently verified local integration.
+  Temporary comparisons are removed; all 20 frozen hashes still match.
+  Correction on 2026-10-10: the report had been intentionally deleted by the user; restoring it
+  to satisfy documentation links was a mistake. Removed it again, the earlier MATCH visual
+  assessment that accepted incorrect document/background differences, and their incoming links.
+  Clarify [SELFTEST_COMPATIBILITY.md](SELFTEST_COMPATIBILITY.md): QPM supplies CRC question identity;
+  BPW owns filename-based v2 achievements. CRC-based test-host completion remains a separate
+  host-policy exercise, with no QPM persisted-progress API change.
+- Add the ten-capture Python reference gallery index and README while preserving capture hashes.
+  Correct a stale reader-test expectation to the fixture's authored MA
+  `min_answers_required` of -2; omitted MA metadata still defaults to 1. NUM tolerance
+  remains 0.01 in the metadata-present assertion. All 15 focused reader tests pass.
+- Clarified the selftest responsibility boundary and traced emitted answer definitions to their
+  Python equivalents. Browser-local checking and partial feedback are generated output;
+  submission handling and student-grade management are outside QPM.
+- Matched Python's MULTIFIB JSON answer attributes and character-reference handling. An authored
+  `&beta;-sheet` answer now accepts the displayed Greek letter as Python does. FIB keeps its
+  existing literal-answer behavior; question validation and input requirements are unchanged.
+- Restored Python's embeddable selftest fragment contract: no document wrapper or metadata,
+  transparent background fallback, inherited host theme variables, and one shared stylesheet.
+  The host retains document mode, viewport, and light/dark appearance. Verified direct opening
+  and themed embedding; native and Wasm use the same writer.
+- Source comparison also restored ORDER action elements, initial move-button attributes, and
+  announcement placement. HTML-to-text conversion now decodes named/numeric entities through
+  the existing parser, preserving chemical-symbol text in matching choices' accessible names.
+- Replaced the alternative Rust selftest presentation with current Python's CSS,
+  per-type control placement, paragraph folding, and
+  feedback appearance across all seven types. Removed the extra NUM tolerance paragraph and
+  MULTIFIB styling; aligned numeric Infinity guidance and reset/clear functions. The earlier
+  matching-only receipt did not establish full visual parity.
+- Restored current Python MATCH presentation in the shared native/Wasm writer: compact answer
+  cells, feedback spans, prompt sizing, mobile row placement, inline choice letters, palette order,
+  and actions directly below the table. Slots now reference the instructions; accessible choice
+  names preserve escaped text. CRCs, shuffle semantics, grading hooks, and Reset are unchanged.
 - Removed the one-time M19 parser-oracle and output-certification tools and their milestone
   reports. Removed a selftest assertion that prescribed a scrolling implementation; retained
   meaningful grading, identity, Reset, theme, and containment regression checks. Seed sweeps,
@@ -89,6 +127,18 @@ Earlier entries: [CHANGELOG-2026-10a.md](CHANGELOG-2026-10a.md) and
 
 ### Developer Tests and Notes
 
+- After restoring the missing parity report, run
+  `source source_me.sh && python3 -m pytest tests/test_markdown_links.py -q`:
+  all 85 checks pass in 0.09s. Subsequent full suites pass: 1922 Python checks, 335 Rust
+  tests with 4 ignored, formatting, check, and strict Clippy. Initial package Node/browser/current-
+  Python checks remain a separate lane. Actual BPW serial Playwright passes 94 cases after
+  the narrow-table correction; targeted mobile checks and independent reviews pass.
+- Verified the Rust-only MATCH repair with current-Python comparisons of three existing banks:
+  54 initial screenshots and 18 successful desktop/touch interaction journeys with correct-answer
+  captures. All 331 Rust tests, 12 Node checks, 36 browser checks, three Python comparison checks,
+  and 1,825 hygiene checks pass; four optional Rust tests remain ignored. Native and Wasm builds,
+  formatting, strict Clippy, and TypeScript checks pass. The packed artifact matches the reviewed
+  build.
 - Completed the final selftest repair review and verified the packed WASM runtime against the
   tested build, including an extracted-package smoke check for all seven question kinds. The
   artifact, validation results, and BPW integration boundary are recorded in the

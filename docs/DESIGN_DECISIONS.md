@@ -59,6 +59,9 @@ authoritative code or contract document, rather than a person.
 
 **Decision.** Generated selftests preserve CRC-based DOM identifiers and route grading through
 the public per-question function. Initialization preserves host wrappers and supports remounting.
+These functions are emitted JavaScript executed by the browser. QPM validates question definitions
+and generates artifacts; student submissions, grade management, and persisted completion remain
+consumer responsibilities. Answer payloads serialize the same definitions used by Python's writer.
 Current Python comparisons are an explicit migration lane; independent Rust and browser tests
 own the lasting behavior contract.
 
@@ -78,6 +81,10 @@ independent coverage and resolved migration findings make it unnecessary.
 
 **Decision.** Restore demonstrated Python selftest presentation features in the shared Rust writer.
 Use seeded `fastrand` shuffling of presentation indices; retain source identities and grading keys.
+Python's HTML fragment is the presentation and interaction specification for all seven types.
+Copy its theme/control CSS and reproduce its markup layout and feedback. Emit fragments without
+document tags or metadata; the host owns rendering mode, viewport, and theme. Install the stylesheet
+once as Python does, preserving transparent fallback backgrounds and host theme variables.
 
 **Why.** Rust omitted palette application, dark styling, compact choices, and some responsive
 content handling. It reversed MATCH/ORDER answers instead of shuffling. `fastrand` is already in
@@ -86,6 +93,21 @@ the lockfile and provides the needed shuffle without a custom generator or addit
 **Consequence.** Keep CSS scoped to generated controls and preserve authored content. Use browser
 behavior checks for these regressions; dimensions and implementation techniques are not new public
 requirements. Website integration and unrelated renderer redesign remain separate.
+MATCH follows current Python's prompt table, actions/feedback, instructions, and choice-bank order.
+Its answer cells own padding and column sizing; nested feedback spans keep grading decoration out
+of table geometry. Compare actual native/Wasm and Python screenshots as well as interactions before
+closing presentation repairs. A passing grading suite alone does not establish visual parity.
+The prior Rust-only opaque backgrounds, document wrapper, universal action flexbox, styled
+MULTIFIB fields, numeric tolerance paragraph, and finite-only numeric guidance are removed. Those
+were reproducible differences, not justified exceptions. Keep runtime answer data safely encoded.
+Browser screenshots compare actual outputs with equivalent
+random arrangements, not rewritten or restyled reference pages.
+Generated source is the primary comparison: normalize formatting, inspect markup and inline
+CSS/JavaScript, then use screenshots as supporting evidence. Pixel equality is not a permanent
+gate. Inline styles and controls remain part of the fragment; no external QPM assets are required.
+MULTIFIB uses Python's JSON answer attributes and character-reference decoding at the HTML boundary.
+FIB retains its literal accepted-answer semantics. Keep this per-type behavior in the writer and
+emitted JavaScript; core question definitions continue to follow the existing input contract.
 
 **Owner.** [SELFTEST_COMPATIBILITY.md](SELFTEST_COMPATIBILITY.md).
 
