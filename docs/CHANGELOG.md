@@ -27,6 +27,7 @@ Earlier entries: [CHANGELOG-2026-10a.md](CHANGELOG-2026-10a.md) and
 - Recorded the maintainer's firsthand findings: Blackboard Learn, Blackboard Ultra, and Canvas
   support HOTSPOT creation but neither import nor export. Updated the reference and active plans,
   and removed the obsolete suggestion to investigate Canvas by exporting a HOTSPOT question.
+- Synchronized shared style guides, tests, and repository support files from the starter template.
 
 ### Developer Tests and Notes
 
