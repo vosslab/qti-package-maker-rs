@@ -41,7 +41,10 @@ formats. See
 ## PLE Native JSON
 
 PLE Native JSON writes `item_NNNNN.json` documents and their associated files under `media/` in
-one directory. It represents all seven item kinds and preserves each question's answer meaning.
+one directory. It represents all seven QPM item kinds and preserves each question's answer meaning.
+HOTSPOT remains PLE-only; QPM support is deferred until a concrete interoperability need and a
+supported, implementable exchange path exist. The rationale and conditions for reconsidering
+scope are in [HOTSPOT_QUESTION_TYPE.md](HOTSPOT_QUESTION_TYPE.md).
 The library export returns JSON and associated-file bytes per question as a converter handoff for
 PLE to decode. QPM does not import the handoff into PLE, assign PLE asset IDs, or control student
 presentation; server import, asset binding, and rendering remain PLE-owned follow-up work with no

@@ -14,6 +14,13 @@
 | `MULTI_FIB` | `ItemBody::MultiFib` | named blank keys and accepted answers per key |
 | `ORDER` | `ItemBody::Order` | three or more ordered answers |
 
+## HOTSPOT conversion scope
+
+HOTSPOT remains PLE-only and outside QPM's current scope. Support is deferred until a concrete
+interoperability need and a supported, implementable exchange path exist. The rationale,
+conversion requirements, and conditions for reconsidering scope are in
+[HOTSPOT_QUESTION_TYPE.md](HOTSPOT_QUESTION_TYPE.md).
+
 ## Validation boundary
 
 All question text and HTML-bearing fields are validated before an item is accepted. Validation

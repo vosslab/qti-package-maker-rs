@@ -134,13 +134,23 @@ JSON and associated file bytes; the CLI writes `ple-<content_name>/` with `item_
 
 **Why.** QPM is the content and grading source. PLE has a private, unversioned source contract and
 needs both a library handoff and a reviewable file transport. The `ple-` prefix follows the
-existing concise output names.
+existing concise output names. Adding a HOTSPOT model and writer without a usable external exchange
+path would add maintenance without enabling cross-platform conversion. The maintainer has access
+to Blackboard Learn, Blackboard Ultra, and Canvas: all three support HOTSPOT creation, but none
+supports HOTSPOT import or export, as recorded in [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md).
 
 **Consequence.** QPM validates its mapping, media references, and known lossy conversions, while
-PLE's decoder owns its count, size, and length limits. No QPM shuffle, ZIP carrier, HOTSPOT, or
-new CLI option is introduced.
+PLE's decoder owns its count, size, and length limits. HOTSPOT is PLE-only and outside QPM's current
+scope. Reconsider it when a concrete interoperability need and a supported exchange path make
+faithful conversion of images, regions, and grading meaning implementable and verifiable for a
+named format pair and direction. Its pre-binding coordination remains deferred under the
+conditions in [HOTSPOT_QUESTION_TYPE.md](HOTSPOT_QUESTION_TYPE.md), with no active QPM
+implementation task. Native HOTSPOT functionality and QTI conformance are separate from successful
+LMS transfer; planning requires evidence of actual import/export behavior. No QPM shuffle,
+ZIP carrier, or new CLI option is introduced.
 
-**Owner.** [ple_native_json/source.rs](../crates/qti-engines/src/ple_native_json/source.rs) and
+**Owner.** [HOTSPOT_QUESTION_TYPE.md](HOTSPOT_QUESTION_TYPE.md),
+[ple_native_json/source.rs](../crates/qti-engines/src/ple_native_json/source.rs), and
 [ple_native_json_writer_plan.md](active_plans/active/ple_native_json_writer_plan.md).
 
 ### PLE text answers and URL inventory

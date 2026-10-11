@@ -98,7 +98,7 @@ makes the compiler blind to an unhandled item type. Rejected on the same grounds
 - Port all ten shipping engines: `bbq_text_upload`, `text2qti`, `okla_chrst_bqgen`,
   `blackboard_export_zip`, `canvas_qti_v1_2`, `blackboard_qti_v2_1`, `moodle_aiken`,
   `human_readable`, `exam_yaml`, `html_selftest`.
-- Port the four reader paths, including the pool reader's csfiles and hotspot image recovery.
+- Port the four reader paths, including the pool reader's csfiles and `matapplication` image recovery.
 - Build the `bbq-converter` binary with the existing flag surface, plus a `qti-package-maker`
   binary for engine and item-type introspection and package checking.
 - Build `cargo xtask` commands for the three cross-language checks: CRC corpus agreement, oracle
@@ -230,9 +230,13 @@ what each policy does per kind.
 
 Two source kinds are read-side only and belong to the pool reader: `@X@...bbcswebdav/xid-N_1` tokens
 resolve through the CSResourceLinks resource to a `csfiles/` binary named from its LOM sidecar, and
-`<matapplication uri="<hash>/<file>">` hotspot references resolve against the pool resource's
+`<matapplication uri="<hash>/<file>">` image references resolve against the pool resource's
 manifest `xml:base`. Both land in the extraction directory under recovered plain filenames, so an
 imported bank has the same shape as file-authored input.
+
+The `media_hotspot` helper recovers image files only; the reader skips unsupported HOTSPOT
+questions. HOTSPOT remains PLE-only and outside QPM's current import/export scope, as described in
+[HOTSPOT_QUESTION_TYPE.md](../HOTSPOT_QUESTION_TYPE.md).
 
 SVG packages like a raster image and carries a "LMS support is not guaranteed" warning. Absolute
 filesystem paths classify as local and resolve through the same traversal guard, which rejects any
@@ -672,7 +676,7 @@ survey finds, M7 blocks and the trait is revised. That is the milestone working.
 | WP-D4b | `read/types_core.rs` | Item envelope, `mat_formattedtext` recovery, MC, MA, FIB, True/False | Those four types parse from the fixture with correct answers |
 | WP-D4c | `read/types_extra.rs` | NUM tolerance window, MULTI_FIB per-blank keys, MATCH pairing recovery | Those three types parse; MATCH prompt-to-choice pairing asserted explicitly |
 | WP-D4d | `read/media_csfiles.rs` | `@X@` tokens, `res00005` cross-check, LOM sidecar naming, HTML rewrite | A pool with a csfiles image yields byte-matching recovered bytes |
-| WP-D4e | `read/media_hotspot.rs` | `matapplication` URIs against the manifest `xml:base`, shared collision-safe naming | A pool with a hotspot image yields byte-matching recovered bytes |
+| WP-D4e | `read/media_hotspot.rs` | Image recovery only: `matapplication` URIs against the manifest `xml:base`, shared collision-safe naming | A pool with a referenced image yields byte-matching recovered bytes |
 
 WP-D4a delivers working discovery on its own: given the fixture it reports every item and its
 declared type, which is verifiable behavior rather than scaffolding.

@@ -5,13 +5,23 @@
 PLE (peptidyle-learning-engine) will import Questions directly from qti-package-maker-rs (QPM) as
 its existing, private, unversioned `pleQuestionJson` source plus the files that source references.
 PLE's Human Guidance says PLE uses QPM as an external library for all conversion and prefers
-assets alongside text-only JSON over a ZIP package. The handoff inputs are the temporary root files
-`NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md` and `NATIVE_JSON_HANDOFF_AUDIT_2026_10_07.md`; they are
-reference material only.
+assets alongside text-only JSON over a ZIP package. The handoff inputs are archived historical
+references: [NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md](../archive/NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md)
+and [NATIVE_JSON_HANDOFF_AUDIT_2026_10_07.md](../archive/NATIVE_JSON_HANDOFF_AUDIT_2026_10_07.md).
 
 The handoff assigns QPM three converter milestones: a non-media writer for seven response kinds, a
 contract smoke through PLE's decoder, and associated-file emission. PLE owns import binding, asset
-IDs and checksums, HTML rendering, presentation, and HOTSPOT surface binding.
+IDs and checksums, HTML rendering, and presentation.
+
+Current scope (2026-10-11): HOTSPOT is PLE-only and outside QPM's current import/export scope.
+QPM converts external question formats. The maintainer has access to Blackboard Learn, Blackboard
+Ultra, and Canvas and reports that all three support HOTSPOT creation, but none supports HOTSPOT
+import or export. There is no HOTSPOT exchange path for QPM to support.
+The archived HOTSPOT coordination proposal is superseded and creates no implementation or binding
+task in this plan.
+QPM support remains deferred until a concrete interoperability need and a supported exchange path
+make faithful conversion implementable for a named format pair and direction. See the rationale
+and scope conditions in [HOTSPOT_QUESTION_TYPE.md](../HOTSPOT_QUESTION_TYPE.md).
 
 Human direction (2026-10-07):
 
@@ -79,7 +89,7 @@ and evidence-driven PLE issue entries.
 
 - Implement PLE import binding, asset hashing or storage, metadata persistence, HTML rendering, or
   rendered import smoke (handoff milestones 4 and 5 belong to PLE).
-- Emit HOTSPOT: QPM has no hotspot item kind or input format.
+- Import or export HOTSPOT, or coordinate its pre-binding surface shape; HOTSPOT is PLE-only.
 - Permute, shuffle, or rename IDs to hide ORDER or MATCH answers.
 - Re-implement PLE count, length, or size limits in QPM.
 - Add general inline-image ingestion (for example data-URI materialization) or map RDKit canvases
@@ -440,8 +450,6 @@ Split engine sources by responsibility within the repository's per-file line lim
     to express the Question correctly and the remaining problem belongs to PLE, record it in the
     PLE issues document and continue.
 - Non-blocking follow-up: PLE chooses library call or directory transport; both exist.
-- Non-blocking follow-up: HOTSPOT pre-binding shape stays idle until a QPM input format carries
-  hotspots; this is coordination, not a PLE issue.
 
 ## PLE issues document
 

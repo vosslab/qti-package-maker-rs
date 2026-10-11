@@ -3,6 +3,36 @@
 Earlier entries: [CHANGELOG-2026-10a.md](CHANGELOG-2026-10a.md) and
 [CHANGELOG-2026-09a.md](CHANGELOG-2026-09a.md).
 
+## 2026-10-11
+
+### Additions and New Features
+
+- Added [HOTSPOT_QUESTION_TYPE.md](HOTSPOT_QUESTION_TYPE.md) as the dedicated reference for
+  HOTSPOT scope, deferral rationale, conversion requirements, and conditions for reconsidering
+  support. Existing question-type, format, decision, and plan notes link to this document.
+
+### Fixes and Maintenance
+
+- Clarified HOTSPOT as PLE-only and outside QPM's current import/export scope in the question-type
+  and Native JSON documentation. Removed obsolete binding coordination from both active writer
+  plans, corrected their archived handoff links, and distinguished Blackboard image recovery
+  from HOTSPOT question support. Archived documents remain unchanged.
+- Expanded the HOTSPOT deferral rationale and conditions for reconsidering scope: a concrete
+  interoperability need, a supported exchange path, and a faithful image/region/grading mapping
+  that can be implemented and verified for the required format pair and direction.
+- Added dated LMS research and primary-source links to the HOTSPOT reference. Planning now states
+  that LMS HOTSPOT interoperability remains nonexistent within the reviewed evidence: no working,
+  portable transfer has been demonstrated. Kept QTI representations, native functionality, and
+  Canvas API creation separate from verified exchange, with implementation still deferred.
+- Recorded the maintainer's firsthand findings: Blackboard Learn, Blackboard Ultra, and Canvas
+  support HOTSPOT creation but neither import nor export. Updated the reference and active plans,
+  and removed the obsolete suggestion to investigate Canvas by exporting a HOTSPOT question.
+
+### Developer Tests and Notes
+
+- Documentation-only verification: 439 Markdown-link and character-compliance checks passed.
+  Reviewed active HOTSPOT references for obsolete tasks; archive diffs and `git diff --check` are clean.
+
 ## 2026-10-10
 
 ### Behavior or Interface Changes

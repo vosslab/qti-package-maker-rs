@@ -17,6 +17,18 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ## Rust port
 
+- 2026-10-11: I have access to Blackboard Learn, Blackboard Ultra, and Canvas. All three support
+  creating HOTSPOT questions; none supports importing or exporting HOTSPOT questions.
+- 2026-10-11: For QPM planning, "LMS HOTSPOT interoperability remains nonexistent": no working,
+  portable import/export pathway has been demonstrated. Base planning on actual LMS transfer;
+  native HOTSPOT support and a QTI specification do not establish interoperability.
+- 2026-10-11: Keep a dedicated HOTSPOT document in
+  [HOTSPOT_QUESTION_TYPE.md](HOTSPOT_QUESTION_TYPE.md).
+- 2026-10-11: Make clear why HOTSPOT is deferred in QPM: reconsider support when a concrete
+  cross-compatibility need exists and a supported exchange path makes it implementable.
+- 2026-10-11: HOTSPOT is PLE-only. QPM converts external question formats and currently has no
+  HOTSPOT import/export format to support. Blackboard Ultra and Canvas implement it internally,
+  but neither provides a supported exchange path for QPM; remove obsolete QPM coordination tasks.
 - 2026-10-10: Make Check Answer Roosevelt University green and shorter, close to BPW's
   completion badge or download links. Reduce MC/MA answer padding.
 - 2026-10-10: Remove reports that caused drift. The visual parity assessment caused major drift;
