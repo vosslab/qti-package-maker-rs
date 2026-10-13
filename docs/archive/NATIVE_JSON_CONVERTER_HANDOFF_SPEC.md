@@ -166,8 +166,8 @@ Relevant implementation anchors: [Native JSON decoder](https://github.com/vossla
 [the existing future import TODO](https://github.com/vosslab/peptidyle-learning-engine/blob/main/docs/TODO.md#future-product-capabilities).
 
 In the qti-package-maker-rs checkout, useful existing extension points are
-`crates/qti-engines/src/traits.rs` and `crates/qti-engines/src/registry.rs` for writer registration,
-`crates/qti-core/src/item.rs` for item views, and `crates/qti-core/src/media/resolve.rs` plus
-`crates/qti-core/src/media/rewrite.rs` for discovering supplied media and rewriting HTML `src`
+`crates/qpm-engines/src/traits.rs` and `crates/qpm-engines/src/registry.rs` for writer registration,
+`crates/qpm-core/src/item.rs` for item views, and `crates/qpm-core/src/media/resolve.rs` plus
+`crates/qpm-core/src/media/rewrite.rs` for discovering supplied media and rewriting HTML `src`
 references. `html_selftest` is a nearby writer with shared media handling. These are orientation
 references, not a required architecture or a claim that a PLE Native JSON writer already exists.

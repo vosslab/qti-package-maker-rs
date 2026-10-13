@@ -6,8 +6,8 @@ module discovery.
 
 ## M1
 
-The workspace structure is present: `qti-core`, `qti-integrity`, `qti-engines`, `qti-cli`, the
-amendment-required `qti-raster` and `qti-molecule`, and `xtask` are declared in the root workspace.
+The workspace structure is present: `qpm-core`, `qpm-integrity`, `qpm-engines`, `qpm-cli`, the
+amendment-required `qpm-raster` and `qpm-molecule`, and `xtask` are declared in the root workspace.
 All packages inherit edition 2024, Rust 1.98.1, LGPL-3.0-or-later, and the repository URL.
 `REPO_TYPE` is `rust`. `docs/DEPENDENCY_DECISIONS.md` records the four WP-F3 decisions, commands,
 and observed outcomes. `docs/RUST_STYLE.md` section 16 is the canonical dependency policy: direct
@@ -18,7 +18,7 @@ WP-T3 follow-on previously used ambiguous wording. A fresh `cargo check --worksp
 
 M1's "chosen crate versions are pinned" criterion is therefore satisfied by the tracked lockfile,
 not by exact `Cargo.toml` requirements. The workspace's wildcard requirements, including
-`qti-molecule`'s `libloading = "*"`, conform to the repository-wide policy and must remain so
+`qpm-molecule`'s `libloading = "*"`, conform to the repository-wide policy and must remain so
 unless a documented temporary upstream constraint requires an exact version.
 
 ## M12
@@ -38,7 +38,7 @@ implements `engines`, `item-types`, and `check`; error-severity integrity findin
 failure. The focused CLI library suite passed eight tests during this audit.
 
 The earlier process-evidence gaps are now closed by the eight tests in
-`crates/qti-cli/tests/cli_contract.rs`, rerun successfully in the locked all-target
+`crates/qpm-cli/tests/cli_contract.rs`, rerun successfully in the locked all-target
 workspace suite after the Canvas and reader-default repairs:
 
 1. `all_formats_write_each_named_artifact_and_report_ten_attempts` verifies the

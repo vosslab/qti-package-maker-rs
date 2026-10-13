@@ -27,8 +27,8 @@ side of the integration contract without requiring Python or a website-specific 
 
 ## Independent checks
 
-Commands were run from the repository root except npm commands, which ran in `packages/qti-wasm`.
-Cargo used `CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo`; Python used `source source_me.sh`.
+Commands were run from the repository root except npm commands, which ran in `packages/qpm-wasm`.
+Cargo used `CARGO_HOME=/Users/vosslab/.cache/qpm-rust-cargo`; Python used `source source_me.sh`.
 
 | Check | Result |
 | --- | --- |
@@ -45,7 +45,7 @@ Runtime versions: Node 26.11.0, Chromium 156.0.8078.4, Firefox 157.0, and Playwr
 These are the versions exercised in this correction; Node 24 and shipping Safari were not rerun.
 Native Chromium screenshot and RDKit code was unchanged and its optional lane was not rerun.
 Logs are retained in `tests/_temp/selftest_*.log` and
-`packages/qti-wasm/_verification/selftest_*.log`. These local ignored artifacts are not part of a
+`packages/qpm-wasm/_verification/selftest_*.log`. These local ignored artifacts are not part of a
 fresh checkout; the tests and this summary are the durable record.
 
 ## Transitional current-Python checks
@@ -87,7 +87,7 @@ API; no older dependency was pinned to bypass adaptation. No Cargo dependency wa
 ## Handoff artifact and remaining integration check
 
 The rebuilt local package is
-`packages/qti-wasm/_verification/vosslab-qti-wasm-0.1.0.tgz` (1,439,304 bytes), SHA-256
+`packages/qpm-wasm/_verification/vosslab-qpm-wasm-0.1.0.tgz` (1,439,304 bytes), SHA-256
 `0be5f69224e114268e7d3bdea40ad3efb5a958e702c8ca537f95b57737512988`.
 Its Wasm module is 3,647,865 bytes, SHA-256
 `d2cee028cb5ace2ba11fe81eff2f7acf49d48db1122cc79b45ee5fd2c3181adc`.

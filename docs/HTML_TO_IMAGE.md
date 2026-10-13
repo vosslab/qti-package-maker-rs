@@ -9,7 +9,7 @@ target.
 The production binary uses `chromiumoxide` to launch Chromium lazily and reuse it during one
 conversion. It always runs headlessly, preferring a dedicated headless shell on `PATH` or in the
 standard local Playwright browser cache (newest installed revision first). Otherwise it discovers
-a full Chromium browser and runs that headlessly. Set `QTI_CHROMIUM` to an executable path when automatic local-browser discovery is
+a full Chromium browser and runs that headlessly. Pass `--chromium PATH` when automatic local-browser discovery is
 unsuitable. Chromium is required only when the selected input actually needs table conversion;
 ordinary package generation needs neither Chromium, Python, nor Node.js.
 
@@ -25,7 +25,7 @@ table renderer.
 
 ## Shared rendering ownership
 
-[crates/qti-render/src/lib.rs](../crates/qti-render/src/lib.rs) owns portable selection, canvas
+[crates/qpm-render/src/lib.rs](../crates/qpm-render/src/lib.rs) owns portable selection, canvas
 parsing, deterministic job planning, naming, the static wrapper, and completion validation.
 Its finalizer rewrites presentation fields while retaining the original bank's CRCs, order,
 source item numbers, and grading, including when different items acquire identical presentations.
@@ -33,10 +33,10 @@ Generated images carry logical CSS dimensions and responsive sizing; PNG pixel d
 be larger than their displayed dimensions.
 
 The native adapter in
-[html_to_image/mod.rs](../crates/qti-native/src/html_to_image/mod.rs) retains Chromium, Rayon,
+[html_to_image/mod.rs](../crates/qpm-native/src/html_to_image/mod.rs) retains Chromium, Rayon,
 the render cache, and runtime RDKit loading. Its read-only `AssetSource` is rooted at the input
 parent. Generated assets combine with recovered/input providers through
-`qti-engines::AssetOverlay` before writing.
+`qpm-engines::AssetOverlay` before writing.
 
 The Wasm package exposes stateless `planRenderJobs(originalRequest)` and
 `finishConvert(originalRequest, renders)`. A browser host executes planned canvas and table jobs;
@@ -44,7 +44,7 @@ Rust owns the source interpretation and packaging. Plans identify canvas depende
 tables and supply `drawingDetails` plus optional source-owned `peptideQuery` metadata for RDKit.
 The final call reparses the original request, reconstructs bindings, and overlays generated,
 recovered, and companion assets. See
-[packages/qti-wasm/docs/rendering.md](../packages/qti-wasm/docs/rendering.md) for the host API.
+[packages/qpm-wasm/docs/rendering.md](../packages/qpm-wasm/docs/rendering.md) for the host API.
 
 Every completion supplies a job ID, PNG bytes, and positive finite logical CSS dimensions.
 The portable finalizer checks the actual PNG signature, decodes rows with the PNG decoder's

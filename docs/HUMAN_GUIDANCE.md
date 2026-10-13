@@ -17,6 +17,35 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ## Rust port
 
+- 2026-10-12: Python-to-Rust parity is established. Remove completed migration fixtures,
+  snapshots, generators, and comparison harnesses unless they protect a separate stable
+  product behavior. Keep this cleanup separate from the naming migration.
+
+- 2026-10-12: Existing names are presumed valid. Preserve meaningful names such as
+  `qti_packer` and full `qti-package-maker`/`qti_package_maker` names. Review renames by
+  meaning; use qpm for abbreviated project components, not blanket substitution.
+
+- 2026-10-12: QPM = [Q]ti-[P]ackage-[M]aker. Keep the established `qti_package_maker`
+  Python package, imports, distribution, and API. Apply qpm naming to Rust/Wasm and
+  project-owned integration identifiers.
+
+- 2026-10-12: Include public integration identifiers and coordinate Python QPM, Rust QPM,
+  BPW, and PLE together. Use one QPM naming convention with no compatibility aliases.
+- 2026-10-12: Review custom environment variables instead of renaming them. Use explicit
+  command-line arguments, function parameters, or config files. Keep standard OS/ecosystem
+  variables and avoid unnecessary configuration options.
+
+- 2026-10-12: Use `qpm-rust-cargo`, not `qti-rust-cargo`, for the Cargo cache name;
+  QTI is a trademark I do not own.
+- 2026-10-12: Use QPM as the project namespace. Rename project-owned Rust crates, Wasm
+  packages, and generated artifacts from qti to qpm; preserve QTI standard, format, and
+  interoperability references. Keep this naming cleanup separate from CSS-validation behavior.
+- 2026-10-12: Validate inline CSS strictly, like unmatched HTML tags. Reject confirmed errors
+  with actionable messages; BP must correct its generators. Never silently repair CSS or turn
+  confirmed errors into warnings. Accept values that cannot reliably be classified as invalid.
+- 2026-10-12: Prefer established parsers and validators for common colors, dimensions, property
+  names, and values. Keep Python and Rust consistent and avoid obscure CSS edge cases.
+
 - 2026-10-11: I have access to Blackboard Learn, Blackboard Ultra, and Canvas. All three support
   creating HOTSPOT questions; none supports importing or exporting HOTSPOT questions.
 - 2026-10-11: For QPM planning, "LMS HOTSPOT interoperability remains nonexistent": no working,

@@ -55,7 +55,7 @@ provides an independent preview of that same output contract.
 Keep all QPM CSS and JavaScript inline in the emitted fragment.
 
 The shared theme and control CSS originate in Python QPM and are installed once using
-its `qti-selftest-theme` identifier. The user-requested 2026-10-10 styling update uses Roosevelt
+its `qpm-selftest-theme` identifier. The user-requested 2026-10-10 styling update uses Roosevelt
 green primary buttons, shorter action buttons, and tighter MC/MA rows. These are intentional
 presentation differences; the frozen Python references remain unchanged.
 Preserve the transparent background fallback, inherited host

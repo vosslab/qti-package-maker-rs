@@ -71,7 +71,7 @@ def stage_source_media(source_bank: object, converted_bank: object, metrics: dic
 	if not any(asset.kind == media_assets.KIND_LOCAL for asset in assets):
 		return
 	if converted_bank.media_base_dir is None:
-		media_root = tempfile.mkdtemp(prefix="qti_table_bench_media_")
+		media_root = tempfile.mkdtemp(prefix="qpm_table_bench_media_")
 		converted_bank.set_media_base_dir(media_root, owned=True)
 	for asset in assets:
 		if asset.kind != media_assets.KIND_LOCAL:
@@ -250,7 +250,7 @@ def main() -> None:
 		for path in bbq_files]
 	manifest_sha = hashlib.sha256((args.corpus / "manifest.json").read_bytes()).hexdigest()
 	oracle_root, oracle_commit = oracle_provenance()
-	work = Path(tempfile.mkdtemp(prefix="qti-table-bench-"))
+	work = Path(tempfile.mkdtemp(prefix="qpm-table-bench-"))
 	try:
 		runs: dict[str, object] = {}
 		for name, formats in (("three_format", ["-1", "-2", "-B"]), ("blackboard_export", ["-B"])):

@@ -9,17 +9,13 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-qti-cli = { path = "../crates/qti-cli" }
 zip.workspace = true
-qti-core = { path = "../crates/qti-core" }
-qti-engines = { path = "../crates/qti-engines" }
-qti-native = { path = "../crates/qti-native" }
-qti-molecule = { path = "../crates/qti-molecule" }
-qti-integrity = { path = "../crates/qti-integrity" }
+qpm-engines = { path = "../crates/qpm-engines" }
+qpm-native = { path = "../crates/qpm-native" }
+qpm-molecule = { path = "../crates/qpm-molecule" }
 serde_json.workspace = true
 sha2.workspace = true
 regex.workspace = true
-scraper.workspace = true
 serde.workspace = true
 base64.workspace = true
 

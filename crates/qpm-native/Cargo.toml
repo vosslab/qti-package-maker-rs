@@ -1,0 +1,28 @@
+[package]
+name = "qpm-native"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+qpm-render = { path = "../qpm-render" }
+qpm-core = { path = "../qpm-core" }
+qpm-engines = { path = "../qpm-engines" }
+qpm-integrity = { path = "../qpm-integrity" }
+qpm-molecule = { path = "../qpm-molecule" }
+chromiumoxide.workspace = true
+futures.workspace = true
+tokio.workspace = true
+time.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+rayon.workspace = true
+sha2.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+base64.workspace = true
+zip.workspace = true

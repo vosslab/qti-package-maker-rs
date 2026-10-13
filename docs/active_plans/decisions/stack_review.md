@@ -37,7 +37,7 @@ actual-fragment comparison requirement.
 **Required correction, without expanding to M17:** extend the ignored spike with three fixed input
 fixtures copied from the named corpus fragments and a deliberately minimal fixture adapter that
 reads their actual table cells, spans, colors, dimensions, and curve coordinates into the existing
-painting calls. It may remain a spike-only adapter; it must not become `qti-raster` or a general
+painting calls. It may remain a spike-only adapter; it must not become `qpm-raster` or a general
 HTML/CSS implementation. Regenerate a six-image gallery pairing each native rendering with its
 same-input Python oracle, and record the command and result. The correction proves that the selected
 libraries can carry the exact hard inputs while leaving full parsing/layout to WP-R1 through WP-R5.
@@ -135,7 +135,7 @@ prebuilt-shim design.
 ## M18 final Linux re-review: accepted
 
 The corrected, persisted replay closes the remaining M18 gate. The build receipt at
-`/Users/vosslab/.cache/qti-linux-cross-replay-v2/build_receipt.txt` records native `aarch64` Rust
+`/Users/vosslab/.cache/qpm-linux-cross-replay-v2/build_receipt.txt` records native `aarch64` Rust
 1.98.1, Debian `x86_64-linux-gnu-g++`, extracted amd64 RDKit/Cairo/Boost packages, three x86-64
 ELF artifacts, the shim's required RDKit/Cairo shared libraries, and artifact hashes. The separate
 runtime receipt records `x86_64`, `librdkit1t64 202503.1-4 amd64`, and the same three hashes.

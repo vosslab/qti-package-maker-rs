@@ -9,9 +9,9 @@ two were corrected and two naming items remain open.
 | Severity | Finding | Evidence and impact | Disposition |
 | --- | --- | --- | --- |
 | Low | Package instructions duplicate transient tool versions | `docs/WASM_PACKAGE.md` disagreed with the package/release requirement and recorded runtime. It could suggest an unnecessary downgrade. | Fixed: setup docs reference manifest requirements rather than duplicating version numbers. |
-| Low | ORDER browser assertion depends on the initial reversed layout | `packages/qti-wasm/tests/selftest.spec.ts`, in the interactive-controls test, named the expected first and second rows after a move. A valid initial-order change could fail it. | Fixed: assert the relative result of moving the last row up once, regardless of initial ordering. |
+| Low | ORDER browser assertion depends on the initial reversed layout | `packages/qpm-wasm/tests/selftest.spec.ts`, in the interactive-controls test, named the expected first and second rows after a move. A valid initial-order change could fail it. | Fixed: assert the relative result of moving the last row up once, regardless of initial ordering. |
 | Low | Verification report uses uppercase filename | `docs/active_plans/reports/SELFTEST_REGRESSION_VERIFICATION.md` conflicts with the active-plan snake_case rule in `docs/REPO_STYLE.md`. | Open naming cleanup: rename to `selftest_regression_verification.md` and update its links. |
-| Low | Python-parity config uses a hyphen | `packages/qti-wasm/playwright.python-parity.config.ts` conflicts with the non-Markdown underscore naming rule. | Open naming cleanup: rename to `playwright_python_parity.config.ts` and update the npm script. |
+| Low | Python-parity config uses a hyphen | `packages/qpm-wasm/playwright.python-parity.config.ts` conflicts with the non-Markdown underscore naming rule. | Open naming cleanup: rename to `playwright_python_parity.config.ts` and update the npm script. |
 
 The naming changes were left for commit preparation to preserve the existing index state. The
 repository requires `git mv` for renames, and the verification report was untracked at audit time.

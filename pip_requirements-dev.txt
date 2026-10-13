@@ -9,5 +9,3 @@ tree-sitter  # Rust parsing for the Graphify cfg(test) prune step
 tree-sitter-rust  # Rust grammar for the Graphify cfg(test) prune step
 
 # === LOCAL DEVELOPMENT DEPENDENCIES === [ADD REPOSITORY-SPECIFIC DEPENDENCIES HERE]
-defusedxml  # bounded XML parsing in the development-only parity oracle
-lxml  # HTML DOM comparison in the development-only parity oracle

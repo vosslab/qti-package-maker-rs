@@ -12,12 +12,12 @@ prerequisites. The browser target is `wasm32-unknown-unknown`, with no WASI or p
 
 | Area | Responsibility |
 | --- | --- |
-| `qti-core` | Portable bank, media providers/bytes, logical names, and ZIP assembly |
-| `qti-engines` | One registry, all four readers and eleven writers, shared orchestration/overlay |
-| `qti-integrity` | Independent bounded ZIP-byte and package-entry checks |
-| `qti-native` | Filesystem, persistence, rendering, local context, and environment services |
-| `qti-wasm` | Typed owned transport, JavaScript adapter, and generated declarations |
-| `packages/qti-wasm` | Explicit initialization, strict TypeScript, host examples, acceptance |
+| `qpm-core` | Portable bank, media providers/bytes, logical names, and ZIP assembly |
+| `qpm-engines` | One registry, all four readers and eleven writers, shared orchestration/overlay |
+| `qpm-integrity` | Independent bounded ZIP-byte and package-entry checks |
+| `qpm-native` | Filesystem, persistence, rendering, local context, and environment services |
+| `qpm-wasm` | Typed owned transport, JavaScript adapter, and generated declarations |
+| `packages/qpm-wasm` | Explicit initialization, strict TypeScript, host examples, acceptance |
 
 Rust owns format conversion; TypeScript owns loading and host integration. Shared writers return
 owned byte artifacts and consume explicit context. Asset bytes belong to providers and read/render
@@ -46,7 +46,7 @@ Completed on 2026-10-08. Final evidence is summarized in
 - D1-D9: exact portable model, reader/writer, registry, media, archive, and host contracts in the
   contract document. Core, engines, native, callers, and adapter implement the same signatures.
 - D10: existing fixed ZIP titles remain; explicit title/date continues to affect exam YAML.
-- D11: `qti-engines::AssetOverlay` is the shared recovered-first owner used by conversion and native.
+- D11: `qpm-engines::AssetOverlay` is the shared recovered-first owner used by conversion and native.
 - D13: registry `output_name_for_content` owns all eleven native filename mappings; callers delegate.
 - D14: inspect all plausible EOCD/associated ZIP64 candidates before constructing
   zip-rs. Safe-input bounds may reject an unusual input embedding a plausible overlimit archive.

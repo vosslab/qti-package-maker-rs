@@ -40,7 +40,7 @@ claims about the current files.
 | Optimized CLI used for final native timings | `9fe222e4d3708db6bf58d329f8a6b6b378b104a45b34e48d5aeda628ea8d1502` |
 
 The tarball is
-`packages/qti-wasm/_verification/d23_final/vosslab-qti-wasm-0.1.0.tgz`.
+`packages/qpm-wasm/_verification/d23_final/vosslab-qpm-wasm-0.1.0.tgz`.
 Earlier `_verification/` root receipts and pre-D23 package runs describe superseded artifacts.
 Native evidence is `tests/_temp/wasm_acceptance/final_native/receipt.json` (status `passed`);
 its directory contains 168 source hashes, three binary identities, final gate logs, and timing
@@ -52,12 +52,12 @@ below to generate current receipts.
 ## Implementation boundaries
 
 - Four readers and eleven writers use shared portable Rust modules and one registry.
-- `qti-core` owns item banks, provider-based media, logical names, and byte ZIP assembly.
-- `qti-engines` owns read/write/convert orchestration and recovered-first `AssetOverlay`.
-- `qti-integrity` owns safe ZIP-byte and entry validation, independent of the item model.
-- `qti-native` owns bounded filesystem input, DirectoryAssets, native rendering, context, and
+- `qpm-core` owns item banks, provider-based media, logical names, and byte ZIP assembly.
+- `qpm-engines` owns read/write/convert orchestration and recovered-first `AssetOverlay`.
+- `qpm-integrity` owns safe ZIP-byte and entry validation, independent of the item model.
+- `qpm-native` owns bounded filesystem input, DirectoryAssets, native rendering, context, and
   persistence, including PLE staged ownership checks.
-- `qti-wasm` owns typed requests/results and JavaScript defaults. Rust `tsify` and wasm-bindgen
+- `qpm-wasm` owns typed requests/results and JavaScript defaults. Rust `tsify` and wasm-bindgen
   generate declarations; TypeScript owns loading and host examples.
 
 Native media payload reads, including absolute references and symlinks, stay inside the input root.
@@ -160,7 +160,7 @@ D19 optimized dense-candidate ZIP probes run at 2,500, 5,000, 10,000, and 20,000
 medians are 0.1135, 0.2271, 0.4633, and 0.9346 ms; ZIP64 medians are 0.5314, 1.0498, 2.0958,
 and 4.2181 ms. Largest inputs are 440,022 and 1,960,022 bytes. Earlier repeated prefix scans take
 1105.59 ms and 7.51 seconds at 20,000 candidates. The indexed correction removes that measured
-quadratic work while preserving D14 rejection. Log: `/private/tmp/qti_integrity_d19_bench.log`.
+quadratic work while preserving D14 rejection. Log: `/private/tmp/qpm_integrity_d19_bench.log`.
 These are ZIP-input probes, not ordinary conversion timings; no arbitrary timing cutoff is a gate.
 
 D14 regressions reject a malformed final directory that makes zip-rs select an earlier

@@ -1,5 +1,55 @@
 # Design decisions
 
+### Completed migration tooling (2026-10-12)
+
+**Decision.** Remove one-time Python/Rust parity snapshots, generators, and comparison
+harnesses. Keep product behavior checks independent of a second implementation.
+
+**Why.** Establishing parity completed the migration goal; permanent differential testing
+was not adopted as a product requirement.
+
+**Consequence.** The existing real Blackboard ZIP remains because it independently checks
+import, media recovery, and unsupported-content handling. Browser integration and native
+behavior tests remain; former migration comparisons are historical evidence only.
+
+**Owner.** Cargo crate tests and the Wasm package tests.
+
+### QPM namespace and explicit configuration (2026-10-12)
+
+**Decision.** Use qpm for abbreviated project-owned Rust crates, Wasm bindings, renderer hooks,
+and native symbols. Migrate the known consumers together with no compatibility aliases.
+Use CLI/function arguments or ordinary discovery instead of custom configuration env vars.
+
+**Why.** QPM abbreviates QTI Package Maker; its established Python API remains unchanged.
+A coordinated early Rust/Wasm migration
+avoids maintaining two application namespaces; explicit settings follow repository policy.
+
+**Consequence.** BPW/PLE receive regenerated artifacts and loaders together. Python's import
+package and local distribution are qti_package_maker; repository URLs and physical checkout
+paths remain their real locations. Standard PATH, HOME, CARGO_HOME, PYTHONPATH, and compiler
+environment settings remain valid. QTI format identifiers and schema names remain unchanged.
+
+**Owner.** [NAMESPACE_MIGRATION.md](NAMESPACE_MIGRATION.md), Cargo manifests, and consumer
+vendor scripts.
+
+### Inline CSS validation (2026-10-12)
+
+**Decision.** Validate original inline style attributes after the existing XML check, using
+cssparser and Lightning CSS. Apply the same conservative coverage as Python QPM, including
+legacy color/bgcolor attributes. All confirmed failures remain hard validation errors.
+
+**Why.** XML well-formedness does not catch invalid CSS. Parser rejection is only evidence
+within a shared, understood grammar; library coverage gaps must not reject valid modern CSS.
+
+**Consequence.** No content rewriting or warning fallback. Unknown properties/functions and
+unclassified modern forms pass. BP owns generator fixes. The JavaScript Wasm adapter enables
+getrandom's wasm_js feature for Lightning CSS's randomized maps; native builds are unchanged.
+Reader parsers retain typed validation errors until the recovery boundary, where confirmed
+CSS failures propagate instead of becoming skipped-item warnings.
+
+**Owner.** [INLINE_CSS_VALIDATION.md](INLINE_CSS_VALIDATION.md) and
+[inline_css.rs](../crates/qpm-core/src/inline_css.rs).
+
 ### Library dependency features
 
 **Decision.** Enable Scraper's HTML parse diagnostics without its standalone CLI, and ZIP's
@@ -150,7 +200,7 @@ LMS transfer; planning requires evidence of actual import/export behavior. No QP
 ZIP carrier, or new CLI option is introduced.
 
 **Owner.** [HOTSPOT_QUESTION_TYPE.md](HOTSPOT_QUESTION_TYPE.md),
-[ple_native_json/source.rs](../crates/qti-engines/src/ple_native_json/source.rs), and
+[ple_native_json/source.rs](../crates/qpm-engines/src/ple_native_json/source.rs), and
 [ple_native_json_writer_plan.md](active_plans/active/ple_native_json_writer_plan.md).
 
 ### PLE text answers and URL inventory
@@ -170,13 +220,13 @@ limit. Multi-role URL reuse fails explicitly until PLE can record each role; QPM
 drop an image or link role. See the
 [PLE issues report](active_plans/reports/ple_issues_from_native_json_writer.md).
 
-**Owner.** [mapping.rs](../crates/qti-engines/src/ple_native_json/mapping.rs),
-[scan.rs](../crates/qti-engines/src/ple_native_json/scan.rs), and PLE's private decoder contract.
+**Owner.** [mapping.rs](../crates/qpm-engines/src/ple_native_json/mapping.rs),
+[scan.rs](../crates/qpm-engines/src/ple_native_json/scan.rs), and PLE's private decoder contract.
 
 ### PLE display-only media collection
 
 **Decision.** Collect and rewrite PLE media only in the mapped source document's display HTML
-fields. Reuse `qti-core::media` scanning, resolution, collision-safe naming, policy, and HTML
+fields. Reuse `qpm-core::media` scanning, resolution, collision-safe naming, policy, and HTML
 rewrite functions; do not use whole-bank `collect_assets` or `rewrite_item_media` for this engine.
 
 **Why.** A temporary media-boundary reproduction found that whole-bank traversal also scans FIB
@@ -184,13 +234,13 @@ and MULTI_FIB accepted-answer literals. An answer containing image-like text the
 missing-file error or is rewritten, changing accepted grading input. The PLE output has distinct
 display fields, so scanning them directly preserves answer meaning.
 
-**Consequence.** Shared media naming and policy stay authoritative in `qti-core`; native path
-confinement belongs to `qti-native`. PLE export packages only images referenced by represented
+**Consequence.** Shared media naming and policy stay authoritative in `qpm-core`; native path
+confinement belongs to `qpm-native`. PLE export packages only images referenced by represented
 display HTML. Do not
 create a surrogate bank or alter the source item to work around this boundary.
 
-**Owner.** [ple_native_json/media.rs](../crates/qti-engines/src/ple_native_json/media.rs) and
-[qti-core media](../crates/qti-core/src/media/mod.rs).
+**Owner.** [ple_native_json/media.rs](../crates/qpm-engines/src/ple_native_json/media.rs) and
+[qpm-core media](../crates/qpm-core/src/media/mod.rs).
 
 ### PLE media fidelity and directory ownership
 
@@ -209,8 +259,8 @@ schema-only ownership check could overwrite it.
 directories unchanged. The manifest belongs only to directory transport, not the in-memory
 per-question file list. PLE reads the JSON and associated files; it does not consume the marker.
 
-**Owner.** [ple_native_json/media.rs](../crates/qti-engines/src/ple_native_json/media.rs) and
-[qti-native/src/ple_output.rs](../crates/qti-native/src/ple_output.rs).
+**Owner.** [ple_native_json/media.rs](../crates/qpm-engines/src/ple_native_json/media.rs) and
+[qpm-native/src/ple_output.rs](../crates/qpm-native/src/ple_output.rs).
 
 ### PLE staged output integrity
 
@@ -224,7 +274,7 @@ failure; its filesystem-aware version passes after staged-tree verification.
 **Consequence.** An aliased or changed staged file is rejected before it can replace an existing
 directory. The ownership manifest proves both the expected file set and bytes at publication.
 
-**Owner.** [qti-native/src/ple_output.rs](../crates/qti-native/src/ple_output.rs) and
+**Owner.** [qpm-native/src/ple_output.rs](../crates/qpm-native/src/ple_output.rs) and
 [ple_native_json_writer_plan.md](active_plans/active/ple_native_json_writer_plan.md) (D8).
 
 ### One Rust conversion engine for CLI and Wasm
@@ -238,7 +288,7 @@ second JavaScript conversion path.
 
 **Consequence.** Keep portable bank, media, ZIP, converter, registry, and integrity behavior in the
 existing core, engine, and integrity crates. Put filesystem, persistence, rendering, environment,
-and time services in `qti-native`; keep `qti-wasm` as the typed host adapter with owned
+and time services in `qpm-native`; keep `qpm-wasm` as the typed host adapter with owned
 `Uint8Array` inputs and outputs. D1-D9 establish byte inputs, logical output names, explicit
 context, media-source ownership, lazy reads, safe archive handling, and shared orchestration.
 Native and Wasm adapters use the same four readers and eleven writers.
@@ -258,13 +308,13 @@ behavior and accidental metadata changes during the native/Wasm split.
 Explicit browser date/title/seed make repeated calls reproducible. The browser adapter defaults
 to UTC today, title `Exam`, seed zero, and the registry default output name.
 
-**Owner.** [registry.rs](../crates/qti-engines/src/registry.rs),
-[traits.rs](../crates/qti-engines/src/traits.rs), and
-[adapter.rs](../crates/qti-wasm/src/adapter.rs).
+**Owner.** [registry.rs](../crates/qpm-engines/src/registry.rs),
+[traits.rs](../crates/qpm-engines/src/traits.rs), and
+[adapter.rs](../crates/qpm-wasm/src/adapter.rs).
 
 ### Shared asset overlay ownership
 
-**Decision.** `qti-engines::AssetOverlay` serves recovered or rendered memory bytes first and
+**Decision.** `qpm-engines::AssetOverlay` serves recovered or rendered memory bytes first and
 consults the caller's provider only when that source is absent (D11).
 
 **Why.** Native rendering and portable conversion need the same composition behavior and one
@@ -273,7 +323,7 @@ authoritative owner.
 **Consequence.** Recovered bytes win over supplied duplicates. Provider failures propagate;
 composition introduces no broad error fallback. Native callers import this shared type.
 
-**Owner.** [conversion.rs](../crates/qti-engines/src/conversion.rs).
+**Owner.** [conversion.rs](../crates/qpm-engines/src/conversion.rs).
 
 ### Logical names and native confinement
 
@@ -289,9 +339,9 @@ without adding host paths to portable models.
 writers request only emitted media. Banks whose media sits outside the input directory must
 move under a common root and update their references. Spaces and UTF-8 names remain supported.
 
-**Owner.** [assets.rs](../crates/qti-core/src/media/assets.rs),
-[zip.rs](../crates/qti-core/src/zip.rs), and
-[assets.rs](../crates/qti-native/src/assets.rs).
+**Owner.** [assets.rs](../crates/qpm-core/src/media/assets.rs),
+[zip.rs](../crates/qpm-core/src/zip.rs), and
+[assets.rs](../crates/qpm-native/src/assets.rs).
 
 ### Hierarchical Rust modules
 
@@ -318,9 +368,9 @@ lifetime. Media provenance and payload access belong to an explicit provider.
 for the conversion; recovered reader bytes remain owned by the read outcome. This replaces the
 earlier `Arc<TempDir>` bank ownership design.
 
-**Owner.** [bank.rs](../crates/qti-core/src/bank.rs),
-[assets.rs](../crates/qti-core/src/media/assets.rs), and
-[traits.rs](../crates/qti-engines/src/traits.rs).
+**Owner.** [bank.rs](../crates/qpm-core/src/bank.rs),
+[assets.rs](../crates/qpm-core/src/media/assets.rs), and
+[traits.rs](../crates/qpm-engines/src/traits.rs).
 
 ### ZIP fallback allocation bounds
 
@@ -338,7 +388,7 @@ the decoder may select it through fallback. Candidate indexes grow with input ca
 metadata stays bounded before allocation. ZIP32/ZIP64 regressions cover the bypass, and dense
 ZIP64 candidate regressions protect the indexed scan from returning to quadratic prefix work.
 
-**Owner.** [zip_directory.rs](../crates/qti-integrity/src/input/zip_directory.rs).
+**Owner.** [zip_directory.rs](../crates/qpm-integrity/src/input/zip_directory.rs).
 
 ### Shared immutable resolved payloads
 
@@ -354,9 +404,9 @@ retains one resolved payload while each dependency keeps its own metadata.
 exact payloads. `read_bytes()` and `into_parts()` still provide independent vectors when required,
 and generated JavaScript input/output arrays retain their owned-copy contract.
 
-**Owner.** [resolve.rs](../crates/qti-core/src/media/resolve.rs),
-[zip.rs](../crates/qti-core/src/zip.rs), and
-[media.rs](../crates/qti-engines/src/ple_native_json/media.rs).
+**Owner.** [resolve.rs](../crates/qpm-core/src/media/resolve.rs),
+[zip.rs](../crates/qpm-core/src/zip.rs), and
+[media.rs](../crates/qpm-engines/src/ple_native_json/media.rs).
 
 ### Native missing-source classification
 
@@ -368,7 +418,7 @@ spelling; preserve `AssetRead` for provider failures (D24).
 **Consequence.** Missing sources retain consistent portable diagnostics; permission and other
 provider errors propagate without broad fallback.
 
-**Owner.** [assets.rs](../crates/qti-native/src/assets.rs).
+**Owner.** [assets.rs](../crates/qpm-native/src/assets.rs).
 
 ### Merge position parity
 
@@ -381,7 +431,7 @@ integrity invariant proves a different result, so Python behavior controls under
 **Consequence.** Merging banks is not an implicit renumbering operation. Ordering remains the
 `IndexMap` insertion order, independently of stored numbers.
 
-**Owner.** [bank.rs](../crates/qti-core/src/bank.rs).
+**Owner.** [bank.rs](../crates/qpm-core/src/bank.rs).
 
 ### Blackboard pool source-preservation metadata
 
@@ -404,12 +454,12 @@ typed reader failure for that item, while an absent field retains the frozen
 reader default. Future Blackboard compatibility evidence may replace this
 carrier, but must retain the same Rust source round-trip.
 
-**Owner.** [blackboard_export_zip](../crates/qti-engines/src/blackboard_export_zip).
+**Owner.** [blackboard_export_zip](../crates/qpm-engines/src/blackboard_export_zip).
 
 ### Chromium HTML-to-image rendering
 
 **Decision.** Render valid HTML tables through a local Chromium browser controlled directly from
-Rust. `QTI_CHROMIUM` optionally supplies the browser executable. Start it lazily and reuse it for
+Rust. `--chromium PATH` optionally supplies the browser executable. Start it lazily and reuse it for
 the conversion; static RDKit canvases and sugar-library PNG/SVG outputs remain image paths.
 
 **Why.** Browser HTML/CSS support is the product requirement. The custom renderer rejected a gel

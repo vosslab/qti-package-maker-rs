@@ -1,0 +1,27 @@
+[package]
+name = "qpm-wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Typed browser adapter for shared QTI conversion and integrity checks"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+qpm-render = { path = "../qpm-render" }
+qpm-core = { path = "../qpm-core" }
+qpm-engines = { path = "../qpm-engines" }
+qpm-integrity = { path = "../qpm-integrity" }
+serde.workspace = true
+serde_json.workspace = true
+serde_bytes = "*"
+tsify = { version = "*", default-features = false, features = ["js"] }
+wasm-bindgen = "*"
+js-sys = "*"
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+# Lightning CSS uses randomized hash maps; this adapter runs in a JavaScript host.
+getrandom = { version = "0.3", features = ["wasm_js"] }

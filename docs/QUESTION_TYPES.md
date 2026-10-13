@@ -1,6 +1,6 @@
 # Question types
 
-`qti-core::ItemBody` models seven validated question shapes. Every `Item` is constructed with
+`qpm-core::ItemBody` models seven validated question shapes. Every `Item` is constructed with
 `Item::new`, normalized, validated, and assigned a stable CRC identity before it enters an
 `ItemBank`. The CLI lists these names with `qti-package-maker item-types`.
 

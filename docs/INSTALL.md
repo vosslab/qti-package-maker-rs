@@ -10,26 +10,26 @@ artifact is certified yet.
 - Python is not required to build or run either production CLI binary.
 - Node, npm, wasm-pack, and a Wasm Rust target are not native CLI prerequisites.
 - A local Chromium-compatible browser is required only for `--html-to-image` tables. Put it on
-  `PATH`, or set `QTI_CHROMIUM` to its executable path.
+  `PATH`, or pass `--chromium PATH` with `--html-to-image`.
 
 ## Build from source
 
 From the repository root, create optimized native binaries:
 
 ```bash
-cargo build --locked --release -p qti-cli --bins
+cargo build --locked --release -p qpm-cli --bins
 ```
 
 Cargo writes these binaries into `target/release/`:
 
 - `bbq-converter` converts BBQ question files.
-- `qti-package-maker` inspects engines, item kinds, and completed packages.
+- `qpm` inspects engines, item kinds, and completed packages.
 
 ## Verify the build
 
 ```bash
 ./target/release/bbq-converter --help
-./target/release/qti-package-maker engines
+./target/release/qpm engines
 ```
 
 The first command prints conversion options. The second reports the registered reader and writer
@@ -40,12 +40,11 @@ capabilities. These commands run without Python.
 Table conversion always uses headless Chromium controlled directly by the Rust binary. Discovery
 prefers `chrome-headless-shell` or `chromium-headless-shell` on `PATH`, then the newest headless shell
 in the standard Playwright cache, then a full browser launched headlessly. It does
-not require a Node.js or Python production runtime. Use `QTI_CHROMIUM` when the browser is not
+not require a Node.js or Python production runtime. Use `--chromium PATH` when the browser is not
 discoverable on `PATH`:
 
 ```bash
-export QTI_CHROMIUM=/absolute/path/to/chromium
-./target/release/bbq-converter --input questions.txt --qti21 --html-to-image
+./target/release/bbq-converter --input questions.txt --qti21 --html-to-image --chromium /absolute/path/to/chromium
 ```
 
 The converter starts Chromium only for a selected input that contains tables. Static RDKit canvases
@@ -56,77 +55,59 @@ rendering and acceptance contract.
 
 Ordinary builds and conversions without static RDKit canvases need no RDKit SDK, Python, compiler,
 or shared library. A conversion using `--html-to-image` loads the optional shim only when it needs
-to render an RDKit canvas. Set the shim path for the target platform:
+to render an RDKit canvas. Discovery uses the executable's directory or the checkout's
+`crates/qpm-molecule/dist`. Supply a nonstandard location explicitly:
 
 ```bash
 # macOS
-export QTI_RDKIT_SHIM=/absolute/path/to/libqti_rdkit_shim.dylib
+./target/release/bbq-converter -i questions.txt --qti21 --html-to-image --rdkit-shim /absolute/path/to/libqpm_rdkit_shim.dylib
 
 # Linux
-export QTI_RDKIT_SHIM=/absolute/path/to/libqti_rdkit_shim.so
+./target/release/bbq-converter -i questions.txt --qti21 --html-to-image --rdkit-shim /absolute/path/to/libqpm_rdkit_shim.so
 ```
 
 Release engineering builds the shim separately from Cargo. The supported source-build commands,
 runtime package names, ABI contract, and failure behavior are in
-[../crates/qti-molecule/README.md](../crates/qti-molecule/README.md) and
+[../crates/qpm-molecule/README.md](../crates/qpm-molecule/README.md) and
 [RDKIT_DEPENDENCY_DECISION.md](RDKIT_DEPENDENCY_DECISION.md).
 
 The recorded evidence includes a macOS arm64 corpus run and Debian amd64 shim and corpus execution
 under Podman x86 emulation. The Debian result proves that ABI/runtime combination under emulation;
 it does not establish native x86 hardware or completed release certification.
 
-## Development-only oracle tools
+## Development tools
 
-`cargo xtask` contains corpus, oracle, parity, and benchmark commands. Explicit cross-language
-checks use the current Python checkout through `source_me.sh` during migration. They are optional
-development tooling, not a production runtime or ordinary Rust-test dependency. See
-[PARITY.md](PARITY.md), [SELFTEST_COMPATIBILITY.md](SELFTEST_COMPATIBILITY.md), and
-[../refactor_progress.md](../refactor_progress.md).
+`cargo xtask` contains optional corpus, benchmark, and gallery commands. They are development
+tooling, not a production runtime or ordinary Rust-test dependency. [PARITY.md](PARITY.md)
+preserves the completed Python-to-Rust port evidence.
 
 ## Browser package setup
 
 Build the separate local browser/Node package with a Node release supported by `engines.node` in
-[package.json](../packages/qti-wasm/package.json) and the Rust
+[package.json](../packages/qpm-wasm/package.json) and the Rust
 `wasm32-unknown-unknown` target. `npm ci` installs the package-local build and test tools,
 including wasm-pack. See [WASM_PACKAGE.md](WASM_PACKAGE.md) for the complete commands and
 browser installation step. These tools are development dependencies for the browser package.
 
 ## Manual release preparation
 
-Run the local Rust release checks before preparing a source release. During migration, run the
-explicit Python comparison commands separately. The corpus comparison needs
-`output_tables/corpus` from the existing harvest workflow.
+Run the local Rust release checks before preparing a source release.
 
 ```bash
-CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo bash devel/rust_release_check.sh
+CARGO_HOME=/Users/vosslab/.cache/qpm-rust-cargo bash devel/rust_release_check.sh
 source source_me.sh && python3 devel/make_release.py --dry-run
 ```
 
-The separate migration checks use the current sibling Python checkout:
+Build the shim, then pass `--native-renderers` to `devel/rust_release_check.sh` to include its check.
+Historical Python comparison findings are documented in [PARITY.md](PARITY.md); they are not a
+release prerequisite.
 
-```bash
-source source_me.sh && cargo xtask oracle-crosscheck
-source source_me.sh && cargo xtask parity --fixtures
-source source_me.sh && cargo xtask parity
-```
-
-The generated source snapshot records the revision and content hashes, including working-tree
-changes. It is comparison data, not a maintained Python fork. Ordinary release checks do not
-require Python QPM.
-
-Set `RUST_RELEASE_HTML_TO_IMAGE=1` and `QTI_RDKIT_SHIM` to include the native RDKit shim check.
-For migration comparisons of rendered content, explicitly run
-`cargo xtask parity --fixtures --html-to-image` and `cargo xtask parity --html-to-image`.
-Historical raw HTML differences are
-documented in [PARITY.md](PARITY.md), including defects in the old reference. Review new findings
-against source content, grading, media, and package integrity rather than copying reference defects.
-
-Set `RUST_RELEASE_WASM=1` to run the browser package lane with a supported Node release. It checks portable
+Pass `--wasm` to `devel/rust_release_check.sh` to run the browser package lane with a supported Node release. It checks portable
 crates for `wasm32-unknown-unknown`, then runs `npm ci`, build, strict TypeScript checks,
-Node host/native-Wasm parity tests, and Chromium/Firefox/WebKit tests in `packages/qti-wasm`. Install the Playwright
+Node host/native-Wasm tests, and Chromium/Firefox/WebKit tests in `packages/qpm-wasm`. Install the Playwright
 browsers first as described in [WASM_PACKAGE.md](WASM_PACKAGE.md). Missing prerequisites and
 failed checks stop the selected lane; install or correct the reported requirement and rerun.
-Leaving the variable unset runs the existing native release checks.
+Omitting `--wasm` runs the native release checks.
 
 To run the complete Linux check locally under Podman, including Chromium and native RDKit, use:
 

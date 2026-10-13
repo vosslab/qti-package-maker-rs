@@ -5,9 +5,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Instant;
 
-use qti_engines::{AssetOverlay, ENGINES, ReadInput};
-use qti_native::DirectoryAssets;
-use qti_native::html_to_image::{
+use qpm_engines::{AssetOverlay, ENGINES, ReadInput};
+use qpm_native::DirectoryAssets;
+use qpm_native::html_to_image::{
     ChromiumFragmentRenderer, ConversionMetrics, RenderCache, convert_bank_with_metrics,
 };
 use serde_json::{Value, json};
@@ -15,7 +15,7 @@ use serde_json::{Value, json};
 /// Run the temporary current-Python timing oracle and publish its factual Markdown report.
 ///
 /// The Rust shipping crates never invoke Python.  This `xtask` command is a development-only
-/// parity and performance oracle; it needs the sibling Python checkout selected by `source_me.sh`.
+/// performance comparison; it needs the sibling Python checkout selected by `source_me.sh`.
 pub fn run(arguments: &[String]) -> Result<(), String> {
     let repository = repository_root()?;
     let options = parse_options(&repository, arguments)?;
@@ -23,7 +23,7 @@ pub fn run(arguments: &[String]) -> Result<(), String> {
         return run_native(&repository, &options.corpus);
     }
     let corpus = options.corpus;
-    let python = crate::current_python::resolve(&repository, options.python_qti.as_deref())?;
+    let python = crate::current_python::resolve(&repository, options.python_qpm.as_deref())?;
     let manifest = corpus.join("manifest.json");
     if !manifest.is_file() {
         return Err(format!(
@@ -37,8 +37,9 @@ pub fn run(arguments: &[String]) -> Result<(), String> {
         .map_err(display_error)?;
     fs::write(&script, include_str!("table_bench_python.py")).map_err(display_error)?;
     let command = format!(
-        "source {} && python3 {} --corpus {} --report-json {}",
+        "source {} && PYTHONPATH={}:$PYTHONPATH python3 {} --corpus {} --report-json {}",
         shell_quote(&repository.join("source_me.sh")),
+        shell_quote(&python.root),
         shell_quote(&script),
         shell_quote(&corpus),
         shell_quote(&output),
@@ -46,7 +47,6 @@ pub fn run(arguments: &[String]) -> Result<(), String> {
     let status = Command::new("bash")
         .args(["-lc", &command])
         .current_dir(&repository)
-        .env("QTI_ORACLE_ROOT", &python.root)
         .status()
         .map_err(display_error)?;
     if !status.success() {
@@ -68,26 +68,26 @@ pub fn run(arguments: &[String]) -> Result<(), String> {
 struct Options {
     corpus: PathBuf,
     native: bool,
-    python_qti: Option<PathBuf>,
+    python_qpm: Option<PathBuf>,
 }
 
 fn parse_options(repository: &Path, arguments: &[String]) -> Result<Options, String> {
     let mut iterator = arguments.iter();
     let mut corpus = repository.join("output_tables").join("corpus");
     let mut native = false;
-    let mut python_qti = None;
+    let mut python_qpm = None;
     while let Some(argument) = iterator.next() {
         match argument.as_str() {
             "--corpus" => corpus = PathBuf::from(iterator.next().ok_or("--corpus needs a path")?),
             "--native" => native = true,
-            "--python-qti" => {
-                python_qti = Some(PathBuf::from(
-                    iterator.next().ok_or("--python-qti needs a path")?,
+            "--python-qpm" => {
+                python_qpm = Some(PathBuf::from(
+                    iterator.next().ok_or("--python-qpm needs a path")?,
                 ))
             }
             "--help" | "-h" => {
                 return Err(
-                    "Usage: cargo xtask table-bench [--native] [--corpus PATH] [--python-qti PATH]"
+                    "Usage: cargo xtask table-bench [--native] [--corpus PATH] [--python-qpm PATH]"
                         .to_owned(),
                 );
             }
@@ -97,7 +97,7 @@ fn parse_options(repository: &Path, arguments: &[String]) -> Result<Options, Str
     Ok(Options {
         corpus,
         native,
-        python_qti,
+        python_qpm,
     })
 }
 
@@ -132,7 +132,7 @@ fn run_native(repository: &Path, corpus: &Path) -> Result<(), String> {
         .join("bbq-converter");
     if !binary.is_file() {
         return Err(format!(
-            "release CLI is unavailable: {}; run CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo cargo build --release -p qti-cli --bin bbq-converter first",
+            "release CLI is unavailable: {}; run CARGO_HOME=/Users/vosslab/.cache/qpm-rust-cargo cargo build --release -p qpm-cli --bin bbq-converter first",
             binary.display()
         ));
     }
@@ -300,7 +300,7 @@ fn native_library_metrics(inputs: &[Value]) -> Result<Value, String> {
         );
         let started = Instant::now();
         let load = || {
-            let bytes = qti_native::read_source(input).map_err(display_error)?;
+            let bytes = qpm_native::read_source(input).map_err(display_error)?;
             let name = input
                 .file_name()
                 .and_then(|name| name.to_str())

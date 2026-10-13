@@ -35,7 +35,7 @@ until the manager decides and affected owners apply and verify the decision.
 | Question or decision | Owner | Status | Evidence and next action |
 | --- | --- | --- | --- |
 | URL inventory and lossy URL handling (D3) | QPM manager | Closed | Reject protocol-relative `//` URLs as malformed PLE input. Reject one URL assigned conflicting resource kinds (first-kind classification would otherwise lose the image predicate); deduplicate repeats of the same URL and kind. Scanner and source focused tests passed. Docs owner records the ruling. |
-| Media collection boundary (D5) | QPM manager | Closed | Whole-bank collection/rewrite treats FIB/MULTI_FIB grading literals as media, causing false missing-asset errors or answer mutation. M7 uses shared `qti-core` media primitives on mapped display fields only, with no `qti-core` changes or surrogate bank. Implementation and seven media tests complete. |
+| Media collection boundary (D5) | QPM manager | Closed | Whole-bank collection/rewrite treats FIB/MULTI_FIB grading literals as media, causing false missing-asset errors or answer mutation. M7 uses shared `qpm-core` media primitives on mapped display fields only, with no `qpm-core` changes or surrogate bank. Implementation and seven media tests complete. |
 | Entity-decoded media paths (D6) | QPM manager | Closed | Every final mapped display `img` source must identify exactly one supplied file or return `InvalidFormat` with item, source, and cause. The literal-entity regression passes; spec and quality reviews accepted. |
 | Output ownership proof (D7) | QPM manager | Closed | `.qpm-ple-native-json` records SHA-256 and exact generated file set. Nonempty replacement requires valid, unmodified proof; foreign or modified contents are refused, and empty destinations are allowed. Ownership tests and spec/quality reviews accepted. |
 | Staged output integrity (D8) | QPM manager | Closed | Case-insensitive staging can collapse `media/A.png` and `media/a.png` to one physical file. Before publish, the writer verifies exact staged manifest paths and hashes. Its filesystem-aware regression failed before the fix and passes now; `stage_respec` and `stage_requality` accepted. |
@@ -68,12 +68,12 @@ in the authority plan. The authority file is unchanged.
   `ple/`.
 - D5 (closed): whole-bank media collection and rewriting can mistake
   FIB/MULTI_FIB grading literals for display media, causing false missing-asset errors or answer
-  mutation. M7 applies the shared `qti-core` media primitives only to mapped display fields. Keep
-  `qti-core` unchanged and do not build a surrogate bank. Seven media tests passed.
-- D6 (closed; spec and quality accepted): `qti-core` may output an
+  mutation. M7 applies the shared `qpm-core` media primitives only to mapped display fields. Keep
+  `qpm-core` unchanged and do not build a surrogate bank. Seven media tests passed.
+- D6 (closed; spec and quality accepted): `qpm-core` may output an
   entity-like filename whose HTML-decoded display path differs from the actual file bytes. Each
   final mapped display `img` source must semantically identify exactly one supplied file. Otherwise
-  return `EngineError::InvalidFormat` naming the item, source, and cause. Do not change `qti-core`;
+  return `EngineError::InvalidFormat` naming the item, source, and cause. Do not change `qpm-core`;
   record the capability gap. The literal-entity regression passes.
 - D7 (closed; spec and quality accepted): valid foreign PLE JSON can be
   overwritten, and JSON schema alone cannot prove ownership. A directory marker named
@@ -170,7 +170,7 @@ and evidence-driven PLE issue entries.
 
 ## Scope
 
-- Add a write-only `ple_native_json` engine in `qti-engines`: serde source structs, seven-kind
+- Add a write-only `ple_native_json` engine in `qpm-engines`: serde source structs, seven-kind
   mapping, lossy-conversion checks, public in-memory export, associated files,
   `externalResources` inventory, and a staged directory writer.
 - Register the engine, add CLI output naming, and include it in `HTML_TO_IMAGE_ENGINES`.
@@ -195,24 +195,24 @@ and evidence-driven PLE issue entries.
 
 ## Current state summary
 
-- Engine contract: `Writer` (`crates/qti-engines/src/traits.rs:11-33`) with
+- Engine contract: `Writer` (`crates/qpm-engines/src/traits.rs:11-33`) with
   `save_package(&ItemBank, Option<&Path>) -> Result<WriteOutcome, EngineError>`; `render_bank` and
   pre/post hooks (traits.rs:79-126). Trait boundary is frozen
   (`docs/active_plans/decisions/engine_trait_ruling.md`); every writer tests its zero-render case.
   `EngineError::InvalidFormat` carries serializer and format errors (`exam_yaml/mod.rs:123-128`).
-- Registry: `ENGINES` (`crates/qti-engines/src/registry.rs:66-127`); registry tests hard-code ten
+- Registry: `ENGINES` (`crates/qpm-engines/src/registry.rs:66-127`); registry tests hard-code ten
   writers (160-210). Graphify `affected` on `registry.rs`, verified in source: `--all`
-  (`crates/qti-cli/src/app.rs:289-292`) and the `engines` listing (app.rs:248-260) pick up new
+  (`crates/qpm-cli/src/app.rs:289-292`) and the `engines` listing (app.rs:248-260) pick up new
   entries automatically; `output_name` (app.rs:418-433) ends in `unreachable!`;
   `HTML_TO_IMAGE_ENGINES` (app.rs:15-19) and its error text (app.rs:360-369) name ZIP engines;
   `cargo xtask parity` uses its own list (`xtask/src/parity.rs:25-41`). CLI contract test
-  (`crates/qti-cli/tests/cli_contract.rs:80-111`) expects `saved 10 of 10` and file artifacts.
-- Item model (`crates/qti-core/src/item.rs:24-66`): seven bodies, no choice IDs, no hotspot.
+  (`crates/qpm-cli/tests/cli_contract.rs:80-111`) expects `saved 10 of 10` and file artifacts.
+- Item model (`crates/qpm-core/src/item.rs:24-66`): seven bodies, no choice IDs, no hotspot.
   MULTI_FIB keys are a sorted `BTreeMap`, each present as `[key]` in the stem. NUM has absolute
   tolerance and a `tolerance_message` flag that display writers render as student-visible text
   (`html_selftest/mod.rs:229-233`, `human_readable/mod.rs:199-203`). QPM minimums already match
-  PLE minimums (`crates/qti-core/src/validate.rs:62-143`).
-- Media: `ItemBank::collect_assets` and `dependencies_for` (`crates/qti-core/src/bank.rs:343-408`),
+  PLE minimums (`crates/qpm-core/src/validate.rs:62-143`).
+- Media: `ItemBank::collect_assets` and `dependencies_for` (`crates/qpm-core/src/bank.rs:343-408`),
   `rewrite_item_media` (`media/rewrite.rs:32-39`), `apply_media_policy` (`media/policy.rs:59-129`;
   `Package` keeps and warns on external URLs, rejects data URIs, packages SVG with a warning),
   `assign_output_names` (`media/naming.rs`). Loose-file write order precedent: `text2qti/mod.rs:221-351`.
@@ -240,9 +240,9 @@ and evidence-driven PLE issue entries.
 
 - `ple_native_json` engine module: `mod.rs` routes and re-exports; `export.rs` owns mapping,
   lossy checks, per-question file sets, inventory, and in-memory export; `writer.rs` owns directory
-  writing and the `Writer` implementation. No `qti-core` changes.
-- `qti-core`: unchanged; media classification, naming, and rewrite stay authoritative there.
-- `qti-cli`: output naming, conversion-engine list, artifact reporting.
+  writing and the `Writer` implementation. No `qpm-core` changes.
+- `qpm-core`: unchanged; media classification, naming, and rewrite stay authoritative there.
+- `qpm-cli`: output naming, conversion-engine list, artifact reporting.
 - PLE decoder: contract authority, exercised only by the temporary smoke.
 
 ### Mapping (milestones -> components)
@@ -263,15 +263,15 @@ and evidence-driven PLE issue entries.
 
 | File or directory | Intended change | Canonical source, for generated output |
 | --- | --- | --- |
-| `crates/qti-engines/src/ple_native_json/mod.rs` (new) | Module routing and public re-exports | |
-| `crates/qti-engines/src/ple_native_json/source.rs` (new) | Serde structs: camelCase, `kind`-tagged response and tolerance, absent members skipped | |
-| `crates/qti-engines/src/ple_native_json/mapping.rs` (new) | Seven-kind mapping, IDs, lossy checks | |
-| `crates/qti-engines/src/ple_native_json/export.rs` (new) | Public export, mapped display-field media rewrite, per-question files, inventory | |
-| `crates/qti-engines/src/ple_native_json/writer.rs` (new) | `Writer` impl, factory, staged directory write and replace rule | |
-| `crates/qti-engines/src/lib.rs` | Declare module | |
-| `crates/qti-engines/src/registry.rs` | `ENGINES` entry (`MediaPolicy::Package`, no reader); test counts | |
-| `crates/qti-cli/src/app.rs` | `output_name` arm, `HTML_TO_IMAGE_ENGINES` entry, error text, name-list test | |
-| `crates/qti-cli/tests/cli_contract.rs` | Eleven writers; directory artifact | |
+| `crates/qpm-engines/src/ple_native_json/mod.rs` (new) | Module routing and public re-exports | |
+| `crates/qpm-engines/src/ple_native_json/source.rs` (new) | Serde structs: camelCase, `kind`-tagged response and tolerance, absent members skipped | |
+| `crates/qpm-engines/src/ple_native_json/mapping.rs` (new) | Seven-kind mapping, IDs, lossy checks | |
+| `crates/qpm-engines/src/ple_native_json/export.rs` (new) | Public export, mapped display-field media rewrite, per-question files, inventory | |
+| `crates/qpm-engines/src/ple_native_json/writer.rs` (new) | `Writer` impl, factory, staged directory write and replace rule | |
+| `crates/qpm-engines/src/lib.rs` | Declare module | |
+| `crates/qpm-engines/src/registry.rs` | `ENGINES` entry (`MediaPolicy::Package`, no reader); test counts | |
+| `crates/qpm-cli/src/app.rs` | `output_name` arm, `HTML_TO_IMAGE_ENGINES` entry, error text, name-list test | |
+| `crates/qpm-cli/tests/cli_contract.rs` | Eleven writers; directory artifact | |
 | `docs/FORMATS.md`, `docs/ENGINES.md`, `docs/MEDIA.md`, `docs/USAGE.md` | Format entry, counts, media row, CLI example | |
 | `README.md`, `docs/CODE_ARCHITECTURE.md`, `docs/FILE_STRUCTURE.md` | Writer counts or lists, where enumerated | |
 | `docs/DESIGN_DECISIONS.md` | Authority, boundary, and mapping decisions | |
@@ -315,7 +315,7 @@ Split engine sources by responsibility within the repository's per-file line lim
   non-`https` and protocol-relative `//` URLs in scanned attributes; and one URL assigned
   conflicting resource kinds. Same-URL/same-kind entries are deduplicated. Data URIs keep the
   existing `Package` rejection. Missing local media keep the existing collection error.
-- Media: apply shared `qti-core` collection, rewrite, and naming primitives only to mapped display
+- Media: apply shared `qpm-core` collection, rewrite, and naming primitives only to mapped display
   fields. Local and generated images rewrite to `media/<output_name>`; each question carries the
   files its own display dependencies name. Do not collect or rewrite the source bank because
   FIB/MULTI_FIB grading literals can resemble media paths.
@@ -416,10 +416,10 @@ Split engine sources by responsibility within the repository's per-file line lim
 ### Milestone: M7 associated files
 
 - Depends on: M6.
-- Deliverables: shared `qti-core` media primitives on mapped display fields only, `Package` policy,
+- Deliverables: shared `qpm-core` media primitives on mapped display fields only, `Package` policy,
   rewrite to `media/<output_name>`, and per-question file sets with bytes read once. Do not pass the
   source bank through collection/rewrite: D5 records the demonstrated FIB/MULTI_FIB grading-literal
-  corruption. No `qti-core` changes or surrogate bank.
+  corruption. No `qpm-core` changes or surrogate bank.
 - Entry criteria: M6 exit met.
 - Exit criteria: unit test with a local image shared by two items confirms each relative `src`
   equals one file path in that question's set with identical bytes; FIB/MULTI_FIB grading literals

@@ -26,7 +26,7 @@ leave an individual writer with no rendered output.
 
 Canvas QTI 1.2, Blackboard QTI 2.1, and Blackboard Original export create ZIP packages with their
 format-specific XML and packaged local media. External image URLs remain authored URLs and produce
-warnings; a data URI is rejected for package-file transport. The independent `qti-integrity` crate
+warnings; a data URI is rejected for package-file transport. The independent `qpm-integrity` crate
 checks a completed ZIP or extracted package without depending on writer implementation.
 
 Canvas and Blackboard Original do not represent `ORDER`. Canvas creates no artifact for an
@@ -68,9 +68,9 @@ local media in a self-contained page.
 Use these commands to inspect a compiled binary and a package:
 
 ```bash
-cargo run -p qti-cli --bin qti-package-maker -- engines
-cargo run -p qti-cli --bin qti-package-maker -- item-types
-cargo run -p qti-cli --bin qti-package-maker -- check path/to/package.zip
+cargo run -p qpm-cli --bin qpm -- engines
+cargo run -p qpm-cli --bin qpm -- item-types
+cargo run -p qpm-cli --bin qpm -- check path/to/package.zip
 ```
 
 `check` reports `OK` only when no integrity violations are found. It reports diagnostics for ZIP

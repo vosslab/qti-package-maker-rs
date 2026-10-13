@@ -1,0 +1,18 @@
+[package]
+name = "qpm-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+clap.workspace = true
+thiserror.workspace = true
+qpm-core = { path = "../qpm-core" }
+qpm-engines = { path = "../qpm-engines" }
+qpm-integrity = { path = "../qpm-integrity" }
+qpm-native = { path = "../qpm-native" }
+
+[dev-dependencies]
+tempfile.workspace = true

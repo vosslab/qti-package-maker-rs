@@ -1,11 +1,11 @@
 # Engine inventory
 
-`qti-engines` is the format boundary for this workspace. Its compile-time `ENGINES` slice is the
+`qpm-engines` is the format boundary for this workspace. Its compile-time `ENGINES` slice is the
 sole inventory of supported engines. Each entry has a stable name, media policy, and optional
 factory for a dynamic `Writer` and/or `Reader` trait object. Inspect the compiled inventory with:
 
 ```bash
-cargo run -p qti-cli --bin qti-package-maker -- engines
+cargo run -p qpm-cli --bin qpm -- engines
 ```
 
 The registry contains eleven writers and four readers. Writers report their completed artifact and
@@ -69,7 +69,7 @@ which happens once before multi-format fan-out. Both native and browser consumer
 
 ## Extension boundary
 
-The engine registry is deliberately compiled into `qti-engines`; it does not discover plugins or
+The engine registry is deliberately compiled into `qpm-engines`; it does not discover plugins or
 load format code at runtime. Trait objects let the static registry store heterogeneous engines,
 while keeping supported formats, media policies, and factories auditable in one source file. See
 [ENGINE_AUTHORING.md](ENGINE_AUTHORING.md) before adding an engine.

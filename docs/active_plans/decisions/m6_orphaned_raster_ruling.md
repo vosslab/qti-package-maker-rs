@@ -2,7 +2,7 @@
 
 ## Decision: reject the Rust-only finding
 
-`orphaned-packaged-image` must be removed from the standard `qti-integrity`
+`orphaned-packaged-image` must be removed from the standard `qpm-integrity`
 result and from M6's negative corpus. An otherwise unreferenced raster ZIP
 member is not an item-media trace failure: no item points to it, so no learner
 or LMS needs to resolve it. The cross-check must continue to compare complete
@@ -17,7 +17,7 @@ referenced-media checks, then the all-raster dimension check. Its
 visible dimensions. It has no test that every ZIP raster has a manifest
 `<file href>`.
 
-Rust currently adds that condition in `qti-integrity/src/checker.rs` after the
+Rust currently adds that condition in `qpm-integrity/src/checker.rs` after the
 referenced-source trace and labels it `Provenance::FormatRequirement`. The
 negative corpus's `orphaned_image` case consequently yields `[]` in Python and
 `orphaned-packaged-image` in Rust.

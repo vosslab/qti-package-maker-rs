@@ -34,7 +34,7 @@ The Rust-port plan uses three classes with different purposes and retention rule
 | Class | Location and cadence | What belongs there |
 | --- | --- | --- |
 | Permanent contract | `cargo test` and repository pytest lanes | validation, CRC, readers/writers, integrity, CLI process contracts, layout geometry, parser rules, conversion ordering and typed failures |
-| Tooling evidence | explicit `cargo xtask` commands and CI environments that provide their inputs | corpus harvest, Python-oracle parity, benchmark runs, package checks, and gallery generation |
+| Tooling evidence | explicit `cargo xtask` commands and CI environments that provide their inputs | corpus harvest, benchmark runs, and gallery generation |
 | One-time proof | ignored `tests/_temp/` artifacts | browser receipts, spike output, baseline measurements, and a reviewer-facing gallery until its decision is recorded |
 
 Do not promote a screenshot, timing receipt, or debugging probe merely because it passed once.
@@ -59,14 +59,13 @@ For Rust work, run focused crate tests while iterating, then use the workspace g
 the change:
 
 ```bash
-CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo cargo fmt --check
-CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo cargo test --workspace --all-targets
-CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo cargo clippy --workspace --all-targets -- -D warnings
+CARGO_HOME=/Users/vosslab/.cache/qpm-rust-cargo cargo fmt --check
+CARGO_HOME=/Users/vosslab/.cache/qpm-rust-cargo cargo test --workspace --all-targets
+CARGO_HOME=/Users/vosslab/.cache/qpm-rust-cargo cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-`cargo xtask --help` lists the corpus, benchmark, gallery, integrity, and parity commands. These
-require their documented local oracle or renderer inputs; production Rust binaries do not require
-Python or a browser at runtime.
+`cargo xtask --help` lists the corpus, benchmark, and gallery commands. These require their
+documented renderer inputs; production Rust binaries do not require Python or a browser at runtime.
 
 The fast pytest command always runs the mandatory checkout and Podman disk-budget guards. Rust
 repositories also run the mandatory `target/` disk-budget guard. These checks make responsible use
@@ -90,6 +89,6 @@ remaining plan-specific check, then promote or remove it.
 - [../docs/PYTEST_AUTHORING_GUIDE.md](../docs/PYTEST_AUTHORING_GUIDE.md) explains pytest
   construction and shared hygiene helpers.
 - [../docs/E2E_TESTS.md](../docs/E2E_TESTS.md) explains permanent whole-system tests.
-- [../docs/PARITY.md](../docs/PARITY.md) records completed parity evidence and remaining gates.
+- [../docs/PARITY.md](../docs/PARITY.md) preserves completed port evidence.
 - [../docs/archive/rust_port_plan.md](../docs/archive/rust_port_plan.md)
   defines the Rust-port acceptance criteria.

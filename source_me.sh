@@ -20,14 +20,9 @@ export PYTHONDONTWRITEBYTECODE=1
 
 # Qualified development helper imports must work from any caller directory.
 # Derive the repository from this script after ~/.bashrc clears PYTHONPATH.
-QTI_DEVEL_REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export PYTHONPATH="$QTI_DEVEL_REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}"
-unset QTI_DEVEL_REPO_ROOT
-
-# Corpus subprocesses run in an isolated directory with source helpers on their import path.
-if [[ -n "${QTI_CORPUS_IMPORT_PATH:-}" ]]; then
-	export PYTHONPATH="$QTI_CORPUS_IMPORT_PATH${PYTHONPATH:+:$PYTHONPATH}"
-fi
+qpm_devel_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PYTHONPATH="$qpm_devel_repo_root${PYTHONPATH:+:$PYTHONPATH}"
+unset qpm_devel_repo_root
 # This host installs the Python 3.12 development-oracle modules here (see AGENTS.md).
 if [[ -d /opt/homebrew/lib/python3.12/site-packages ]]; then
 	export PYTHONPATH="/opt/homebrew/lib/python3.12/site-packages${PYTHONPATH:+:$PYTHONPATH}"

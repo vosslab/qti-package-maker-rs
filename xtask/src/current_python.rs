@@ -1,4 +1,4 @@
-//! Capture the current Python source for an explicit migration comparison.
+//! Capture current Python source for reproducible renderer diagnostics.
 
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -19,7 +19,6 @@ pub(crate) struct PythonProvenance {
 #[derive(Debug)]
 pub(crate) struct CurrentPython {
     pub(crate) root: PathBuf,
-    pub(crate) provenance: PythonProvenance,
 }
 
 /// Snapshots tracked and non-ignored current source files, including working modifications.
@@ -32,7 +31,7 @@ pub(crate) fn resolve(
         .unwrap_or_else(|| repository.join("..").join("qti-package-maker"));
     let source = requested.canonicalize().map_err(|_| {
         format!(
-            "current Python qti-package-maker checkout is unavailable: {}; pass --python-qti PATH",
+            "current Python QPM checkout is unavailable: {}; pass --python-qpm PATH",
             requested.display()
         )
     })?;
@@ -41,7 +40,7 @@ pub(crate) fn resolve(
         || !source.join("source_me.sh").is_file()
     {
         return Err(format!(
-            "current Python source is not a qti-package-maker checkout: {}",
+            "current Python source is not a QPM checkout: {}",
             source.display()
         ));
     }
@@ -69,7 +68,7 @@ pub(crate) fn resolve(
         || tree_hash(&source, &files_after_copy)? != source_tree_sha256
         || tree_hash(&snapshot, &files)? != source_tree_sha256
     {
-        return Err("current Python source changed while its snapshot was captured; rerun the migration command".to_owned());
+        return Err("current Python source changed while its snapshot was captured; rerun the diagnostic command".to_owned());
     }
     let imported_package_path = imported_package_path(&snapshot)?;
     let provenance = PythonProvenance {
@@ -86,13 +85,10 @@ pub(crate) fn resolve(
     )
     .map_err(|error| error.to_string())?;
     println!(
-        "current Python migration source: {} commit={} tree_sha256={}",
+        "current Python diagnostic source: {} commit={} tree_sha256={}",
         provenance.source_path, provenance.git_commit, provenance.source_tree_sha256
     );
-    Ok(CurrentPython {
-        root: snapshot,
-        provenance,
-    })
+    Ok(CurrentPython { root: snapshot })
 }
 
 fn git_text(source: &Path, arguments: &[&str]) -> Result<String, String> {
@@ -196,7 +192,7 @@ fn imported_package_path(root: &Path) -> Result<String, String> {
         .map_err(|error| error.to_string())?;
     if !output.status.success() {
         return Err(format!(
-            "could not import current Python qti-package-maker from {}: {}",
+            "could not import current Python QPM from {}: {}",
             root.display(),
             String::from_utf8_lossy(&output.stderr).trim()
         ));

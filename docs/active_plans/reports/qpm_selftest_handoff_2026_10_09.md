@@ -26,7 +26,7 @@ architecture issues. Repairs remain in the shared Rust HTML writer used by nativ
 
 ## Integration artifact
 
-Package: `/Users/vosslab/nsh/PROBLEMS/qti-package-maker-rs/output_selftest_parity/vosslab-qti-wasm-0.1.0.tgz`
+Package: `/Users/vosslab/nsh/PROBLEMS/qti-package-maker-rs/output_selftest_parity/vosslab-qpm-wasm-0.1.0.tgz`
 
 SHA-256: `78256bab6fd6ade9bb1c4eb8925299d4fc1fa003056fe54af6e9b70bce478d65`
 

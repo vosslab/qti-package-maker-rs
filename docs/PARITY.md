@@ -1,17 +1,14 @@
 # Parity record
 
-## Current migration policy
+## Completed migration policy
 
-Rust QPM is becoming the authoritative implementation. Current Python QPM is a transitional
-comparison source, selected explicitly for migration checks and recorded with revision and source
-hashes. Permanent Rust/native/Wasm tests establish behavior independently of Python. Retire the
-Python comparison tooling when independent coverage and resolved migration findings allow it.
-See [SELFTEST_COMPATIBILITY.md](SELFTEST_COMPATIBILITY.md) for the selftest contract and drift cause.
+Rust QPM is the authoritative implementation. Python-to-Rust comparison tools, snapshot fixtures,
+and generated oracle infrastructure were retired after the completed port. Permanent Rust/native/
+Wasm tests establish current behavior independently of Python.
 
-The authority order is observed consumer behavior, documented format requirements, and established
-product behavior. Current Python helps discover regressions during migration; it does not override
-intentional fixes or become a perpetual test dependency. A fixed historical revision is evidence
-of a past comparison, not the default compatibility target.
+The authority order used for the port was observed consumer behavior, documented format
+requirements, and established product behavior. The Python implementation was migration evidence;
+it is not a current compatibility target or test dependency.
 
 The selftest regression correction and current-source verification are recorded in
 [SELFTEST_REGRESSION_VERIFICATION.md](active_plans/reports/SELFTEST_REGRESSION_VERIFICATION.md).
@@ -95,10 +92,10 @@ the comparison projection. See the [binding ruling](active_plans/decisions/engin
 
 ## M6 package-integrity contract and historical reference
 
-`qti-integrity::check_package(&[u8])` and `check_entries(&BTreeMap<String, Vec<u8>>)` inspect
+`qpm-integrity::check_package(&[u8])` and `check_entries(&BTreeMap<String, Vec<u8>>)` inspect
 portable bytes without extracting ZIP members. Native callers use
-`qti-native::check_package_path(&Path)` to load a ZIP or extracted package tree before checking.
-Integrity remains independent of `qti-core` and the writer crates. The original comparison used
+`qpm-native::check_package_path(&Path)` to load a ZIP or extracted package tree before checking.
+Integrity remains independent of `qpm-core` and the writer crates. The original comparison used
 Python `package_integrity.py` at `55e5f368777f7809fe2e91b5d070caf6df0cb581`; the rationale below
 records that historical implementation. Active comparisons now use the current source under the
 migration policy above. Old reference behavior does not prevent a justified correctness fix.
@@ -182,9 +179,9 @@ referenced image.
 Focused crate verification after the final split:
 
 ```text
-CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo cargo fmt -p qti-integrity --check
-CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo cargo test -p qti-integrity
-CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo cargo clippy -p qti-integrity -- -D warnings
+CARGO_HOME=/Users/vosslab/.cache/qpm-rust-cargo cargo fmt -p qpm-integrity --check
+CARGO_HOME=/Users/vosslab/.cache/qpm-rust-cargo cargo test -p qpm-integrity
+CARGO_HOME=/Users/vosslab/.cache/qpm-rust-cargo cargo clippy -p qpm-integrity -- -D warnings
 ```
 
 All three commands passed; the package test includes 26 unit tests and its

@@ -41,7 +41,7 @@ workspace, rather than a new root that silently drops part of its input.
    existing HTML spelling, so untouched items retain their identity. Data URIs and
    remote URLs remain as authored; remote URLs are never fetched.
 4. An absolute local `src` cannot be valid beneath the new root. Map it
-   deterministically to a confined relative alias below `__qti_input/`, rewrite
+   deterministically to a confined relative alias below `__qpm_input/`, rewrite
    only the affected HTML fields, and reconstruct those validated `Item` values;
    their new CRCs are honest identities of the new content. The alias map is keyed
    by the resolved asset (content hash plus a safe extension), so equal inputs do

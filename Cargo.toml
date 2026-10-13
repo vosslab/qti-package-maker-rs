@@ -1,6 +1,6 @@
 [workspace]
-members = ["crates/qti-core", "crates/qti-render", "crates/qti-integrity", "crates/qti-engines", "crates/qti-native", "crates/qti-cli", "crates/qti-molecule", "crates/qti-wasm", "xtask"]
-default-members = ["crates/qti-core", "crates/qti-render", "crates/qti-integrity", "crates/qti-engines", "crates/qti-native", "crates/qti-cli", "crates/qti-molecule", "xtask"]
+members = ["crates/qpm-core", "crates/qpm-render", "crates/qpm-integrity", "crates/qpm-engines", "crates/qpm-native", "crates/qpm-cli", "crates/qpm-molecule", "crates/qpm-wasm", "xtask"]
+default-members = ["crates/qpm-core", "crates/qpm-render", "crates/qpm-integrity", "crates/qpm-engines", "crates/qpm-native", "crates/qpm-cli", "crates/qpm-molecule", "xtask"]
 resolver = "3"
 
 [workspace.package]
@@ -23,6 +23,10 @@ regex = "*"
 serde_json = { version = "*", features = ["float_roundtrip"] }
 quick-xml = "*"
 roxmltree = "*"
+lightningcss = { version = "1.0.0-alpha.72", default-features = false }
+# Must share Lightning CSS's parser types.
+cssparser = "0.37"
+html5ever = "*"
 # Keep HTML parse diagnostics without scraper's standalone command-line tool.
 scraper = { version = "*", default-features = false, features = ["errors"] }
 markup5ever = "*"

@@ -54,7 +54,7 @@ rerun succeeds. Failed attempts remain in `timing_before/` and are excluded from
 the successful timing table above.
 
 To repeat against the final optimized executable, source the project environment,
-set `QTI_RDKIT_SHIM` to the preserved `rdkit/libqti_rdkit_shim.dylib`, and run:
+set `QTI_RDKIT_SHIM` to the preserved `rdkit/libqpm_rdkit_shim.dylib`, and run:
 
 ```bash
 source source_me.sh
@@ -83,9 +83,9 @@ the preserved `xtask` binary with `GIT_DIR` and `GIT_WORK_TREE` set as described
 
 ```bash
 cargo test --workspace --locked
-cargo build -p qti-cli --bin bbq-converter --release --locked
-cargo test -p qti-molecule --test rdkit_shim --locked -- --ignored
-cargo test -p qti-molecule --test corpus --locked -- --ignored
+cargo build -p qpm-cli --bin bbq-converter --release --locked
+cargo test -p qpm-molecule --test rdkit_shim --locked -- --ignored
+cargo test -p qpm-molecule --test corpus --locked -- --ignored
 source source_me.sh
 cargo run --locked -p xtask -- parity --fixtures
 cargo run --locked -p xtask -- parity --fixtures --html-to-image

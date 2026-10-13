@@ -136,7 +136,7 @@
 - WP-M1: Select a runtime-loaded native RDKit C ABI shim after a Rust 2024 spike rendered all
   58 harvested canvases and reproduced the CanvasSource validation errors. Record the optional
   install footprint and supported macOS arm64/Linux x86_64 package sources.
-- WP-M2: Add `qti-molecule`, its safe runtime loader, ABI v1 native shim source, install contract,
+- WP-M2: Add `qpm-molecule`, its safe runtime loader, ABI v1 native shim source, install contract,
   and optional native-shim integration tests. The production macOS arm64 shim renders the corpus;
   a cross-built Debian amd64 shim passes its two option/error tests and the 58-canvas public API
   corpus test under Podman x86 emulation. Public CanvasSource validation rejects non-finite or
@@ -166,7 +166,7 @@
   using an isolated snapshot when the user's Python checkout advances. Preserve that checkout.
   Allow an explicit oracle-root override in the development Python bootstrap.
 - Default Cargo registry writes hit the filesystem sandbox for newly downloaded dependencies.
-  Use the writable `CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo` cache.
+  Use the writable `CARGO_HOME=/Users/vosslab/.cache/qpm-rust-cargo` cache.
 - Use a native arm64 Rust compiler plus Debian amd64 cross compiler/sysroot when Podman emulation
   cannot execute `rustc`; then run the resulting ELF x86-64 shim and corpus tests in the amd64
   runtime container. This preserves an actual target-ABI proof and records the emulated platform.

@@ -12,7 +12,7 @@ PLE currently presents ORDER items and MATCH prompts and choices in the order re
 `pending_items` appends matching prompts, matching choices, and ordering items directly from their
 input vectors. The Native JSON writer must place ordering items in correct order to communicate the
 answer key, and matching pairs use stable IDs for prompt-choice relationships. QPM has those data:
-`crates/qti-core/src/item.rs:35-37` represents matching prompts and choices, and `:50-52` stores
+`crates/qpm-core/src/item.rs:35-37` represents matching prompts and choices, and `:50-52` stores
 ordering answers in answer order. The writer maps matching position `i` to `prompt-i`/`choice-i`
 and emits ordering items in canonical correct order
 (`docs/active_plans/read-native-json-converter-handoff-spec-scalable-meerkat.md:205-207`). PLE
@@ -40,7 +40,7 @@ PLE requires a positive `maxLength` for FIB and each MULTI_FIB blank and caps it
 The student response control displays this value as an authored-looking limit and enforces it
 (`../peptidyle-learning-engine/src/components/question_response_controls/short_text.tsx:39-55`).
 QPM's current item model stores FIB accepted answers and MULTI_FIB blank answers but carries no
-authored response length (`crates/qti-core/src/item.rs:44-49`). The handoff writer mapping has only
+authored response length (`crates/qpm-core/src/item.rs:44-49`). The handoff writer mapping has only
 `answers` for these item kinds ([NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md](../../archive/NATIVE_JSON_CONVERTER_HANDOFF_SPEC.md):59-60). QPM can correctly
 express grading without a question-specific input length; PLE conflates its platform cap with an
 authored UI constraint. PLE should make the platform ceiling distinct from an instructor-authored
@@ -54,9 +54,9 @@ entry with the same URL, regardless of `kind`
 It also tests whether that inventory contains an `image` kind when determining whether the source
 has an external image (`source_document.rs:262-265`). QPM item HTML can use the same HTTPS URL in
 both `<a href>` and `<img src>`: the scanner reads both attributes and their roles
-(`crates/qti-engines/src/ple_native_json/scan.rs:59-111`), while its source document stores
+(`crates/qpm-engines/src/ple_native_json/scan.rs:59-111`), while its source document stores
 `externalResources` as URL plus kind
-(`crates/qti-engines/src/ple_native_json/source.rs:6-13,121-129`).
+(`crates/qpm-engines/src/ple_native_json/source.rs:6-13,121-129`).
 Keeping only the first role can hide an image from PLE's image predicate; recording both roles
 fails PLE's unique-URL check. PLE should represent each distinct URL role, or derive roles from
 HTML without losing an image use. Until then QPM rejects cross-role reuse as a lossy export.

@@ -53,7 +53,7 @@
   accepted answers. The writer reuses shared media primitives on mapped display fields.
 - Recorded a shared QPM media capability gap found during Native JSON review: an authored local
   `<img src="a&amp;b.png">` is passed through by
-  [resolve.rs](../crates/qti-core/src/media/resolve.rs) as the literal filesystem name
+  [resolve.rs](../crates/qpm-core/src/media/resolve.rs) as the literal filesystem name
   `a&amp;b.png`, while HTML viewers interpret the source as `a&b.png`. The existing bank collector
   shares this scanner, so packaging a literal `a&amp;b.png` file can bind the wrong image and a
   source file named `a&b.png` can be missed. Native JSON now rejects mismatches with item context;
@@ -171,7 +171,7 @@
   HTML release-comparison command still exits nonzero on documented reference and serialization
   findings, and corrected stale parity/progress wording to reflect completed semantic review.
 
-- Built both Linux x86_64 release CLIs from the final verified source snapshot using an arm64 Linux host and Debian cross-compiler. Both run under amd64 Podman emulation; a real native-table conversion emits all three package formats with PNGs and clean integrity checks. The vendored manual release dry-run passes with draft notes at `/tmp/qti-rust-26.09-release-notes.md`; it correctly reports that archives use committed HEAD and omit current uncommitted changes. No release was published.
+- Built both Linux x86_64 release CLIs from the final verified source snapshot using an arm64 Linux host and Debian cross-compiler. Both run under amd64 Podman emulation; a real native-table conversion emits all three package formats with PNGs and clean integrity checks. The vendored manual release dry-run passes with draft notes at `/tmp/qpm-rust-26.09-release-notes.md`; it correctly reports that archives use committed HEAD and omit current uncommitted changes. No release was published.
 
 - Final current-source verification passes on macOS arm64 and Linux arm64: formatting, strict workspace/all-target Clippy, workspace tests, and optimized builds. The Linux snapshot `run_1790825204` records 320 passing tests and unchanged build-input hashes; all 1,556 Python checks pass with nine existing warnings. Linux x86_64 release compilation is being verified separately. Updated installation guidance to distinguish these completed checks from remaining release and visual decisions.
 
@@ -225,7 +225,7 @@
 
 - Updated the local Rust release validation script to invoke every `xtask` through `cargo run --locked -p xtask`, matching the locked build/test dependency policy. Shell syntax, workspace formatting, and release metadata checks pass; all seven workspace packages declare version 26.9.0. Fresh corpus runs remain active.
 
-- Restored the checkout disk budget by relocating two historical Linux debug-build caches to `/Users/vosslab/.cache/qti-rust-stale-linux-debug`, preserving snapshot sources and release artifacts. Disk-budget and dependency checks pass (66 tests); relocation receipt: `tests/_temp/root_linux_debug_cache_relocation.json`. Fresh plain and HTML-to-image corpus runs are underway with comparator sources held stable; remaining helper annotations and unused imports will be fixed after these runs finish.
+- Restored the checkout disk budget by relocating two historical Linux debug-build caches to `/Users/vosslab/.cache/qpm-rust-stale-linux-debug`, preserving snapshot sources and release artifacts. Disk-budget and dependency checks pass (66 tests); relocation receipt: `tests/_temp/root_linux_debug_cache_relocation.json`. Fresh plain and HTML-to-image corpus runs are underway with comparator sources held stable; remaining helper annotations and unused imports will be fixed after these runs finish.
 
 - Fresh Rust workspace verification passes 324 tests and strict all-target Clippy. Started a fresh full plain corpus run with stable comparator sources. Python policy verification reports 1531 passes and 13 failures covering helper annotations, an undeclared HTML parser dependency, two unused imports, and generated checkout disk usage; declared the development-only `lxml` dependency. Remaining fixes and full corpus results are pending.
 

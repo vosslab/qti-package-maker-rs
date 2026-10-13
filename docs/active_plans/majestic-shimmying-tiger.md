@@ -98,9 +98,9 @@ Speed comes from two separate levers, and the plan measures both rather than ass
 - Carry forward the old plan's workspace, crates, milestones M1-M14, media contract, parity
   authority, trait shape, and test classification. The amendments listed in
   `## Changes carried from Python upgrades` apply.
-- Add crate `qti-raster`: HTML table fragment in, PNG bytes out. It knows nothing about items,
+- Add crate `qpm-raster`: HTML table fragment in, PNG bytes out. It knows nothing about items,
   banks, or engines.
-- Add module `qti-engines::html_to_image`: table and canvas selection, the static RDKit script
+- Add module `qpm-engines::html_to_image`: table and canvas selection, the static RDKit script
   parser, bank conversion, image naming, alt text, a content-hash render cache, and parallel
   rendering.
 - Add the RDKit canvas renderer behind a runtime-loaded native library, so the binary builds and
@@ -119,7 +119,7 @@ Speed comes from two separate levers, and the plan measures both rather than ass
   `bbq_text_upload.read_package/write_item`, `human_readable.write_item`, `package_interface`,
   `html_to_image.render_table` (including `render_mathml_png`), `selectors`, and `render_canvas`.
 - Leave `TableRenderer.render_mathml_png` to the PyO3 plan. Only exam-formatting-tools calls it,
-  and only through Python. `qti-raster` keeps its inline layout open so a MathML subset can be
+  and only through Python. `qpm-raster` keeps its inline layout open so a MathML subset can be
   added there later.
 - Leave `color_theory/`, `color_wheel.py`, `anti_cheat.py`, and `franken_bptools.py` in Python for
   this plan. No engine and no CLI path uses them; they are library exports for the PyO3 plan.
@@ -144,7 +144,7 @@ Python facts that changed since the old plan, from the code survey:
 | CLI flags | WP-F2 list | adds `--html-to-image`, `--input_file`, `--output_file`, `--question_limit`, `--<engine_name>` on every shortcut, a startup version check, silent skip of engines that cannot write | WP-F2 amended |
 | Output names | `qti12-`, `selftest-` named | `qti12-`, `qti21-`, `bez-` (new), `selftest-`, `human-*.html`, `bbq-`, `aiken-`, `exam-*.yaml`, `okla-`, `text2qti-` | WP-F2 asserts all ten |
 | Dependencies | lxml, pyyaml, crcmod, num2words | adds required `playwright` (+ `playwright install chromium`), optional `rdkit` | Rust needs neither Chromium nor Python |
-| Fonts | none | Atkinson Hyperlegible Next and Mono variable TTFs (OFL), embedded into table screenshots | `qti-raster` embeds both via `include_bytes!` with their OFL files |
+| Fonts | none | Atkinson Hyperlegible Next and Mono variable TTFs (OFL), embedded into table screenshots | `qpm-raster` embeds both via `include_bytes!` with their OFL files |
 
 Python `html_to_image` behavior the port reproduces:
 
@@ -198,7 +198,7 @@ them. Amendments to `rust-port-plan.md`. Everything not listed here carries forw
 
 ## Supported table subset
 
-This contract is what `qti-raster` implements and what `docs/HTML_TO_IMAGE.md` publishes. M15's
+This contract is what `qpm-raster` implements and what `docs/HTML_TO_IMAGE.md` publishes. M15's
 corpus harvest confirms or extends it before M17 freezes it. Anything outside it is a typed
 `UnsupportedTableFeature` error naming the tag, attribute, or property.
 
@@ -226,9 +226,9 @@ New and changed components. The rest follows the old plan's layout.
 
 ```text
 crates/
-  qti-core/        (unchanged responsibilities)
-  qti-integrity/   (unchanged)
-  qti-raster/      NEW: parse -> style -> table layout -> inline layout -> paint -> PNG
+  qpm-core/        (unchanged responsibilities)
+  qpm-integrity/   (unchanged)
+  qpm-raster/      NEW: parse -> style -> table layout -> inline layout -> paint -> PNG
     src/lib.rs            facade: render_table_png(html, &RasterConfig) -> Result<Png, RasterError>
     src/subset.rs         allowlist and UnsupportedTableFeature
     src/style.rs          inline style + presentational attribute cascade, UA defaults
@@ -236,16 +236,16 @@ crates/
     src/inline_layout.rs  parley text runs, sub/sup, br, bold/italic, alignment
     src/paint.rs          tiny-skia backgrounds, borders, radius, glyphs, images
     src/fonts.rs          embedded Atkinson Next + Mono, OFL files alongside
-  qti-molecule/    NEW: CanvasSource -> PNG via runtime-loaded RDKit (M18 decides binding)
-  qti-engines/
+  qpm-molecule/    NEW: CanvasSource -> PNG via runtime-loaded RDKit (M18 decides binding)
+  qpm-engines/
     src/html_to_image/  selectors.rs, canvas_script.rs, convert.rs, naming.rs, cache.rs
-  qti-cli/         --html-to-image; converts once before engine fan-out
+  qpm-cli/         --html-to-image; converts once before engine fan-out
 xtask/             + table_corpus.rs, table_bench.rs, table_gallery.rs
 ```
 
-- `qti-raster` depends on no other workspace crate. It is testable alone and reusable by the
+- `qpm-raster` depends on no other workspace crate. It is testable alone and reusable by the
   PyO3 plan and exam-formatting-tools.
-- `qti-molecule` loads RDKit at runtime, so every crate builds unconditionally (the old plan's
+- `qpm-molecule` loads RDKit at runtime, so every crate builds unconditionally (the old plan's
   "every engine compiles" decision). A canvas conversion without RDKit returns
   `MoleculeError::RdkitUnavailable` naming the install step, matching Python's lazy
   `ImportError`.
@@ -263,9 +263,9 @@ xtask/             + table_corpus.rs, table_bench.rs, table_gallery.rs
 | M1-M14 | as in `rust-port-plan.md`, with the amendments above | as in the old plan |
 | M15 | `xtask/table_corpus.rs`, `xtask/table_bench.rs`, `tests/corpus/tables/` (generated, gitignored) | Corpus and baseline recorded with commands |
 | M16 | spike crate outside the workspace; `docs/DEPENDENCY_DECISIONS.md` | Stack chosen on the hardest corpus tables |
-| M17 / WS-Raster | `crates/qti-raster/` | Subset contract implemented; review gate passed |
-| M18 | `crates/qti-molecule/` | RDKit binding chosen and canvas corpus rendered |
-| M19 | `qti-engines/src/html_to_image/`, `qti-cli` flag | Conversion parity; measured faster than Python |
+| M17 / WS-Raster | `crates/qpm-raster/` | Subset contract implemented; review gate passed |
+| M18 | `crates/qpm-molecule/` | RDKit binding chosen and canvas corpus rendered |
+| M19 | `qpm-engines/src/html_to_image/`, `qpm-cli` flag | Conversion parity; measured faster than Python |
 
 ## Milestone plan
 
@@ -274,8 +274,8 @@ xtask/             + table_corpus.rs, table_bench.rs, table_gallery.rs
 | M1-M14 | Core port | As in `rust-port-plan.md`, amended | CLI parity for all ten engines |
 | M15 | Table corpus and baseline | Harvest every table and canvas the generators emit; time Python per stage | A real-world corpus and a measured Python baseline |
 | M16 | Raster stack spike | Prototype the hardest tables with the candidate text and raster crates | Stack chosen by evidence |
-| M17 | Native table rasterizer | `qti-raster` implements the subset contract | Every corpus table renders and looks like an HTML table |
-| M18 | Molecule canvases | RDKit binding spike, then `qti-molecule` | Every corpus canvas renders offline without JS |
+| M17 | Native table rasterizer | `qpm-raster` implements the subset contract | Every corpus table renders and looks like an HTML table |
+| M18 | Molecule canvases | RDKit binding spike, then `qpm-molecule` | Every corpus canvas renders offline without JS |
 | M19 | html_to_image conversion | Selection, conversion, naming, cache, parallelism, CLI flag | Conversion parity with Python, measured faster on the same corpus |
 
 Dependency summary: M15 and M16 start with M1 and run beside M2-M6. M17 needs M16. M18 needs
@@ -354,7 +354,7 @@ gate includes M19.
     Python's output, with alt text carrying the table's cell text or the SMILES. Surrounding
     markup survives, loader scripts are removed, and the HTML stays ASCII so item CRCs hold.
     File names only need to be unique within the package.
-  - Packages built with `-1 -2 -B --html-to-image` pass `qti-integrity`, including the media
+  - Packages built with `-1 -2 -B --html-to-image` pass `qpm-integrity`, including the media
     trace.
   - The run log shows one conversion per run.
   - `cargo xtask table-bench` shows Rust faster than the WP-T2 Python baseline on the same
@@ -371,8 +371,8 @@ gate includes M19.
 - Owner: `expert_coder`, one fresh subagent per work package.
 - Work packages: WP-R1..WP-R5.
 - Needs: M16 stack decisions; the M15 corpus and census.
-- Provides: `qti_raster::render_table_png`.
-- Review boundary, when modifying the repository: `crates/qti-raster/` only; each package owns
+- Provides: `qpm_raster::render_table_png`.
+- Review boundary, when modifying the repository: `crates/qpm-raster/` only; each package owns
   its named source files.
 
 ## Work packages
@@ -419,7 +419,7 @@ gate includes M19.
 ### Work package: WP-R1 subset parser and style cascade
 
 - Owner: `expert_coder`.
-- Touch points: `qti-raster/src/{lib.rs, subset.rs, style.rs}`.
+- Touch points: `qpm-raster/src/{lib.rs, subset.rs, style.rs}`.
 - Depends on: WP-T3.
 - Acceptance criteria: parses a fragment into a styled tree. Presentational attributes map to
   their CSS equivalents; inline styles override them; UA defaults come from one constants
@@ -432,7 +432,7 @@ gate includes M19.
 ### Work package: WP-R2 table layout
 
 - Owner: `expert_coder`.
-- Touch points: `qti-raster/src/table_layout.rs`.
+- Touch points: `qpm-raster/src/table_layout.rs`.
 - Depends on: WP-R1.
 - Acceptance criteria: CSS 2.1 section 17 grid construction with colspan and rowspan, auto and
   fixed layout, specified widths and heights honored as minimums, percentage widths, both border
@@ -443,7 +443,7 @@ gate includes M19.
 ### Work package: WP-R3 inline and text layout
 
 - Owner: `expert_coder`.
-- Touch points: `qti-raster/src/{inline_layout.rs, fonts.rs}`.
+- Touch points: `qpm-raster/src/{inline_layout.rs, fonts.rs}`.
 - Depends on: WP-R1.
 - Acceptance criteria: min and max content widths for the table algorithm; line breaking at the
   final cell width; `white-space: nowrap/pre`; `text-align`; bold, italic, and numeric weights on
@@ -455,7 +455,7 @@ gate includes M19.
 ### Work package: WP-R4 paint and encode
 
 - Owner: `coder`.
-- Touch points: `qti-raster/src/paint.rs`.
+- Touch points: `qpm-raster/src/paint.rs`.
 - Depends on: WP-R1.
 - Acceptance criteria: paints the display list on white, clipped to the table border box.
   Covers backgrounds, `border-radius` clipping (including `50%`), solid, dashed, dotted, and
@@ -466,7 +466,7 @@ gate includes M19.
 ### Work package: WP-R5 integrate, gallery, and review
 
 - Owner: `expert_coder` (integration), `image_evaluator` (screen), user (sign-off).
-- Touch points: `qti-raster/src/lib.rs`, `xtask/src/table_gallery.rs`, `docs/HTML_TO_IMAGE.md`.
+- Touch points: `qpm-raster/src/lib.rs`, `xtask/src/table_gallery.rs`, `docs/HTML_TO_IMAGE.md`.
 - Depends on: WP-R2, WP-R3, WP-R4.
 - Acceptance criteria: the M17 exit criteria. `docs/HTML_TO_IMAGE.md` publishes the subset table
   and every out-of-subset ruling.
@@ -499,7 +499,7 @@ gate includes M19.
 ### Work package: WP-M2 molecule renderer
 
 - Owner: `coder`.
-- Touch points: `crates/qti-molecule/`.
+- Touch points: `crates/qpm-molecule/`.
 - Depends on: WP-M1.
 - Acceptance criteria: the M18 exit criteria.
   `render_canvas_png(&CanvasSource) -> Result<Vec<u8>, MoleculeError>` produces an image at the
@@ -510,7 +510,7 @@ gate includes M19.
 ### Work package: WP-T4 selection and static canvas parser
 
 - Owner: `coder`.
-- Touch points: `qti-engines/src/html_to_image/{selectors.rs, canvas_script.rs}`.
+- Touch points: `qpm-engines/src/html_to_image/{selectors.rs, canvas_script.rs}`.
 - Depends on: M3.
 - Acceptance criteria: outermost-table selection in document order; RDKit canvas-to-script
   matching with Python's three-step sibling search; the static script grammar with every
@@ -522,7 +522,7 @@ gate includes M19.
 ### Work package: WP-T5 conversion core
 
 - Owner: `expert_coder`.
-- Touch points: `qti-engines/src/html_to_image/{convert.rs, naming.rs, cache.rs}`.
+- Touch points: `qpm-engines/src/html_to_image/{convert.rs, naming.rs, cache.rs}`.
 - Depends on: M3; WP-T4 for the shared `Fragment` type.
 - Acceptance criteria: canvases before tables; canvas PNGs inlined as `data:` images into the
   table render and dropped from the package unless still referenced; per-item, per-family
@@ -537,7 +537,7 @@ gate includes M19.
 ### Work package: WP-T6 CLI wiring and speed verification
 
 - Owner: `coder`.
-- Touch points: `qti-cli`, `xtask/src/table_bench.rs`.
+- Touch points: `qpm-cli`, `xtask/src/table_bench.rs`.
 - Depends on: WP-T4, WP-T5, M12.
 - Acceptance criteria: the `--html-to-image` rules from the amended WP-F2; the CLI converts once
   and passes the converted bank to each packaging writer; `cargo xtask table-bench` reports the
@@ -562,7 +562,7 @@ gate includes M19.
 - Per-patch gate: `cargo fmt --check`, `cargo check`, the owning package's `cargo test`, and
   `cargo clippy -- -D warnings`.
 - Integration gate (M13, now including M19): the old plan's integration gate, plus
-  `--html-to-image` packages passing `qti-integrity`, conversion structural parity on the
+  `--html-to-image` packages passing `qpm-integrity`, conversion structural parity on the
   corpus, and the benchmark comparison.
 - Review gates:
   - M16: `architect` accepts the stack decisions.
@@ -586,7 +586,7 @@ gate includes M19.
 
 Permanent `cargo test` (fast, inline, offline), following the house test policy:
 
-- `qti-raster` layout invariants, asserted on layout geometry rather than pixels, each one a
+- `qpm-raster` layout invariants, asserted on layout geometry rather than pixels, each one a
   table behavior the user named or the corpus depends on:
   - A cell with a specified width and height gets at least that size.
   - A colspan cell spans exactly its columns.
@@ -612,7 +612,7 @@ the corpus itself is regenerated rather than committed.
 | --- | --- | --- | --- | --- |
 | Auto table layout diverges visibly from browsers | High: tables look wrong | Gallery shows wrong column widths on spans | `expert_coder` | Implement CSS 2.1 section 17 as written; span cases are permanent tests; two failed review rounds trigger scrap-vs-fix |
 | Corpus misses a construct used in the field | Medium: a user's table errors | `UnsupportedTableFeature` reported | `architect` | Error names the feature and snippet; the census re-runs on generator changes; extending the subset is an explicit ruling |
-| Native renderer cannot pass review | High: flag unusable | Same failure class across two review rounds | `architect` | Recovery path: `qti-raster` gains a second backend driving system Chrome over CDP, with one launch, batched pages, and clip screenshots; the subset check stays in front of it |
+| Native renderer cannot pass review | High: flag unusable | Same failure class across two review rounds | `architect` | Recovery path: `qpm-raster` gains a second backend driving system Chrome over CDP, with one launch, batched pages, and clip screenshots; the subset check stays in front of it |
 | No reasonable RDKit binding | High: canvas parity blocked | WP-M1 finds no candidate passing its rule | user | Spike stops and escalates with evidence in `docs/active_plans/decisions/rdkit_canvas_options.md`; the user chooses among candidates or supplies another solution; table work continues unblocked |
 | Canvas parser accepts something Python rejects | High: executes or misreads untrusted script content | Agreement run disagrees | `reviewer` | Grammar ported rule by rule; negative set; independent audit |
 | Rust not faster than Python | Medium: objective unmet | `table-bench` comparison | `coder` | Stage timings name the bottleneck; structural levers (once per run, cache, `rayon`) are independent of the renderer |

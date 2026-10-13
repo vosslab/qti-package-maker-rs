@@ -1,14 +1,14 @@
 # Usage
 
-The native CLI provides `bbq-converter` for BBQ question banks and `qti-package-maker` for
+The native CLI provides `bbq-converter` for BBQ question banks and `qpm` for
 inspection. Build both binaries as described in [INSTALL.md](INSTALL.md).
 
 ## Inspect capabilities
 
 ```bash
-./target/release/qti-package-maker engines
-./target/release/qti-package-maker item-types
-./target/release/qti-package-maker check finished-package.zip
+./target/release/qpm engines
+./target/release/qpm item-types
+./target/release/qpm check finished-package.zip
 ```
 
 `engines` lists each registered format and its read/write capability. `item-types` prints the seven
@@ -51,7 +51,7 @@ selects every registered writer. An explicit `--output` works only when one writ
 
 The PLE directory contains `item_NNNNN.json` files and, when needed, a `media/` directory for
 associated local images. Library callers use
-`qti_engines::ple_native_json::export_bank`. Its public API is:
+`qpm_engines::ple_native_json::export_bank`. Its public API is:
 
 ```rust
 pub fn export_bank(
@@ -70,7 +70,7 @@ hashes of its JSON and media files. A rerun replaces it only if those files stil
 unmarked, edited, or mixed directory is refused unchanged. The in-memory export has no marker.
 The JSON and files form a converter handoff for PLE to decode. Server import, asset binding, and
 rendering remain PLE-owned follow-up work, with no operational connection from QPM. This output is
-a directory, so `qti-package-maker check` is not its PLE decoder check.
+a directory, so `qpm check` is not its PLE decoder check.
 
 The native CLI records the content name as document metadata and supplies the local date to writers.
 ZIP writers preserve their established fixed package titles; the context title/date affects
@@ -92,8 +92,8 @@ ZIP package writers and PLE Native JSON. It may be combined with `--qti12`, `--q
   --html-to-image
 ```
 
-For tables, install Chromium or Chrome; set `QTI_CHROMIUM` to its executable if needed.
-If the selected input contains an RDKit canvas, set `QTI_RDKIT_SHIM` before running the command.
+For tables, install Chromium or Chrome; pass `--chromium PATH` if discovery cannot find it.
+For an RDKit canvas, build the shim or pass its location with `--rdkit-shim PATH`.
 The optional runtime dependency and its error behavior are documented in
 [INSTALL.md](INSTALL.md). Tables are judged by readable content and correct source rendering;
 Python's table appearance is not a visual target.
@@ -121,7 +121,6 @@ download or another application handoff. See [ENGINE_AUTHORING.md](ENGINE_AUTHOR
 
 ## Development tools
 
-`cargo xtask --help` lists development corpus, integrity, parity, and benchmark tools. Some of
-those commands explicitly compare against current Python during migration through `source_me.sh`;
-the native production CLI and ordinary Rust tests do not require Python QPM. See
-[PARITY.md](PARITY.md) for the cross-language evidence boundary and retirement policy.
+`cargo xtask --help` lists optional corpus, benchmark, and gallery tools. The native production
+CLI and ordinary Rust tests do not require Python QPM. [PARITY.md](PARITY.md) preserves the
+completed cross-language port evidence.

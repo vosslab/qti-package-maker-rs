@@ -1,4 +1,4 @@
-# QTI Package Maker for Rust
+# QPM for Rust
 
 Convert assessment question banks into LMS packages, practice quizzes, and readable review copies
 with one Rust engine for the native CLI and browser WebAssembly. Instructors keep one editable
@@ -37,7 +37,7 @@ Install a Rust toolchain meeting `rust-version` in [Cargo.toml](Cargo.toml).
 From this repository, build the native commands:
 
 ```bash
-cargo build --locked --release -p qti-cli --bins
+cargo build --locked --release -p qpm-cli --bins
 ```
 
 Create `bbq-demo-questions.txt` with this tab-delimited row:
@@ -89,7 +89,7 @@ only when the bank contains an RDKit canvas. See
 
 ## Browser and Node package
 
-The local `@vosslab/qti-wasm` package exposes explicit initialization, format inventory,
+The local `@vosslab/qpm-wasm` package exposes explicit initialization, format inventory,
 conversion, and package checking. Its generated TypeScript API uses owned `Uint8Array` values
 for input documents, companion images, and outputs. All four readers and eleven writers share
 the native Rust implementation; native screenshot and molecule rendering stay in the CLI.
@@ -104,8 +104,8 @@ Use the companion command to see the formats compiled into your binary or to ins
 ZIP for package-integrity problems:
 
 ```bash
-./target/release/qti-package-maker engines
-./target/release/qti-package-maker check qti12-demo.zip
+./target/release/qpm engines
+./target/release/qpm check qti12-demo.zip
 ```
 
 `check` prints `OK` when it finds no integrity violations. It checks package structure and answer

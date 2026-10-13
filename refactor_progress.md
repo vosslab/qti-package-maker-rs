@@ -78,7 +78,7 @@ User-excluded HTML sugars; use the sugar library's PNG/SVG export:
   `tests/_temp/chromium_workspace_tests.log`, `chromium_clippy.log`, and
   `chromium_release_build.log`.
 - One-time checks confirm authored image event handlers cannot change the screenshot,
-  missing-browser errors identify `QTI_CHROMIUM`, and plain exports need no browser.
+  missing-browser errors identify the explicit `--chromium` option, and plain exports need no browser.
 - Final release replay also blocks authored meta-refresh redirects and passes integrity for
   all 12 packages (two rendering failures plus two boundary fixtures, three formats each).
   `tests/_temp/chromium_acceptance/boundary_receipt.json` binds the release binary.

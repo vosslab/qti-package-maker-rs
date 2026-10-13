@@ -1,6 +1,6 @@
 # Media handling
 
-Image handling is centralized in `qti-core::media`. Item HTML remains authored content. The media
+Image handling is centralized in `qpm-core::media`. Item HTML remains authored content. The media
 layer scans `<img>` sources only at a conversion boundary, resolves each source against the
 bank's media base, assigns collision-safe output names, and supplies a writer-owned render view.
 It never mutates the validated source `Item` or its CRC.

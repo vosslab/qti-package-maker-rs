@@ -6,7 +6,7 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64::Engine;
-use qti_native::html_to_image::{ChromiumFragmentRenderer, FragmentRenderer};
+use qpm_native::html_to_image::{ChromiumFragmentRenderer, FragmentRenderer};
 use serde::Serialize;
 
 /// Generate browser-safe live-source, Python-reference, and Chromium columns for the corpus.
@@ -154,28 +154,38 @@ impl From<&GalleryEntry> for GalleryReceipt {
 /// The shared selector validates the constrained script grammar without evaluating authored
 /// JavaScript. A native RDKit image becomes a `data:` image inside the table render.
 fn prepare_native_table(html: &str) -> Result<String, String> {
-    use qti_native::html_to_image::{FieldConversionPlan, FragmentReplacement, PreparedFragment};
+    use qpm_native::html_to_image::{FieldConversionPlan, FragmentReplacement, PreparedFragment};
 
     let plan = FieldConversionPlan::prepare(html).map_err(|error| error.to_string())?;
-    let replacements = plan
+    let canvases = plan
         .fragments()
         .iter()
         .filter_map(|fragment| match fragment {
             PreparedFragment::Canvas(target) => Some(target),
             PreparedFragment::Table(_) => None,
         })
-        .map(|target| {
-            let png = qti_molecule::render_canvas_png(&target.source)
-                .map_err(|error| error.to_string())?;
-            let source = base64::engine::general_purpose::STANDARD.encode(png);
-            Ok(FragmentReplacement {
-                id: target.id,
-                html: format!(
-                    "<img src=\"data:image/png;base64,{source}\" alt=\"Molecule canvas\">"
-                ),
+        .collect::<Vec<_>>();
+    let replacements = if canvases.is_empty() {
+        Vec::new()
+    } else {
+        let renderer =
+            qpm_molecule::RdkitRenderer::load_default().map_err(|error| error.to_string())?;
+        canvases
+            .into_iter()
+            .map(|target| {
+                let png = renderer
+                    .render_canvas_png(&target.source)
+                    .map_err(|error| error.to_string())?;
+                let source = base64::engine::general_purpose::STANDARD.encode(png);
+                Ok(FragmentReplacement {
+                    id: target.id,
+                    html: format!(
+                        "<img src=\"data:image/png;base64,{source}\" alt=\"Molecule canvas\">"
+                    ),
+                })
             })
-        })
-        .collect::<Result<Vec<_>, String>>()?;
+            .collect::<Result<Vec<_>, String>>()?
+    };
     let plan = plan
         .after_canvas_replacements(&replacements)
         .map_err(|error| error.to_string())?;
@@ -306,7 +316,7 @@ fn run_python_references(
 
 fn render_gallery(entries: &[GalleryEntry]) -> String {
     let mut page = String::from(
-        "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>QTI table raster gallery</title><style>body{font-family:system-ui,sans-serif;margin:1rem;background:#f5f6f7}h1{margin-bottom:0}.note{max-width:90rem}.entry{background:white;border:1px solid #b8bdc4;border-radius:.35rem;margin:1rem 0;padding:1rem}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}.pane{min-width:0}.pane h2{font-size:1rem}.source{width:100%;min-height:220px;border:1px solid #88919b;background:white}.image{max-width:100%;height:auto;border:1px solid #88919b;background:white}.error{white-space:pre-wrap;color:#9d1c1c;background:#fff1f1;border:1px solid #d8a3a3;padding:.5rem}</style><h1>QTI Chromium table gallery</h1><p class=\"note\">Each source preview runs in a sandbox without scripts. The Python column is produced by the current-source renderer with its actual wrapper and canvas options. Judge readability and source content. Python images are diagnostic migration references, not visual acceptance targets. Rendering errors remain visible.</p>",
+        "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>QPM table raster gallery</title><style>body{font-family:system-ui,sans-serif;margin:1rem;background:#f5f6f7}h1{margin-bottom:0}.note{max-width:90rem}.entry{background:white;border:1px solid #b8bdc4;border-radius:.35rem;margin:1rem 0;padding:1rem}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}.pane{min-width:0}.pane h2{font-size:1rem}.source{width:100%;min-height:220px;border:1px solid #88919b;background:white}.image{max-width:100%;height:auto;border:1px solid #88919b;background:white}.error{white-space:pre-wrap;color:#9d1c1c;background:#fff1f1;border:1px solid #d8a3a3;padding:.5rem}</style><h1>QPM Chromium table gallery</h1><p class=\"note\">Each source preview runs in a sandbox without scripts. The Python column is produced by the current-source renderer with its actual wrapper and canvas options. Judge readability and source content. Python images are diagnostic migration references, not visual acceptance targets. Rendering errors remain visible.</p>",
     );
     for entry in entries {
         page.push_str("<section class=\"entry\"><h2>");

@@ -7,7 +7,7 @@ Remove `ValidationError::BooleanAnswer` and `ValidationError::BooleanTolerance` 
 deserializer rejects JSON `true` and `false` for an `f64` field before `Item::from_parts` and
 `validate_item` run, producing the deserializer's input error.
 
-There is no public untyped-item conversion API in `qti-core`: the only `serde_json::Value` use is
+There is no public untyped-item conversion API in `qpm-core`: the only `serde_json::Value` use is
 the development `xtask` CRC corpus tool. The two variants have no construction path and therefore
 cannot receive a meaningful behavior test.
 

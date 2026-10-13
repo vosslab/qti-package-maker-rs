@@ -1,13 +1,25 @@
 #!/usr/bin/env bash
 # Run local Rust validation before preparing a manual source release.
 #
-# Rust release checks are self-contained. Current-Python migration comparisons
-# are explicit `cargo xtask` commands and are not routine release requirements.
+# Rust release checks are self-contained and do not require the Python implementation.
 set -euo pipefail
 
 readonly REPOSITORY="$(git rev-parse --show-toplevel)"
 cd "$REPOSITORY"
 source source_me.sh
+
+native_renderers=false
+wasm=false
+for argument in "$@"; do
+	case "$argument" in
+		--native-renderers) native_renderers=true ;;
+		--wasm) wasm=true ;;
+		-h|--help)
+			echo "Usage: $0 [--native-renderers] [--wasm]"
+			exit 0 ;;
+		*) echo "unknown option: $argument" >&2; exit 2 ;;
+	esac
+done
 
 require_file() {
 	local path="$1"
@@ -31,16 +43,14 @@ cargo fmt --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --all-targets --locked
 cargo build --workspace --release --locked
-cargo build -p qti-cli --bin bbq-converter --locked
+cargo build -p qpm-cli --bin bbq-converter --locked
 
-if [[ "${RUST_RELEASE_HTML_TO_IMAGE:-0}" == "1" ]]; then
-	: "${QTI_RDKIT_SHIM:?set QTI_RDKIT_SHIM for the native HTML-to-image release lane}"
-	require_file "$QTI_RDKIT_SHIM" "native RDKit shim"
-	cargo test -p qti-molecule --test rdkit_shim --locked -- --ignored
+if $native_renderers; then
+	cargo test -p qpm-molecule --test rdkit_shim --locked -- --ignored
 fi
 
 # Browser/Wasm acceptance is an explicit release lane. Native builds need no Node.
-if [[ "${RUST_RELEASE_WASM:-0}" == "1" ]]; then
+if $wasm; then
 	require_command node
 	require_command npm
 	require_command rustup
@@ -49,10 +59,10 @@ if [[ "${RUST_RELEASE_WASM:-0}" == "1" ]]; then
 		echo "install wasm32-unknown-unknown with rustup, then rerun this lane" >&2
 		exit 2
 	fi
-	cargo check -p qti-core -p qti-engines -p qti-integrity -p qti-wasm \
+	cargo check -p qpm-core -p qpm-engines -p qpm-integrity -p qpm-wasm \
 		--target wasm32-unknown-unknown --locked
 	(
-		cd packages/qti-wasm
+		cd packages/qpm-wasm
 		npm ci
 		require_file node_modules/.bin/wasm-pack "package-local wasm-pack"
 		npm run build

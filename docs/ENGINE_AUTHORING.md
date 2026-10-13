@@ -1,12 +1,12 @@
 # Engine authoring
 
-Add a focused format module in `crates/qti-engines/src/` and one entry in the compile-time
+Add a focused format module in `crates/qpm-engines/src/` and one entry in the compile-time
 `ENGINES` registry. Native and Wasm callers use that same module. Rust owns parsing, media policy,
 validation, and output assembly; host adapters own input loading and output persistence.
 
 ## Byte contracts
 
-The public boundaries live in [traits.rs](../crates/qti-engines/src/traits.rs):
+The public boundaries live in [traits.rs](../crates/qpm-engines/src/traits.rs):
 
 ```rust
 pub trait Reader: Send + Sync {
@@ -62,21 +62,21 @@ Ok(WriteOutcome {
 })
 ```
 
-For complete implementations, read [moodle_aiken/mod.rs](../crates/qti-engines/src/moodle_aiken/mod.rs)
-for metadata-only placeholders and [text2qti/writer.rs](../crates/qti-engines/src/text2qti/writer.rs)
+For complete implementations, read [moodle_aiken/mod.rs](../crates/qpm-engines/src/moodle_aiken/mod.rs)
+for metadata-only placeholders and [text2qti/writer.rs](../crates/qpm-engines/src/text2qti/writer.rs)
 for named companion files. The portable engine never creates directories, copies files, reads a
 clock, or launches a renderer. Native callers use
-[persistence.rs](../crates/qti-native/src/persistence.rs) to persist an artifact.
+[persistence.rs](../crates/qpm-native/src/persistence.rs) to persist an artifact.
 
 ## Registry and orchestration
 
-[registry.rs](../crates/qti-engines/src/registry.rs) owns supported kinds, media policy,
+[registry.rs](../crates/qpm-engines/src/registry.rs) owns supported kinds, media policy,
 output naming, reader/writer factories, and native-render eligibility. Trait metadata methods
 delegate to the matching registry entry. Factories take no platform or document options.
 `engine(name)` returns an optional entry; shared dispatch translates a missing entry into
 `UnknownEngine` and a missing factory into `UnsupportedDirection`.
 
-[conversion.rs](../crates/qti-engines/src/conversion.rs) exposes `read_bank`, `write_bank`, and
+[conversion.rs](../crates/qpm-engines/src/conversion.rs) exposes `read_bank`, `write_bank`, and
 `convert`. Ordinary conversion reads once, trims, then writes once. `AssetOverlay` serves
 reader-recovered bytes first and asks the supplied provider only for absent sources. Native
 rendering composes those phases with one host pre-pass and writer fan-out. Add no target-specific
@@ -100,7 +100,7 @@ For a native presentation transform returning an `ItemBank`, use the fallible
 `with_rewritten_items` map to preserve item identity, kind, order, and source numbering.
 
 Warnings are values in rendered item order. Propagate concrete `EngineError` variants with `?`;
-printing belongs to the outer caller. `qti-core::media` remains the media function namespace;
+printing belongs to the outer caller. `qpm-core::media` remains the media function namespace;
 the crate root also exports `AssetSource` and `MemoryAssets`.
 
 Resolved `MediaAsset` payloads use `Arc<[u8]>`; `shared_bytes()` and

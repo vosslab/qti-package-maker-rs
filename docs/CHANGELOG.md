@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-10-12
+
+### Fixes and Maintenance
+
+- Retired completed Python-to-Rust migration snapshots and comparison tooling. Preserve
+  independent product and integration checks, with direct test inputs wherever practical.
+  The real Blackboard ZIP remains for import/media recovery coverage. The browser/Node
+  examples and table diagnostics remain; obsolete Rust examples and empty directories are gone.
+  Validation passes 334 Rust tests (one previously failing ZIP-size test excluded), 1,569
+  repository checks, five Node tests, and 42 browser tests, plus strict Clippy and native/Wasm release builds.
+
+- Migrated project-owned Rust crates, Wasm package/artifacts, CSS/DOM hooks, and
+  native shim symbols to QPM names. The inspection executable is now `qpm`; `bbq-converter`
+  retains its conversion role. Format IDs, QTI schemas, and interoperability tools retain QTI.
+- Coordinated regenerated Wasm artifacts and loader changes with BPW and PLE; BP's
+  established Python imports remain unchanged. See [NAMESPACE_MIGRATION.md](NAMESPACE_MIGRATION.md).
+- Replaced project-specific environment configuration with explicit renderer paths,
+  release-check flags, helper arguments, and normal discovery. No legacy naming aliases remain.
+
+- Added strict inline CSS validation at the existing HTML/item boundary, aligned with Python
+  QPM. Invalid colors, common dimensions and values, malformed declarations, and confirmed
+  property-name errors report field, element, property, and value without repairing content.
+- Preserved typed CSS errors through BBQ, text2qti, BQGen, and Blackboard pool readers so their
+  malformed-item recovery cannot downgrade confirmed CSS failures to skipped-item warnings.
+- Preserved unclassified CSS and modern standard forms beyond the shared validator grammar.
+  Added native/Python coverage and native/Wasm conversion parity checks. Recorded the BPW
+  survey and upstream generator failures in [INLINE_CSS_VALIDATION.md](INLINE_CSS_VALIDATION.md).
+- Renamed the local Cargo cache and current command references to `qpm-rust-cargo`.
+
 Earlier entries: [CHANGELOG-2026-10a.md](CHANGELOG-2026-10a.md) and
 [CHANGELOG-2026-09a.md](CHANGELOG-2026-09a.md).
 
@@ -48,11 +77,11 @@ Earlier entries: [CHANGELOG-2026-10a.md](CHANGELOG-2026-10a.md) and
 
 ### Additions and New Features
 
-- Added portable `qti-render` planning and finalization shared by native and Wasm conversion,
+- Added portable `qpm-render` planning and finalization shared by native and Wasm conversion,
   including stateless `planRenderJobs` and `finishConvert` host APIs, nested canvas dependencies,
   source-owned RDKit drawing/query metadata, and logical CSS dimensions. The contract is in
   [HTML_TO_IMAGE.md](HTML_TO_IMAGE.md) and
-  [packages/qti-wasm/docs/rendering.md](../packages/qti-wasm/docs/rendering.md).
+  [packages/qpm-wasm/docs/rendering.md](../packages/qpm-wasm/docs/rendering.md).
 - Added independent selftest identity and browser grading contracts, including host-wrapped
   grading and question-level completion across variant replacement. Current-Python execution
   belongs to a separate migration check. The contract and drift investigation are recorded in
@@ -138,8 +167,8 @@ Earlier entries: [CHANGELOG-2026-10a.md](CHANGELOG-2026-10a.md) and
   Rayon, caching, and RDKit runtime services remain in the native adapter.
 - Recorded the preference to minimize dependencies to reduce the supply chain attack surface
   in [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md).
-- Removed unused direct `sha2` from `qti-integrity` and `quick-xml` from `xtask`, and kept
-  `qti-engines`' direct `zip` dependency only for its tests. Disabled Scraper's standalone CLI
+- Removed unused direct `sha2` from `qpm-integrity` and `quick-xml` from `xtask`, and kept
+  `qpm-engines`' direct `zip` dependency only for its tests. Disabled Scraper's standalone CLI
   feature and ZIP's unused Zopfli encoder while retaining HTML diagnostics and the existing
   ordinary Deflate backend. No dependency version upgrades or converter API changes.
 - The dependency cleanup reduces external Rust lockfile packages from 250 to 246, removing
@@ -204,8 +233,8 @@ Earlier entries: [CHANGELOG-2026-10a.md](CHANGELOG-2026-10a.md) and
 ### Additions and New Features
 
 - Added a shared Rust native/WebAssembly conversion pipeline with the same four readers and
-  eleven writers. `qti-native` owns filesystem input, rendering, context, and persistence;
-  `qti-wasm` exposes Rust-generated TypeScript transport for format inventory, conversion,
+  eleven writers. `qpm-native` owns filesystem input, rendering, context, and persistence;
+  `qpm-wasm` exposes Rust-generated TypeScript transport for format inventory, conversion,
   and integrity checking. The private local package includes Node, browser, and worker examples,
   companion-name editing, and multi-file ZIP downloads. Final source-bound acceptance is tracked in
   [shared_engine_delivery.md](active_plans/reports/shared_engine_delivery.md).
@@ -222,7 +251,7 @@ Earlier entries: [CHANGELOG-2026-10a.md](CHANGELOG-2026-10a.md) and
 
 - Recorded the portable migration from filesystem readers/writers to logical named bytes,
   explicit context, and `WriteArtifact` outputs. Native filesystem, PLE directory ownership,
-  rendering, and time resolution belong to `qti-native`; Wasm consumes the same four readers
+  rendering, and time resolution belong to `qpm-native`; Wasm consumes the same four readers
   and eleven writers. Browser omission defaults are documented, with explicit values for
   reproducible calls. Native local media must resolve under the input parent directory,
   including authored absolute paths and symlinks; migration guidance uses a common input root.
@@ -233,7 +262,7 @@ Earlier entries: [CHANGELOG-2026-10a.md](CHANGELOG-2026-10a.md) and
 
 - Removed an incidental allocation-count assertion and a one-time ignored browser-proof generator,
   documented Wasm transport and asset-provider ownership contracts, clarified companion-name and
-  browser-picker behavior, and removed qti-native's unused direct `markup5ever` dependency.
+  browser-picker behavior, and removed qpm-native's unused direct `markup5ever` dependency.
 - Applied the six-pass PLE Native JSON audit cleanup: reduced the internal source model to its
   emitted-only serialization surface, removed one direct private-helper test, clarified the
   eligible `--html-to-image` writer rule, and repaired the PLE-issues handoff link. Final integrated

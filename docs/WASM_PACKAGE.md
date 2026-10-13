@@ -1,6 +1,6 @@
 # WebAssembly package
 
-`packages/qti-wasm` is a private local ES-module package named `@vosslab/qti-wasm`. It builds the
+`packages/qpm-wasm` is a private local ES-module package named `@vosslab/qpm-wasm`. It builds the
 same Rust core, integrity checker, four readers, and eleven writers used by the native CLI.
 Generated declarations come from Rust `tsify` transport types and wasm-bindgen exports. TypeScript
 owns initialization and host examples; conversion algorithms remain in Rust.
@@ -14,11 +14,11 @@ artifacts; it does not publish an npm package or deploy a site.
 
 Use a Rust toolchain meeting the workspace's `rust-version` in [Cargo.toml](../Cargo.toml)
 and a Node release supported by `engines.node` in
-[package.json](../packages/qti-wasm/package.json):
+[package.json](../packages/qpm-wasm/package.json):
 
 ```bash
 rustup target add wasm32-unknown-unknown
-cd packages/qti-wasm
+cd packages/qpm-wasm
 npm ci
 npm run build
 npm run typecheck
@@ -45,7 +45,7 @@ examples use a URL resolved against the importing module; serve the build over H
 ```typescript
 import { convert, formats, initialize } from "./dist/src/index.js";
 
-const response = await fetch(new URL("./dist/generated/qti_wasm_bg.wasm", import.meta.url));
+const response = await fetch(new URL("./dist/generated/qpm_wasm_bg.wasm", import.meta.url));
 if (!response.ok) throw new Error(`Wasm download failed: ${response.status}`);
 await initialize(new Uint8Array(await response.arrayBuffer()));
 console.log(formats().formats);
@@ -59,7 +59,7 @@ npm run example:node -- INPUT INPUT_FORMAT OUTPUT_FORMAT OUTPUT_DIRECTORY [COMPA
 npm run example:browser
 ```
 
-For example, run from `packages/qti-wasm`:
+For example, run from `packages/qpm-wasm`:
 
 ```bash
 npm run example:node -- ../../bbq-demo-questions.txt bbq_text_upload canvas_qti_v1_2 /tmp/qti-demo
@@ -133,7 +133,7 @@ payloads and logical CSS dimensions, and retains companion and recovered media a
 generated assets. Use `convert` when no rendering is requested.
 
 The detailed job, dependency, wrapper, canvas, completion, and diagnostic contract is
-[packages/qti-wasm/docs/rendering.md](../packages/qti-wasm/docs/rendering.md).
+[packages/qpm-wasm/docs/rendering.md](../packages/qpm-wasm/docs/rendering.md).
 [HTML_TO_IMAGE.md](HTML_TO_IMAGE.md) documents shared ownership and native execution.
 Browser capture acceptance runs in the consuming website; package transport tests verify the
 exported API and artifacts.
@@ -178,22 +178,17 @@ ZIP integrity target.
 
 ## Acceptance and measurements
 
-`npm test` exercises Node host transport and compares the native Rust transport oracle with generated
-Wasm across every reader/writer, supported kinds, warnings, artifacts, and failures; it needs Cargo
-and the repository checkout. `npm run test:parity` is a convenience command for running just the
-parity tests. `npm run test:browser` runs Chromium,
-Firefox, and WebKit acceptance, including workers, downloads, and grading the emitted selftests
-through their actual controls and website-facing hooks. These tests run without Python QPM.
-`npm run test:python-parity` separately compares selftest identities and grading with the current
-sibling Python checkout during migration. Missing source fails that explicit comparison with setup
-guidance. It is not part of ordinary package tests and can be retired when Rust is authoritative;
-see [SELFTEST_COMPATIBILITY.md](SELFTEST_COMPATIBILITY.md).
+`npm test` exercises Node host transport against generated Wasm across supported readers, writers,
+kinds, warnings, artifacts, and failures; it needs Cargo and the repository checkout.
+`npm run test:browser` runs Chromium, Firefox, and WebKit acceptance, including workers,
+downloads, and grading the emitted selftests through their actual controls and website-facing hooks.
+These tests run without Python QPM.
 
 `npm run measure` reports the
 Wasm, loader, and wrapper raw/compressed sizes with runtime version information. Repeated conversion timings
 are recorded separately with their workload and commands. Exact source-bound results and open gates live in
 [shared_engine_delivery.md](active_plans/reports/shared_engine_delivery.md).
 
-The opt-in `RUST_RELEASE_WASM=1` lane in
+The opt-in `--wasm` lane in
 [rust_release_check.sh](../devel/rust_release_check.sh) runs the portable target check and the
-package build, typecheck, Node host/parity, and browser commands. No publication is part of that lane.
+package build, typecheck, Node host, and browser commands. No publication is part of that lane.

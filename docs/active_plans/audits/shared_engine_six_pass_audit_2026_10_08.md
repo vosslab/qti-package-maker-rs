@@ -16,10 +16,10 @@ separately below. The audit preserves the existing Git index and unrelated edits
 
 | Severity | Finding and impact | Smallest useful correction | Status |
 | --- | --- | --- | --- |
-| Medium | Public Wasm DTOs/exports and the new asset-provider APIs lack required Rustdoc. Their defaults, byte ownership, validation, and root boundaries are difficult to discover from the API. | Document the public contract in `qti-wasm/src/{transport,boundary}.rs`, `qti-core/src/media/assets.rs`, and `qti-native/src/assets.rs`. | Fixed |
-| Medium | `qti-native/tests/browser_proof.rs` is an ignored one-time HTML generator, not a browser assertion. Its fixed temporary-directory cleanup and lack of assertions do not earn permanent test status. | Remove the generator after retaining historical evidence, and correct its current architecture/file-map references. | Fixed |
-| Low | `qti-core/src/bank/tests.rs` pins `Arc::strong_count(payload)` to 161, constraining incidental reference bookkeeping. | Keep the provider-read, canonical-asset, payload-identity, and byte checks; remove the exact reference-count assertion. | Fixed |
-| Low | `qti-native/Cargo.toml` directly declares unused `markup5ever`. The engines crate separately owns its actual use. | Remove only the native dependency entry and corresponding lockfile edge. | Fixed |
+| Medium | Public Wasm DTOs/exports and the new asset-provider APIs lack required Rustdoc. Their defaults, byte ownership, validation, and root boundaries are difficult to discover from the API. | Document the public contract in `qpm-wasm/src/{transport,boundary}.rs`, `qpm-core/src/media/assets.rs`, and `qpm-native/src/assets.rs`. | Fixed |
+| Medium | `qpm-native/tests/browser_proof.rs` is an ignored one-time HTML generator, not a browser assertion. Its fixed temporary-directory cleanup and lack of assertions do not earn permanent test status. | Remove the generator after retaining historical evidence, and correct its current architecture/file-map references. | Fixed |
+| Low | `qpm-core/src/bank/tests.rs` pins `Arc::strong_count(payload)` to 161, constraining incidental reference bookkeeping. | Keep the provider-read, canonical-asset, payload-identity, and byte checks; remove the exact reference-count assertion. | Fixed |
+| Low | `qpm-native/Cargo.toml` directly declares unused `markup5ever`. The engines crate separately owns its actual use. | Remove only the native dependency entry and corresponding lockfile edge. | Fixed |
 | Low | The Node example documentation omits `ASSET_NAME=PATH`, needed for nested authored image references. | Explain bare-path and explicit-name forms and include a nested-name example. | Fixed |
 | Low | The browser documentation claims directory selection, while the example uses a multiple-file picker and editable logical names. | Describe the existing picker and name editor accurately. | Fixed |
 | Low | The archived contract says Wasm uses "fixed adapter values," conflicting with its documented UTC-today date default. | State that the host resolves the date once per conversion. | Fixed |
@@ -33,13 +33,13 @@ The remaining issue is documentation, with no API or behavior change required.
 
 These low-severity findings remain outside this cleanup's shared-engine boundary:
 
-- [Integrity Cargo.toml](../../../crates/qti-integrity/Cargo.toml#L13) has an unused direct
+- [Integrity Cargo.toml](../../../crates/qpm-integrity/Cargo.toml#L13) has an unused direct
   `sha2` dependency. The same unused
   entry already exists at `HEAD`; it was not introduced by this migration.
-- Permanent [parity code](../../../xtask/src/parity.rs#L1) retains `M13`/`M6` milestone labels
+- Permanent parity code (since retired; formerly `xtask/src/parity.rs`) retains `M13`/`M6` milestone labels
   in comments, help, or diagnostics.
   The labels predate the shared-engine work. Durable feature names would be clearer.
-- The initial split [Python oracle modules](../../../xtask/support/parity_oracle_projection.py#L12)
+- The initial split Python oracle modules (since retired; formerly `xtask/support/parity_oracle_projection.py`)
   omit the function separators required by
   `docs/PYTHON_STYLE.md`.
 - [COHESIVE_SOURCE_SPLITS.md](../active/COHESIVE_SOURCE_SPLITS.md) uses uppercase naming where the

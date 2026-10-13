@@ -197,9 +197,11 @@ fn run_generator(
         .map(|argument| shell_quote_text(argument))
         .collect::<Vec<_>>()
         .join(" ");
+    let import_path = python_import_path(&sandbox, biology, generator.parent());
     let command = format!(
-        "source {} >/dev/null && python3 {} -d {} {}",
+        "source {} >/dev/null && PYTHONPATH={}:$PYTHONPATH python3 {} -d {} {}",
         shell_quote(&repository.join("source_me.sh")),
+        shell_quote_text(&import_path),
         shell_quote(&runnable),
         QUESTION_COUNT,
         argument_text,
@@ -208,11 +210,6 @@ fn run_generator(
         .args(["-lc", &command])
         .current_dir(&sandbox)
         .env("PYTHONHASHSEED", "0")
-        .env("PYTHONPATH", sandbox.as_os_str())
-        .env(
-            "QTI_CORPUS_IMPORT_PATH",
-            corpus_import_path(&sandbox, biology, generator.parent()),
-        )
         .output()
         .map_err(display_error)?;
     let mut bbq_files = find_bbq_files(&sandbox)?;
@@ -358,9 +355,11 @@ fn extract_records(
         .join("xtask")
         .join("support")
         .join("corpus_harvest.py");
+    let import_path = python_import_path(work, biology, None);
     let command = format!(
-        "source {} >/dev/null && python3 {} {}",
+        "source {} >/dev/null && PYTHONPATH={}:$PYTHONPATH python3 {} {}",
         shell_quote(&repository.join("source_me.sh")),
+        shell_quote_text(&import_path),
         shell_quote(&helper),
         files
             .iter()
@@ -371,10 +370,6 @@ fn extract_records(
     let output = Command::new("bash")
         .args(["-lc", &command])
         .current_dir(work)
-        .env(
-            "QTI_CORPUS_IMPORT_PATH",
-            corpus_import_path(work, biology, None),
-        )
         .output()
         .map_err(display_error)?;
     if !output.status.success() {
@@ -710,7 +705,7 @@ fn shell_quote_text(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
 
-fn corpus_import_path(sandbox: &Path, biology: &Path, generator_parent: Option<&Path>) -> String {
+fn python_import_path(sandbox: &Path, biology: &Path, generator_parent: Option<&Path>) -> String {
     let mut paths = vec![sandbox, biology];
     if let Some(parent) = generator_parent {
         paths.push(parent);

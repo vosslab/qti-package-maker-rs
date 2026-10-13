@@ -45,7 +45,7 @@ reworking it.
   correct resolution.
 - Define one media contract covering every engine and every image source kind, so image behavior is
   a property of the system rather than of whichever fixture happened to be tested.
-- Keep the `qti-core` public API owned-value and lifetime-free so a PyO3 binding crate is additive.
+- Keep the `qpm-core` public API owned-value and lifetime-free so a PyO3 binding crate is additive.
 
 ## Design philosophy
 
@@ -84,13 +84,13 @@ makes the compiler blind to an unhandled item type. Rejected on the same grounds
 
 ## Scope
 
-- Create a fresh git repository named `qti-package-maker-rs` with a Cargo workspace: `qti-core`,
-  `qti-integrity`, `qti-engines`, `qti-cli`, plus an `xtask` runner.
+- Create a fresh git repository named `qti-package-maker-rs` with a Cargo workspace: `qpm-core`,
+  `qpm-integrity`, `qpm-engines`, `qpm-cli`, plus an `xtask` runner.
 - Port the item model (7 types), validator, `ItemBank`, `string_functions`, and CRC16-XMODEM identity.
 - Port `media_assets` (frozen API), `zip_writer`, and `qti_manifest`.
 - Implement the media contract in full: the engine-by-source-kind behavior table, collision and
   dedup rules, lifetime ownership, provenance-carrying diagnostics, and the extension boundary.
-- Port `package_integrity.py` as `qti-integrity`, add the item-HTML-to-manifest-to-ZIP-entry trace
+- Port `package_integrity.py` as `qpm-integrity`, add the item-HTML-to-manifest-to-ZIP-entry trace
   check, cross-validate against the Python checker on valid and corrupted packages, and record each
   check's provenance.
 - Define `ItemFingerprint`, comparing every item field, with media compared by resolved content and
@@ -171,7 +171,7 @@ parses those lines and discards them, matching the observable behavior today.
 
 ## Media contract
 
-This section is the specification `qti-core::media` and every engine implement. It is the answer to
+This section is the specification `qpm-core::media` and every engine implement. It is the answer to
 "is image handling semantic, or does it merely pass today's fixtures."
 
 ### Image sameness across a round trip
@@ -301,13 +301,13 @@ records the outcome in `docs/CHANGELOG.md` under `### Decisions and Failures`.
 
 1. **Observed LMS import behavior.** Rare and expensive, but it is ground truth. The two Blackboard
    import failures already recorded in the Python repo are in this tier.
-2. **`qti-integrity` violations from a check with recorded provenance.** A check earns tier 2 when
+2. **`qpm-integrity` violations from a check with recorded provenance.** A check earns tier 2 when
    M6 records where it came from: a specific LMS failure, or an invariant the package format
    requires (a manifest `href` must resolve; a `correctResponse` must name a declared choice in the
    same item). Provenance is recorded per check in `docs/PARITY.md`.
 3. **Python runtime behavior on the same input.** The port's contract. Where the two differ with no
    tier-1 or tier-2 signal, Python's behavior is correct and the Rust side matches it.
-4. **Everything else**, in descending weight: `qti-integrity` checks lacking recorded provenance,
+4. **Everything else**, in descending weight: `qpm-integrity` checks lacking recorded provenance,
    which are advisory; then Python test assertions, which can encode brittle expectations. A Rust
    test may legitimately differ from its Python counterpart when the Python assertion checks a
    collection length, a key list, or a tunable constant.
@@ -327,10 +327,10 @@ qti-package-maker-rs/
   REPO_TYPE                  # "rust"
   VERSION
   crates/
-    qti-core/                # item, fingerprint, validate, bank, strings, crc, media, zip, manifest
-    qti-integrity/           # package_integrity port; depends on std + the XML crate
-    qti-engines/             # all 10 engines, one registry file
-    qti-cli/                 # bbq-converter + qti-package-maker binaries
+    qpm-core/                # item, fingerprint, validate, bank, strings, crc, media, zip, manifest
+    qpm-integrity/           # package_integrity port; depends on std + the XML crate
+    qpm-engines/             # all 10 engines, one registry file
+    qpm-cli/                 # bbq-converter + qti-package-maker binaries
   xtask/                     # cross-language checks: crc-corpus, oracle-crosscheck, parity
   tests/                     # workspace integration tests
     fixtures/
@@ -338,9 +338,9 @@ qti-package-maker-rs/
   docs/
 ```
 
-`qti-integrity` depends on neither `qti-core` nor `qti-engines`, so it reads finished packages from
+`qpm-integrity` depends on neither `qpm-core` nor `qpm-engines`, so it reads finished packages from
 disk and judges Python and Rust output on equal terms. That independence is what makes it usable as
-a cross-implementation check. `qti-engines` depends on `qti-core`; `qti-cli` depends on all three.
+a cross-implementation check. `qpm-engines` depends on `qpm-core`; `qpm-cli` depends on all three.
 
 The registry is a hand-written slice in one file, so the engine list is greppable in one place. The
 Python repo's own style rules keep discovery logic where coders look for it, and that judgment
@@ -402,16 +402,16 @@ M7 confirms this compiles and carries all three probes before any fan-out.
 | Milestone / Workstream | Component | Review boundary |
 | --- | --- | --- |
 | M1 | repo root, `Cargo.toml`, spike crate | Workspace compiles; crate decisions recorded with evidence |
-| M2, M3 | `qti-core/src/{item,fingerprint,crc,strings,validate,bank}` | Public API takes and returns owned values with no lifetimes |
-| M4 | `qti-core/src/media/` | Implements the media contract section in full |
-| M5 | `qti-core/src/{zip,manifest}` | Packages are assembled through `ArchiveMap` |
-| M6 | `crates/qti-integrity`, `xtask/oracle_crosscheck.rs` | Agrees with the Python checker on valid and corrupted packages |
-| M7 | `qti-engines/src/{traits,human_readable,canvas12,bbq}` | Trait shape signed off against three shapes and all four readers |
-| M8 / WS-Text | `qti-engines/src/{text2qti,okla,aiken,exam_yaml}` | One engine module per work package |
-| M9 / WS-Pkg | `qti-engines/src/{bb21,bb_export/write}` | Every ZIP passes `qti-integrity` clean |
-| M10 | `qti-engines/src/bb_export/read/` | One named source file per sub-work-package |
-| M11 | `qti-engines/src/html_selftest` | Single self-contained file |
-| M12 | `qti-engines/src/registry.rs`, `crates/qti-cli` | Registry owned here exclusively |
+| M2, M3 | `qpm-core/src/{item,fingerprint,crc,strings,validate,bank}` | Public API takes and returns owned values with no lifetimes |
+| M4 | `qpm-core/src/media/` | Implements the media contract section in full |
+| M5 | `qpm-core/src/{zip,manifest}` | Packages are assembled through `ArchiveMap` |
+| M6 | `crates/qpm-integrity`, `xtask/oracle_crosscheck.rs` | Agrees with the Python checker on valid and corrupted packages |
+| M7 | `qpm-engines/src/{traits,human_readable,canvas12,bbq}` | Trait shape signed off against three shapes and all four readers |
+| M8 / WS-Text | `qpm-engines/src/{text2qti,okla,aiken,exam_yaml}` | One engine module per work package |
+| M9 / WS-Pkg | `qpm-engines/src/{bb21,bb_export/write}` | Every ZIP passes `qpm-integrity` clean |
+| M10 | `qpm-engines/src/bb_export/read/` | One named source file per sub-work-package |
+| M11 | `qpm-engines/src/html_selftest` | Single self-contained file |
+| M12 | `qpm-engines/src/registry.rs`, `crates/qpm-cli` | Registry owned here exclusively |
 | M13 | `xtask/parity.rs` | Every format has a semantic comparison |
 | M14 | `docs/`, CI, crate metadata | Docs and CI |
 
@@ -433,7 +433,7 @@ changes.
   bytes equal; swapped pair unequal; dropped image unequal).
 - The five-case HTML rewrite subset (WP-B1), built from inline strings.
 - Round-trips per readable engine, on banks built in code.
-- Each ZIP-producing engine's output passing `qti-integrity`, on banks built in code.
+- Each ZIP-producing engine's output passing `qpm-integrity`, on banks built in code.
 - The integrity regression canaries and the generated negative corpus, both constructed in code.
 - `MediaBaseDir` lifetime: owned directory removed on drop, caller-supplied directory untouched.
 
@@ -472,10 +472,10 @@ that runs once per question bank, and inventing one would gate the work on an ar
 | M3 | Validation and item bank | Fallible constructors; `ItemBank` with RAII media directory | A bank of validated items builds, merges, dedups, and drops cleanly |
 | M4 | Media asset layer | The media contract implemented in full | Every engine-by-source-kind cell behaves as specified |
 | M5 | Packaging primitives | In-memory `ArchiveMap` ZIP builder and IMS manifest generator | A ZIP and a manifest are produced entirely in memory |
-| M6 | Integrity oracle | `qti-integrity` port, trace check, cross-validation, provenance | The oracle agrees with an independent implementation before judging Rust output |
+| M6 | Integrity oracle | `qpm-integrity` port, trace check, cross-validation, provenance | The oracle agrees with an independent implementation before judging Rust output |
 | M7 | Engine trait spike | Traits proven by a text writer, a ZIP writer, and a reader | Trait shape signed off; fan-out is safe |
 | M8 | Text-format engines | Four remaining text engines, two of them readers | Every text format writes; both remaining text readers round-trip |
-| M9 | QTI package writers | Blackboard QTI 2.1 and Blackboard pool-export writers | Both produce ZIPs that pass `qti-integrity` clean |
+| M9 | QTI package writers | Blackboard QTI 2.1 and Blackboard pool-export writers | Both produce ZIPs that pass `qpm-integrity` clean |
 | M10 | Blackboard pool reader | Five atomic sub-deliverables, one source file each | A written pool reads back to an identical fingerprint set |
 | M11 | HTML self-test engine | Single-file HTML with inline CSS, JS, and base64 images | Output is self-contained and grades all seven item kinds |
 | M12 | Registry and CLI | Compile-time registry; both binaries | The binary converts a real bank to all ten formats |
@@ -604,7 +604,7 @@ packaged-with-a-warning path in the media contract. Large images are valid and p
   this is the first thing built, since a registry that cannot hold its engines invalidates
   everything downstream. Then three deliberately dissimilar probes work end to end:
   `human_readable` (text write, `R = String`, placeholder policy), `canvas_qti_v1_2` (ZIP write,
-  `R` = XML element, package policy, media rewriting, ZIP passing `qti-integrity` clean), and
+  `R` = XML element, package policy, media rewriting, ZIP passing `qpm-integrity` clean), and
   `bbq_text_upload` (read and write, round-tripping by `ItemFingerprint`). Both writers drive the
   shared `render_bank` loop with its pre-render and post-render hooks, proving one generic loop
   serves two different `R` types under one object-safe boundary.
@@ -651,7 +651,7 @@ survey finds, M7 blocks and the trait is revised. That is the milestone working.
 - Workstreams: WS-Pkg.
 - Entry criteria: trait sign-off.
 - Automated exit criteria: each engine, given an MC+MA+MATCH+NUM+FIB bank with one embedded image,
-  produces a ZIP passing `qti-integrity` with zero violations including the media trace check; the
+  produces a ZIP passing `qpm-integrity` with zero violations including the media trace check; the
   three collision cases from the media contract produce correctly associated images; each item's
   answer references name a choice identifier declared in that same item.
 - Parallel-plan ready: yes. Two independent doers. Runs concurrently with M8 and M11.
@@ -710,7 +710,7 @@ declared type, which is verifiable behavior rather than scaffolding.
 - Automated exit criteria: `cargo xtask parity` reports zero semantic divergences across the corpus
   using the per-format comparison table in WP-F4; the full workspace `cargo test`,
   `cargo fmt --check`, and `cargo clippy -- -D warnings` are clean; every ZIP-producing engine's
-  output passes `qti-integrity`; all four readers round-trip by `ItemFingerprint`, and bank order
+  output passes `qpm-integrity`; all four readers round-trip by `ItemFingerprint`, and bank order
   matches for the formats that preserve it.
 - Parallel-plan ready: no. This is the measurement milestone.
 
@@ -735,7 +735,7 @@ cheaper coordination model.
 - Goal: the four remaining text-output engines and their two readers.
 - Owner: `coder`, one fresh subagent per work package.
 - Work packages: WP-C2, WP-C3, WP-C4, WP-C6.
-- Needs: M7 sign-off; `qti-core::media`.
+- Needs: M7 sign-off; `qpm-core::media`.
 - Provides: `text2qti`, `okla_chrst_bqgen`, `moodle_aiken`, `exam_yaml`.
 - Review boundary, when modifying the repository: each package owns one engine module plus its own
   test file, and reports its constructor signature to WP-F1, which owns `registry.rs`.
@@ -745,10 +745,10 @@ cheaper coordination model.
 - Goal: the two remaining IMS content-package writers.
 - Owner: `expert_coder`, one fresh subagent per work package.
 - Work packages: WP-D2, WP-D3.
-- Needs: M7 sign-off; `qti-core::{media, zip, manifest}`; `qti-integrity`.
+- Needs: M7 sign-off; `qpm-core::{media, zip, manifest}`; `qpm-integrity`.
 - Provides: `blackboard_qti_v2_1`, `blackboard_export_zip` (write).
 - Review boundary, when modifying the repository: each engine assembles its package by building an
-  `ArchiveMap` in memory and handing it to `qti-core::zip`.
+  `ArchiveMap` in memory and handing it to `qpm-core::zip`.
 
 ## Work packages
 
@@ -793,7 +793,7 @@ cheaper coordination model.
 ### Work package: WP-A1 item model and fingerprint
 
 - Owner: `expert_coder`.
-- Touch points: `qti-core/src/{item.rs, fingerprint.rs}`.
+- Touch points: `qpm-core/src/{item.rs, fingerprint.rs}`.
 - Depends on: WP-A0.
 - Acceptance criteria: `ItemCommon` + `ItemBody` enum covering MC, MA, MATCH, NUM, FIB, MULTI_FIB,
   ORDER; `ItemKind` derived from the body; `field_strings()` yielding every HTML-bearing string leaf.
@@ -806,7 +806,7 @@ cheaper coordination model.
   M4 owns resolution. The fingerprint takes an already-resolved `Vec<MediaRef>` as an input
   parameter, where `MediaRef { content_hash: [u8; 32], field: FieldId, ordinal: usize }` is a plain
   data struct defined here. M2 never touches the filesystem, never hashes a file, and never depends
-  on `qti-core::media`; M4 supplies the resolver that produces `MediaRef` values from real assets.
+  on `qpm-core::media`; M4 supplies the resolver that produces `MediaRef` values from real assets.
   Permanent tests, using hand-written hashes so they stay inline and offline: two MC items differing
   only in `answer_text` have equal CRCs and unequal fingerprints; the same content hash under a
   different filename compares equal; two `MediaRef` values swapped within one field compare unequal;
@@ -818,7 +818,7 @@ cheaper coordination model.
 ### Work package: WP-A2 string functions and CRC identity
 
 - Owner: `coder`.
-- Touch points: `qti-core/src/{strings.rs, crc.rs}`, `xtask/src/crc_corpus.rs`.
+- Touch points: `qpm-core/src/{strings.rs, crc.rs}`, `xtask/src/crc_corpus.rs`.
 - Depends on: WP-A0.
 - Acceptance criteria: CRC16-XMODEM via the `crc` crate; each item type's secondary-string
   construction matches `item_types.py` exactly, including NUM's `f"{x:.2e}"` formatting and
@@ -836,7 +836,7 @@ cheaper coordination model.
 ### Work package: WP-A3 validator
 
 - Owner: `coder`.
-- Touch points: `qti-core/src/validate.rs`.
+- Touch points: `qpm-core/src/validate.rs`.
 - Depends on: WP-A1.
 - Acceptance criteria: one validation function per item type, invoked from the fallible constructor
   so every `Item` value has passed validation; `ValidationError` is a `thiserror` enum with a variant
@@ -849,7 +849,7 @@ cheaper coordination model.
 ### Work package: WP-A4 item bank
 
 - Owner: `expert_coder`.
-- Touch points: `qti-core/src/bank.rs`.
+- Touch points: `qpm-core/src/bank.rs`.
 - Depends on: WP-A3.
 - Acceptance criteria: `ItemBank` backed by `IndexMap<ItemCrc, Item>` preserving insertion order;
   `add_item` deduplicates by CRC with a warning; `merge` implements the `media_base_dir`
@@ -865,7 +865,7 @@ cheaper coordination model.
 ### Work package: WP-B1 media asset layer
 
 - Owner: `expert_coder`.
-- Touch points: `qti-core/src/media/{mod.rs, resolve.rs, naming.rs, rewrite.rs, policy.rs, package.rs}`.
+- Touch points: `qpm-core/src/media/{mod.rs, resolve.rs, naming.rs, rewrite.rs, policy.rs, package.rs}`.
 - Depends on: WP-A1; WP-F3 (HTML crate).
 - Acceptance criteria: the media contract implemented in full. `MediaAsset`, `AssetKind`,
   `MediaPolicy` (4-variant enum), `MediaWarning` (with `resolved` and `action`),
@@ -894,7 +894,7 @@ cheaper coordination model.
 ### Work package: WP-B2 zip writer
 
 - Owner: `coder`.
-- Touch points: `qti-core/src/zip.rs`.
+- Touch points: `qpm-core/src/zip.rs`.
 - Depends on: WP-A0.
 - Acceptance criteria: `ArchiveMap = BTreeMap<String, ArchiveEntry>` where `ArchiveEntry` is
   `Bytes(Vec<u8>)` or `SourcePath(PathBuf)`; `build_zip` writes entries in sorted order and emits
@@ -906,7 +906,7 @@ cheaper coordination model.
 ### Work package: WP-B3 IMS manifest
 
 - Owner: `coder`.
-- Touch points: `qti-core/src/manifest.rs`.
+- Touch points: `qpm-core/src/manifest.rs`.
 - Depends on: WP-B1; WP-F3 (XML crate).
 - Acceptance criteria: `generate_manifest` produces QTI 1.2 and 2.1 manifests with the correct
   namespaces, metadata section, resource entries, `webcontent` resources for packaged media, and
@@ -918,7 +918,7 @@ cheaper coordination model.
 ### Work package: WP-B4 package integrity oracle
 
 - Owner: `expert_coder`.
-- Touch points: `crates/qti-integrity/`, `xtask/src/oracle_crosscheck.rs`.
+- Touch points: `crates/qpm-integrity/`, `xtask/src/oracle_crosscheck.rs`.
 - Depends on: WP-F3 (XML crate).
 - Acceptance criteria: `check_package(path) -> Vec<Violation>` accepting a ZIP or an extracted tree,
   dispatching on package shape. All Python checks ported: manifest resolution, QTI 1.2 `varequal`
@@ -937,7 +937,7 @@ cheaper coordination model.
 ### Work package: WP-G0 engine traits and three probe engines
 
 - Owner: `architect` (design and reader survey), `expert_coder` (implementation).
-- Touch points: `qti-engines/src/{lib.rs, traits.rs, human_readable/, canvas_qti_v1_2/, bbq_text_upload/}`.
+- Touch points: `qpm-engines/src/{lib.rs, traits.rs, human_readable/, canvas_qti_v1_2/, bbq_text_upload/}`.
 - Depends on: WP-A4, WP-B1, WP-B2, WP-B3, WP-B4.
 - Acceptance criteria: the object-safe `Writer` and `Reader` traits from the architecture section,
   the generic `render_bank` loop with its `RenderHooks`, and `EngineError` are implemented, and a
@@ -963,7 +963,7 @@ cheaper coordination model.
 (`bbq_text_upload` and `human_readable` are delivered complete by WP-G0 as trait probes.)
 
 - Owner: `coder`, one fresh subagent each.
-- Touch points: `qti-engines/src/<engine>/` plus `tests/engine_<name>.rs`.
+- Touch points: `qpm-engines/src/<engine>/` plus `tests/engine_<name>.rs`.
 - Depends on: WP-G0; WP-B1.
 - Acceptance criteria (each): every item kind the Python engine supports produces output;
   unsupported kinds return a typed error naming the kind and engine; the engine's row of the media
@@ -973,10 +973,10 @@ cheaper coordination model.
 ### Work package: WP-D2 Blackboard QTI 2.1 writer (M9)
 
 - Owner: `expert_coder`.
-- Touch points: `qti-engines/src/blackboard_qti_v2_1/`.
+- Touch points: `qpm-engines/src/blackboard_qti_v2_1/`.
 - Depends on: WP-G0; WP-B1, WP-B2, WP-B3, WP-B4.
 - Acceptance criteria: QTI 2.1 items plus assessment metadata, per-item files, packaged media; an
-  MC+MA+MATCH+NUM+FIB bank with one embedded image produces a ZIP passing `qti-integrity` clean
+  MC+MA+MATCH+NUM+FIB bank with one embedded image produces a ZIP passing `qpm-integrity` clean
   including the media trace; a `data:` URI produces a typed error before any output is written;
   every `correctResponse` names a choice identifier declared in the same item, derived from list
   position as Python does; the collision cases associate each image with its own item.
@@ -985,11 +985,11 @@ cheaper coordination model.
 ### Work package: WP-D3 Blackboard pool-export writer (M9)
 
 - Owner: `expert_coder`.
-- Touch points: `qti-engines/src/blackboard_export_zip/write/`.
+- Touch points: `qpm-engines/src/blackboard_export_zip/write/`.
 - Depends on: WP-G0; WP-B1, WP-B2, WP-B3, WP-B4.
 - Acceptance criteria: produces the `.dat` pool, `imsmanifest.xml`, CSResourceLinks, csfiles
   binaries with LOM sidecars, and the `sanitize_question_html` whitespace-in-`<tr>` defusal that
-  keeps the Ultra question-expand renderer working; the ZIP passes `qti-integrity` clean including
+  keeps the Ultra question-expand renderer working; the ZIP passes `qpm-integrity` clean including
   every Blackboard cross-reference and the media trace.
 - Evidence or review, when useful: `reviewer` audits independently; this and M10 carry the plan's
   concentrated risk.
@@ -1001,7 +1001,7 @@ Five deliverables, one source file each; see the M10 table for the mapping and e
 independent verification.
 
 - Owner: `expert_coder`.
-- Touch points: `qti-engines/src/blackboard_export_zip/read/<file>.rs` plus that file's test module.
+- Touch points: `qpm-engines/src/blackboard_export_zip/read/<file>.rs` plus that file's test module.
 - Depends on: WP-D3; WP-D4b through WP-D4e additionally depend on WP-D4a for the type-registration
   table.
 - Acceptance criteria: each sub-work-package's row, plus these behaviors spread across them --
@@ -1018,7 +1018,7 @@ independent verification.
 ### Work package: WP-E1 HTML self-test engine (M11)
 
 - Owner: `coder`.
-- Touch points: `qti-engines/src/html_selftest/`.
+- Touch points: `qpm-engines/src/html_selftest/`.
 - Depends on: WP-G0; WP-B1.
 - Acceptance criteria: renders one randomly selected item to a single self-contained HTML file with
   inline CSS, inline JavaScript grading, and every local image inlined as a base64 `data:` URI;
@@ -1029,7 +1029,7 @@ independent verification.
 ### Work package: WP-F1 engine registry (M12)
 
 - Owner: `coder`.
-- Touch points: `qti-engines/src/registry.rs`.
+- Touch points: `qpm-engines/src/registry.rs`.
 - Depends on: WP-C2..C6, WP-D2, WP-D3, WP-D4a..e, WP-E1, WP-G0.
 - Acceptance criteria: a `const ENGINES: &[EngineEntry]` slice where each entry carries `name`,
   `media_policy`, `make_writer: Option<fn>`, and `make_reader: Option<fn>`; `can_read`/`can_write`
@@ -1040,7 +1040,7 @@ independent verification.
 ### Work package: WP-F2 CLI binaries (M12)
 
 - Owner: `coder`.
-- Touch points: `crates/qti-cli/`.
+- Touch points: `crates/qpm-cli/`.
 - Depends on: WP-F1.
 - Acceptance criteria: `bbq-converter` accepts `-i/--input`, `-o/--output`, `-n/--limit`,
   `-q/--quiet`, `-v/--verbose`, `--allow-mixed`, `-f/--format` (repeatable), `-a/--all`, and every
@@ -1065,8 +1065,8 @@ independent verification.
 | Format | Comparison method |
 | --- | --- |
 | `bbq_text_upload`, `text2qti`, `okla_chrst_bqgen` | Read both outputs back; compare `ItemFingerprint` sets, plus bank order |
-| `blackboard_export_zip` | Read both back through the M10 reader; compare fingerprint sets; both ZIPs pass `qti-integrity` clean |
-| `canvas_qti_v1_2`, `blackboard_qti_v2_1` | Both pass `qti-integrity` clean, then compare a normalized item projection parsed from the XML: per item, the question text, ordered choice texts, and correct-answer texts with each identifier dereferenced to its choice, so position-derived identifiers compare by meaning |
+| `blackboard_export_zip` | Read both back through the M10 reader; compare fingerprint sets; both ZIPs pass `qpm-integrity` clean |
+| `canvas_qti_v1_2`, `blackboard_qti_v2_1` | Both pass `qpm-integrity` clean, then compare a normalized item projection parsed from the XML: per item, the question text, ordered choice texts, and correct-answer texts with each identifier dereferenced to its choice, so position-derived identifiers compare by meaning |
 | `exam_yaml` | Parse both documents and compare the structures; the cheapest strong comparison available, covering every field |
 | `moodle_aiken` | Parse both back with a small harness parser (stem, lettered choices, `ANSWER:` line) and compare question, choices, and correct answer |
 | `human_readable` | Normalize whitespace and compare text; report the diff verbatim on mismatch |
@@ -1128,7 +1128,7 @@ Gates come in two kinds, and progress reporting names which kind passed.
 - **Per-milestone:** each milestone's automated exit criteria.
 - **Oracle agreement (M6):** `cargo xtask oracle-crosscheck` reports identical violation lists on
   both the valid and negative corpora.
-- **Integration (M13):** full workspace `cargo test`; every ZIP passes `qti-integrity`; all four
+- **Integration (M13):** full workspace `cargo test`; every ZIP passes `qpm-integrity`; all four
   readers round-trip by `ItemFingerprint` with order checked where formats preserve it;
   `cargo xtask parity` reports zero divergences under the per-format table.
 
@@ -1157,7 +1157,7 @@ Four tiers, in increasing cost, with each check's permanent home given in `## Te
    fingerprints, because `ItemBank.__eq__` is order-independent by design; order is a separate
    explicit assertion so an ordering regression stays visible.
 3. **Integrity checks.** Every ZIP-producing engine builds a representative bank with images and
-   must pass `qti-integrity` clean, including the media trace. The regression canaries and the
+   must pass `qpm-integrity` clean, including the media trace. The regression canaries and the
    generated negative corpus must still detect their bug classes.
 4. **Differential parity.** Python and Rust run the same corpus; every format is compared by the
    method in WP-F4's table; divergences escalate per the parity-authority order.
@@ -1173,7 +1173,7 @@ They are **external release validation**, not an implementation completion depen
 milestone's exit criteria, every gate, and every work package's acceptance criteria run unattended;
 M14 closes on automated and subagent-review criteria alone.
 
-The automated substitute is `qti-integrity`, which encodes what two real Blackboard import failures
+The automated substitute is `qpm-integrity`, which encodes what two real Blackboard import failures
 already taught the Python repo, plus the new media trace check that follows each image from item
 HTML to a real ZIP entry. It is a proxy: its provenance-backed checks sit at tier 2 of the parity
 authority, below observed LMS behavior, and its advisory checks sit at tier 4.
@@ -1215,7 +1215,7 @@ lands in the new repo's `docs/ROADMAP.md` at WP-G1.
   already collapses the common case of one image referenced by many questions. Two distinct paths
   holding identical bytes produce two entries, costing a few kilobytes and nothing else.
 - **Byte-identical XML output.** Succeeds without: LMS importers read structure, and
-  `qti-integrity`'s trace and linkage checks verify structure directly. Matching one library's
+  `qpm-integrity`'s trace and linkage checks verify structure directly. Matching one library's
   pretty-printer would bind the port to that library permanently.
 - **Reader auto-detection, seeded shuffle, per-engine feature gates, remote image fetching.**
   Succeeds without: explicit engine selection is what the CLI does today, the harness pins random

@@ -3,7 +3,7 @@
 ## Decision and authority
 
 D1-D9 approved by the manager on 2026-10-08. Native and Wasm consumers use the same portable
-`qti-core` model and `qti-engines` readers/writers. `qti-native` owns filesystem access,
+`qpm-core` model and `qpm-engines` readers/writers. `qpm-native` owns filesystem access,
 rendering, time resolution, and persistence. This contract follows **Fix the design, not the
 symptom**, **Long-term over short-term**, and **Ground requirements in actual needs** in
 [REPO_STYLE.md](../REPO_STYLE.md). API ownership and typed fallible boundaries follow
@@ -16,9 +16,9 @@ available for interoperability and are revalidated at ZIP and host persistence b
 
 ## Core byte and media API
 
-`qti-core` owns these types. `EntryMap`, `NamedFile`, ZIP functions, `AssetSource`, and
+`qpm-core` owns these types. `EntryMap`, `NamedFile`, ZIP functions, `AssetSource`, and
 `MemoryAssets` are reexported from its thin crate root. Media functions and types retain their
-established `qti_core::media` namespace:
+established `qpm_core::media` namespace:
 
 ```rust
 pub type EntryMap = BTreeMap<String, Vec<u8>>;
@@ -125,7 +125,7 @@ compatibility aliases in core.
 
 ## Reader and writer API
 
-`qti-engines` owns these signatures:
+`qpm-engines` owns these signatures:
 
 ```rust
 pub enum ReadInput<'a> {
@@ -190,10 +190,10 @@ pub trait Writer: Send + Sync {
 Input `name` is a logical relative name used for diagnostics, never a host path. Readers
 reject the wrong input variant with `InvalidFormat`. Three text readers consume `File`;
 Blackboard export accepts both `File` ZIP bytes and `Archive` entries. The reader decodes
-`File` bytes through `qti_integrity::read_zip_entries(&[u8])`, which validates raw names,
+`File` bytes through `qpm_integrity::read_zip_entries(&[u8])`, which validates raw names,
 duplicates, member types, compression, and bounds. Supplied entry maps are checked with
-the same integrity input validation before Blackboard discovery. qti-integrity stays
-independent of qti-core/models and engines; qti-engines may depend on it.
+the same integrity input validation before Blackboard discovery. qpm-integrity stays
+independent of qpm-core/models and engines; qpm-engines may depend on it.
 
 D14/D19: ZIP preflight checks every plausible EOCD and associated ZIP64 candidate
 the decoder may select through fallback before constructing zip-rs. Original member-count and
@@ -331,18 +331,18 @@ the converted bank; it rejects a transform that changes identity or kind.
 
 | Current owner | New owner | Responsibility |
 | --- | --- | --- |
-| core bank media assets | qti-core | Read-only asset collection against AssetSource |
-| core media resolve | qti-core | HTML/URI classification, MIME, byte snapshots, hashing |
-| core media resolve filesystem | qti-native | DirectoryAssets canonical root and symlink confinement |
-| core ZIP filesystem and tempfile | qti-native | Directory loading, atomic file persistence |
-| engine html_to_image | qti-native | Chromium, renderer cache, conversion pre-pass |
-| engine molecule calls | qti-native | Native-only molecule rendering/provider integration |
-| Blackboard reader ZIP/directory access | qti-integrity plus qti-native | Safe ZIP decode; native bounded directory loading |
-| Blackboard reader media extraction | qti-engines | Returned MemoryAssets, no extraction filesystem |
-| text2qti copy_media | qti-engines plus qti-native | Named companion bytes; host persistence |
-| PLE output/ownership staging | qti-native | Ownership manifest, staged replacement, rollback |
-| PLE export/media mapping | qti-engines | Source JSON and display-only named bytes |
-| CLI local date/input paths/progress | qti-native plus qti-cli | Host resolution and thin CLI reporting |
+| core bank media assets | qpm-core | Read-only asset collection against AssetSource |
+| core media resolve | qpm-core | HTML/URI classification, MIME, byte snapshots, hashing |
+| core media resolve filesystem | qpm-native | DirectoryAssets canonical root and symlink confinement |
+| core ZIP filesystem and tempfile | qpm-native | Directory loading, atomic file persistence |
+| engine html_to_image | qpm-native | Chromium, renderer cache, conversion pre-pass |
+| engine molecule calls | qpm-native | Native-only molecule rendering/provider integration |
+| Blackboard reader ZIP/directory access | qpm-integrity plus qpm-native | Safe ZIP decode; native bounded directory loading |
+| Blackboard reader media extraction | qpm-engines | Returned MemoryAssets, no extraction filesystem |
+| text2qti copy_media | qpm-engines plus qpm-native | Named companion bytes; host persistence |
+| PLE output/ownership staging | qpm-native | Ownership manifest, staged replacement, rollback |
+| PLE export/media mapping | qpm-engines | Source JSON and display-only named bytes |
+| CLI local date/input paths/progress | qpm-native plus qpm-cli | Host resolution and thin CLI reporting |
 
 Native host API exposes `DirectoryAssets::new(root: impl Into<PathBuf>) -> Result<Self, NativeError>`
 and implements the shared read-only source trait. The constructor canonicalizes and validates
@@ -354,7 +354,7 @@ or modified output directories. Keep the fixed headless renderer behavior.
 
 ## Acceptance evidence
 
-- Same `qti-core` and `qti-engines` sources compile natively and for `wasm32-unknown-unknown`.
+- Same `qpm-core` and `qpm-engines` sources compile natively and for `wasm32-unknown-unknown`.
 - All eleven writers and four readers dispatch from one registry with existing supported kinds.
 - Native CLI filenames, warnings, package content, and PLE ownership behavior stay observable.
 - Native/Wasm conversion uses the same explicit context and compares normalized logical output.

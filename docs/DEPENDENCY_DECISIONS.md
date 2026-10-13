@@ -1,5 +1,23 @@
 # Dependency decisions
 
+## Inline CSS validation (2026-10-12)
+
+Use Lightning CSS 1.0.0-alpha.72 with default features disabled for property/color grammars,
+cssparser 0.37 for every authored declaration, and the existing html5ever tokenizer for
+original attributes. Tokenization preserves orphan table-cell attributes that DOM fragment
+construction would discard. No browser, Python process, or stylesheet transformation runs
+in production validation.
+
+The cssparser minor requirement deliberately matches Lightning CSS's parser types. Lightning
+CSS's explicit prerelease requirement and getrandom 0.3 match its dependency family; these
+are bounded exceptions to the usual wildcard manifest convention. Cargo.lock pins the tested
+versions. The qpm-wasm JavaScript adapter selects getrandom's wasm_js feature, as described in
+the [getrandom WebAssembly documentation](https://docs.rs/getrandom/0.3.4/getrandom/#webassembly-support).
+
+Python uses tinycss2 (including color4) and cssutils. Neither cssparser nor tinycss2 validates
+property values alone. cssutils's older profiles require conservative scope selection;
+see [INLINE_CSS_VALIDATION.md](INLINE_CSS_VALIDATION.md) for the shared acceptance policy.
+
 ## WP-F3 dependency spikes (2026-09-30)
 
 ### QTI HTML entity decoding: `markup5ever`
@@ -24,7 +42,7 @@ This changes feature selection for the locked version, not the dependency versio
 
 The ignored spike crate at `tests/_temp/dependency_spike/` is the reproducible
 evidence for these selections. It uses its own `Cargo.lock`, generated with
-Rust 1.98.1 and `CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo`; production
+Rust 1.98.1 and `CARGO_HOME=/Users/vosslab/.cache/qpm-rust-cargo`; production
 manifests retain wildcard requirements and their workspace lock pins the
 versions used in a build.
 
@@ -40,13 +58,13 @@ unzip -p ../qti-package-maker/tests/fixtures/bb_export_slice.zip res00002.dat > 
 
 **Decision:** use `lol_html = "*"` for `scan_html_for_assets` and
 `rewrite_html_srcs`. The spike resolved it to 3.0.1. Use `scraper = "*"` for
-tree-based HTML-to-text/table extraction in `qti-core::strings`, where source
+tree-based HTML-to-text/table extraction in `qpm-core::strings`, where source
 preservation is not a requirement.
 
 **Command:**
 
 ```sh
-CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo cargo run --offline
+CARGO_HOME=/Users/vosslab/.cache/qpm-rust-cargo cargo run --offline
 ```
 
 Run from `tests/_temp/dependency_spike/`.
@@ -73,12 +91,12 @@ requires Rust 1.85, below the workspace Rust 1.98.1 MSRV.
 
 **Decision:** use `quick-xml = "*"`, resolved to 0.42.0. It is suitable for
 manifest and Blackboard pool parsing plus explicitly constructed indented XML
-output. `qti-integrity` also uses this crate for package validation.
+output. `qpm-integrity` also uses this crate for package validation.
 
 **Command:**
 
 ```sh
-CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo cargo run --offline
+CARGO_HOME=/Users/vosslab/.cache/qpm-rust-cargo cargo run --offline
 ```
 
 **Input:** real `imsmanifest.xml` from `minimal_qti_2.1_sample.zip`, and the
@@ -126,7 +144,7 @@ reader support, and writer support; version 0.42.0 was released in August
 **Command:**
 
 ```sh
-CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo cargo run --offline
+CARGO_HOME=/Users/vosslab/.cache/qpm-rust-cargo cargo run --offline
 ```
 
 **Input:** a typed `exam_yaml` document covering top-level `title` and `date`,
@@ -161,7 +179,7 @@ as already required by the plan. Do not add a spelling crate.
 
 ```sh
 source source_me.sh && python3 -c 'import num2words; values = (0, 1, 2, 3, 4, 11, 12, 20, 21, 42, 100, 101); print(";".join("{}:{}|{}".format(n, num2words.num2words(n, to="cardinal", lang="en_US"), num2words.num2words(n, to="ordinal", lang="en_US")) for n in values))'
-CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo cargo run --offline
+CARGO_HOME=/Users/vosslab/.cache/qpm-rust-cargo cargo run --offline
 ```
 
 **Observed result:** Rust `num2words` 1.2.0 and `num2en` 1.0.0 agree with the
@@ -177,8 +195,8 @@ Re-run the ignored spike after changing any selected dependency:
 
 ```sh
 cd tests/_temp/dependency_spike
-CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo cargo run --offline
-CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo cargo fmt --check
+CARGO_HOME=/Users/vosslab/.cache/qpm-rust-cargo cargo run --offline
+CARGO_HOME=/Users/vosslab/.cache/qpm-rust-cargo cargo fmt --check
 ```
 
 The XML test requires its two extracted fixture files. Recreate them from the
@@ -189,7 +207,7 @@ ignored directory has been removed.
 
 The ignored native spike at `tests/_temp/raster_spike/` is the reproducible
 evidence for this proposal. It uses a separate lockfile, generated with Rust
-1.98.1 and `CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo`. Its gallery is
+1.98.1 and `CARGO_HOME=/Users/vosslab/.cache/qpm-rust-cargo`. Its gallery is
 generated at `output_tables/raster_spike/gallery.html`; that ignored directory
 contains the three Python browser-oracle PNGs beside native same-input adapters.
 
@@ -218,9 +236,9 @@ oracle PNGs with the same font resources and corpus fragments.
 
 ```sh
 cd tests/_temp/raster_spike
-CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo cargo run
-CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo cargo fmt --check
-CARGO_HOME=/Users/vosslab/.cache/qti-rust-cargo cargo clippy -- -D warnings
+CARGO_HOME=/Users/vosslab/.cache/qpm-rust-cargo cargo run
+CARGO_HOME=/Users/vosslab/.cache/qpm-rust-cargo cargo fmt --check
+CARGO_HOME=/Users/vosslab/.cache/qpm-rust-cargo cargo clippy -- -D warnings
 ```
 
 **Observed result:** both candidates loaded both bundled Atkinson variable
@@ -272,7 +290,7 @@ declarations `border:1px dashed #999`, `border-radius:50%`, `width:100px`,
 `line-height:0`, and `background:#fff` into 28 tokens. The corpus census also
 shows the real value families that WP-R1 must interpret: hex/named/rgb colors,
 px/percent/em/pt lengths, unitless zero, border shorthands, and inline style
-declaration lists. `cssparser` handles syntax/tokenization while `qti-raster`
+declaration lists. `cssparser` handles syntax/tokenization while `qpm-raster`
 owns the allowlist, property parsing, and typed unsupported-feature errors;
 it is not a general CSS acceptance layer. That keeps the declared subset
 contract intact with less handwritten tokenization code.
@@ -300,7 +318,7 @@ renderer or visual-parity exit.
 
 **Decision:** render valid HTML tables with a locally installed Chromium browser controlled by
 `chromiumoxide` 0.9.1. The Rust process launches Chromium lazily, reuses it for one conversion,
-and accepts `QTI_CHROMIUM` as an optional executable-path override.
+and accepts `--chromium PATH` as an optional executable-path override.
 
 **Why:** HTML/CSS rendering is a moving browser target. The native subset renderer rejected the
 gel fragment `3057867908e9cff30bd1536d9056db77e89c3ae85309540d928eaaab8e516c56` because of its

@@ -91,7 +91,7 @@ Python's control flow. `R` remains the writer's private representation, so the r
 generic and is not a trait method.
 
 `ItemRenderView` is the only pre-render value. Its base constructor must be a public read-only
-`Item::render_view()` accessor; only `qti-core` media code may mutate its HTML fields while building
+`Item::render_view()` accessor; only `qpm-core` media code may mutate its HTML fields while building
 a rewritten view. Writers consume its accessors. The validated `Item`, raw body, and CRC remain
 unchanged, while the view carries the original CRC and item number. This preserves Python's
 observable rewrite identity without permitting an invalid rewritten `Item` or serializing
@@ -104,7 +104,7 @@ generic rendering stays statically dispatched at each writer call site.
 
 ## Registry and options
 
-One compile-time `const ENGINES: &[EngineEntry]` in `qti-engines/src/registry.rs` is the sole
+One compile-time `const ENGINES: &[EngineEntry]` in `qpm-engines/src/registry.rs` is the sole
 engine authority. Each entry holds a fixed name, media policy, and optional constructor function
 for reader and writer trait objects. `can_read` and `can_write` derive only from whether those
 constructors are present. There is no filesystem scan, import inspection, feature probing, or
@@ -130,7 +130,7 @@ object-safety compile failure reopens the design before M8-M11 work begins.
 ## M7 implementation review: corrections required before fan-out
 
 The object-safe trait and populated three-entry registry are accepted in shape. The fresh
-`cargo test -p qti-engines` result is 29 passing tests, and each entry constructs its declared
+`cargo test -p qpm-engines` result is 29 passing tests, and each entry constructs its declared
 trait object. The four-reader survey remains sufficient: the stated Python source re-survey found
 no reader change between certified `55e5f36` and current `e88a` except a writer-side
 `engine_class` change.
@@ -150,7 +150,7 @@ are required by the published WP-G0 gate:
    media rewrite; BBQ must round-trip all seven kinds by `ItemFingerprint`, retain an external
    input media base, and return ordered located warnings for blank, malformed, and mixed-kind
    records; Canvas must structurally prove all six supported kinds, `ORDER` skipping, local media
-   packaging/rewrite, and external-media behavior, then pass `qti-integrity` with zero error
+   packaging/rewrite, and external-media behavior, then pass `qpm-integrity` with zero error
    findings. The current tests cover only MC in each format (plus Canvas's incorrect ORDER error),
    so they cannot establish these format claims.
 
@@ -171,7 +171,7 @@ placeholder without creating an invalid reserializable item.
 The writer probes now establish the declared format scope: Human renders all seven kinds and its
 media placeholder; BBQ round-trips all seven by fingerprint and preserves external input-base plus
 ordered line warnings; Canvas renders its six declared kinds, skips `ORDER`, packages a local
-image, retains an external URL, and has no integrity errors. A fresh `cargo test -p qti-engines`
+image, retains an external URL, and has no integrity errors. A fresh `cargo test -p qpm-engines`
 passes 34 tests. M8, M9, and M11 may fan out against these frozen trait, registry, and render-view
 contracts.
 
@@ -382,7 +382,7 @@ prompt/choice positional semantics. The M13 semantic projection must dereference
 identifier and fail on an unknown identifier; it must not silently omit unknown values. Preserve the
 Python invalid-package result as an explicit, labelled defect receipt with its two integrity
 findings. The normal strong parity lane compares Rust's repaired semantic projection to the
-fixture's intended item semantics, then requires `qti-integrity` zero findings for Rust. Reports
+fixture's intended item semantics, then requires `qpm-integrity` zero findings for Rust. Reports
 must call this a Canvas MATCH validity repair, not an exact XML-parity pass.
 
 ### Correction: M13 Canvas defect is MULTI_FIB, not MATCH
@@ -395,7 +395,7 @@ serialization defect.
 
 Rust repairs only MULTI_FIB by mapping every acceptable answer, in its sorted blank and source
 answer order, to that response's declared label identifier. Its semantic projection dereferences
-those identifiers back to authored answer text and `qti-integrity` must report zero findings. The
+those identifiers back to authored answer text and `qpm-integrity` must report zero findings. The
 frozen Python MULTI_FIB result remains a labelled two-finding source-defect receipt. MATCH returns
 to the normal exact semantic XML parity lane. The projection continues to fail unknown identifiers;
 it must not suppress this evidence.
@@ -414,7 +414,7 @@ DOM contract, and behavioral evidence requirements without broadening the contro
 
 The preceding statement that current Rust shares the dangling-reference defect is incorrect.
 Current Rust uses `response_str` with `render_fib`, so raw answer text is valid and
-`qti-integrity` correctly reports no dangling label. It is nevertheless not the required final
+`qpm-integrity` correctly reports no dangling label. It is nevertheless not the required final
 repair: frozen Canvas MULTI_FIB presents a `response_lid` and `render_choice` labels, so changing
 it to free-text entry changes the learner's input interaction.
 

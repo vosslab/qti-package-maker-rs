@@ -115,7 +115,7 @@ scheduled implementation tasks or a commitment to support every format or both d
 ## Existing image recovery
 
 The Blackboard Original pool reader's
-[media_hotspot.rs](../crates/qti-engines/src/blackboard_export_zip/read/media_hotspot.rs) helper
+[media_hotspot.rs](../crates/qpm-engines/src/blackboard_export_zip/read/media_hotspot.rs) helper
 recovers image files referenced by `matapplication` URIs. The reader skips unsupported HOTSPOT
 questions. Recovering image bytes does not import interactive regions, answer bindings, or grading
 rules, and does not establish HOTSPOT question support in QPM.
