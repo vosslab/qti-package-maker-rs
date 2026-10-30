@@ -26,6 +26,21 @@ the Wasm target and package-local npm dependencies and stops on any failed step.
 Chromium is a separate runtime prerequisite for HTML table image export. The script
 does not copy assets into BPW; its `devel/vendor_qpm_wasm.py` handles that integration.
 
+On macOS, install the build prerequisites from the root [../Brewfile](../Brewfile):
+
+```bash
+brew bundle
+./build_all.sh
+```
+
+For a new Rust installation, follow Homebrew's `rustup` PATH instructions and run
+`rustup default stable` before building. Xcode Command Line Tools provide the C++ compiler;
+install them with `xcode-select --install` if needed.
+
+The RDKit Python package alone does not provide the C++ SDK required by this build.
+For Linux SDK installation and nonstandard prefixes, see
+[../crates/qpm-molecule/README.md](../crates/qpm-molecule/README.md).
+
 From the repository root, create optimized native binaries:
 
 ```bash

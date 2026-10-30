@@ -2,8 +2,16 @@
 
 ## 2026-10-29
 
+### Fixes and Maintenance
+
+- Check for the RDKit C++ SDK before compiling the native shim and report SDK installation
+  commands when it is missing. Document the Homebrew prerequisites for `build_all.sh`.
+  Verified the missing-SDK diagnostic, shim ABI loading, and complete native/Wasm build.
+
 ### Additions and New Features
 
+- Added a root `Brewfile` for `brew bundle` to install the native SDKs, Node/npm, and rustup
+  used by `build_all.sh`. Documented first-time Rust and C++ compiler setup.
 - Ignore locally built native RDKit shim artifacts in `crates/qpm-molecule/dist/`.
 - Added root `build_all.sh` to build the native RDKit shim, release CLIs, and BPW
   browser package using the existing build commands. Documented prerequisites and outputs.

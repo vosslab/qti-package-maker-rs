@@ -10,6 +10,8 @@ Release engineering builds the versioned ABI v1 shim separately:
 bash crates/qpm-molecule/native/build_shim.sh
 ```
 
+Install the macOS C++ SDKs with `brew install rdkit cairo boost`; a Python-only RDKit install
+does not supply the required headers. The script reports missing RDKit headers before compiling.
 The script discovers the standard Homebrew SDK locations. Pass an explicit SDK location only when
 the installation is nonstandard:
 

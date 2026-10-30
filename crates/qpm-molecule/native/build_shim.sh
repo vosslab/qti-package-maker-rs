@@ -42,6 +42,14 @@ while (($#)); do
   esac
 done
 
+if [[ ! -f "$RDKIT_PREFIX/include/rdkit/GraphMol/MolDraw2D/MolDraw2DCairo.h" ]]; then
+  echo "RDKit C++ SDK header missing: $RDKIT_PREFIX/include/rdkit/GraphMol/MolDraw2D/MolDraw2DCairo.h" >&2
+  echo 'Install SDKs: macOS: brew install rdkit cairo boost' >&2
+  echo '              Debian: sudo apt-get install librdkit-dev libcairo2-dev g++' >&2
+  echo 'For a nonstandard SDK, pass --rdkit-prefix PATH to build_shim.sh.' >&2
+  exit 1
+fi
+
 if [[ -z "$RDKIT_LIBRARY_DIR" ]]; then
   if [[ -d /usr/lib/x86_64-linux-gnu && "$RDKIT_PREFIX" == /usr ]]; then
     RDKIT_LIBRARY_DIR=/usr/lib/x86_64-linux-gnu

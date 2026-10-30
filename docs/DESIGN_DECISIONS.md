@@ -5,6 +5,8 @@
 **Decision.** `build_all.sh` runs the existing shim, native CLI, and Wasm builds in sequence.
 **Why.** BPW needs a single command covering native image export and browser artifacts.
 **Consequence.** All three build toolchains are required; Chromium remains a runtime dependency.
+The shim build checks for RDKit C++ headers and reports SDK installation commands before compiling.
+The root `Brewfile` declares Homebrew build prerequisites; rustup manages the Rust toolchain.
 **Owner.** `build_all.sh` and `docs/INSTALL.md`.
 
 ### Completed migration tooling (2026-10-12)
