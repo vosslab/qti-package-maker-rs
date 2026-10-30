@@ -39,6 +39,9 @@ delete_paths .vite .parcel-cache env .tox .nox .hypothesis .coverage htmlcov
 delete_paths .dmypy.json .pytype .eggs sdist wheelhouse pip-wheel-metadata .installed.cfg
 delete_paths blib _build Build Build.bat MYMETA.json MYMETA.yml Makefile.old pm_to_blib
 delete_paths local/lib/perl5 CMakeCache.txt CMakeFiles cmake_install.cmake
+delete_paths packages/qpm-wasm/dist
+delete_paths packages/qpm-wasm/generated
+delete_paths packages/qpm-wasm/node_modules
 delete_paths compile_commands.json autom4te.cache target
 delete_find_matches -type f -name '*.tsbuildinfo'
 delete_find_matches -type d -name '*.xcresult'
