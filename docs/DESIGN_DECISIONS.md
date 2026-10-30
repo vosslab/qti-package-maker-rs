@@ -1,5 +1,12 @@
 # Design decisions
 
+### Root build-all entry point
+
+**Decision.** `build_all.sh` runs the existing shim, native CLI, and Wasm builds in sequence.
+**Why.** BPW needs a single command covering native image export and browser artifacts.
+**Consequence.** All three build toolchains are required; Chromium remains a runtime dependency.
+**Owner.** `build_all.sh` and `docs/INSTALL.md`.
+
 ### Completed migration tooling (2026-10-12)
 
 **Decision.** Remove one-time Python/Rust parity snapshots, generators, and comparison

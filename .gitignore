@@ -24,3 +24,4 @@ _temp*.?*
 # Template-only ignores.
 /rust-code-technical-books
 /xtask/**/__pycache__/
+/crates/qpm-molecule/dist/

@@ -10,6 +10,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ## Source organization
 
+- 2026-10-29: Ignore the locally built RDKit shim path in `.gitignore`.
+- 2026-10-29: Provide a single build-all script in the repository root for BPW use.
 - 2026-10-09: Prioritize positive prompting. Phrase instructions as "Do X" or "Use Y";
   positive prompting plus omission is often stronger than a negative boundary.
 - 2026-10-08: When source files approach a size cap, split them into focused modules and preserve

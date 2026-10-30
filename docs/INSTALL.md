@@ -14,6 +14,18 @@ artifact is certified yet.
 
 ## Build from source
 
+To build all BPW artifacts at once, run from this checkout:
+
+```bash
+./build_all.sh
+```
+
+This builds the RDKit shim, optimized native CLIs, and browser Wasm package. Install
+the RDKit/Cairo SDKs, Rust with rustup, and Node 24+ with npm first. The script installs
+the Wasm target and package-local npm dependencies and stops on any failed step.
+Chromium is a separate runtime prerequisite for HTML table image export. The script
+does not copy assets into BPW; its `devel/vendor_qpm_wasm.py` handles that integration.
+
 From the repository root, create optimized native binaries:
 
 ```bash

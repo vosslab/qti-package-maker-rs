@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-29
+
+### Additions and New Features
+
+- Ignore locally built native RDKit shim artifacts in `crates/qpm-molecule/dist/`.
+- Added root `build_all.sh` to build the native RDKit shim, release CLIs, and BPW
+  browser package using the existing build commands. Documented prerequisites and outputs.
+
 ## 2026-10-12
 
 ### Fixes and Maintenance
